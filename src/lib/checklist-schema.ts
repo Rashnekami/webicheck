@@ -224,6 +224,12 @@ export interface ChecklistRow {
   finalizado_em: string | null;
   created_at: string;
   updated_at: string;
+  // Novos campos para diferenciar validação de troca efetivamente realizada
+  troca_realizada: boolean | null;
+  modelo_ont_retirada: string | null;
+  serial_ont_retirada: string | null;
+  modelo_ont_instalada: string | null;
+  serial_ont_instalada: string | null;
 }
 
 export interface FotoRow {
