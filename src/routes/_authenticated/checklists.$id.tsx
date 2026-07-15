@@ -147,7 +147,7 @@ function ChecklistDetail() {
 
   const finalize = useMutation({
     mutationFn: async () => {
-      await updateChecklist(id, { ...header, dados: data });
+      await updateChecklist(id, { ...header, dados: data ?? undefined });
       return finalizeChecklist(id);
     },
     onSuccess: () => {
