@@ -17,6 +17,11 @@ type Props = {
     | "cto_porta"
     | "data_atendimento"
     | "hora_atendimento"
+    | "troca_realizada"
+    | "modelo_ont_retirada"
+    | "serial_ont_retirada"
+    | "modelo_ont_instalada"
+    | "serial_ont_instalada"
   >;
   data: ChecklistData;
   readOnly?: boolean;
