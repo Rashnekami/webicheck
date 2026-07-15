@@ -1,0 +1,26 @@
+{
+  "name": "Webifibra — Checklist de Campo",
+  "short_name": "Webifibra",
+  "description": "Checklists técnicos de campo Webifibra com autorização do NOC, assinatura eletrônica e comprovação em PDF/imagem.",
+  "start_url": "/painel",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1a53ff",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
