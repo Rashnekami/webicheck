@@ -204,7 +204,7 @@ function ChecklistDetail() {
     }
   }
 
-  if (query.isLoading || !row) {
+  if (query.isLoading || !row || !data) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <WebifibraLogo size={56} className="animate-pulse" />
