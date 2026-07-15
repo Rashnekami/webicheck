@@ -51,6 +51,7 @@ import {
 } from "@/lib/checklist-schema";
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
+import { DocumentActions } from "@/components/checklist/document-actions";
 
 export const Route = createFileRoute("/_authenticated/checklists/$id")({
   head: () => ({
