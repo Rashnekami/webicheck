@@ -1,8 +1,9 @@
-// Shape completo dos dados dinâmicos do checklist ONT (armazenado como JSONB)
-// Corresponde 1:1 ao modelo Webifibra_Checklist_Tecnico_Validacao_ONT
+// Shape completo dos dados dinâmicos dos checklists (armazenados em JSONB)
 
 export type YesNo = "sim" | "nao" | null;
+export type TipoChecklist = "validacao_ont" | "instalacao";
 
+// -------- ONT (validação) --------
 export interface ChecklistData {
   sintoma: {
     ont_nao_liga: boolean;
@@ -157,21 +158,67 @@ export function emptyChecklistData(): ChecklistData {
   };
 }
 
+// -------- Instalação --------
+export interface InstalacaoData {
+  itens: {
+    velocidade_ok: boolean;
+    navegacao_ok: boolean;
+    wifi_orientado: boolean;
+    placa_orientado: boolean;
+    cabo_orientado: boolean;
+    posicionamento_ok: boolean;
+    downdetector: boolean;
+    duvidas_sanadas: boolean;
+  };
+  velocidade: {
+    download: string;
+    upload: string;
+    ping_ms: string;
+  };
+  observacoes: string;
+  assinatura_cliente: string | null; // dataURL PNG
+}
+
+export function emptyInstalacaoData(): InstalacaoData {
+  return {
+    itens: {
+      velocidade_ok: false,
+      navegacao_ok: false,
+      wifi_orientado: false,
+      placa_orientado: false,
+      cabo_orientado: false,
+      posicionamento_ok: false,
+      downdetector: false,
+      duvidas_sanadas: false,
+    },
+    velocidade: { download: "", upload: "", ping_ms: "" },
+    observacoes: "",
+    assinatura_cliente: null,
+  };
+}
+
+export function emptyDadosFor(tipo: TipoChecklist): ChecklistData | InstalacaoData {
+  return tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+}
+
 export type ChecklistStatus = "rascunho" | "finalizado";
 
 export interface ChecklistRow {
   id: string;
   tecnico_id: string;
+  tipo: TipoChecklist;
   status: ChecklistStatus;
   os: string | null;
   cliente: string | null;
   cidade: string | null;
+  endereco: string | null;
+  plano: string | null;
   modelo: string | null;
   serial: string | null;
   cto_porta: string | null;
   data_atendimento: string | null;
   hora_atendimento: string | null;
-  dados: ChecklistData;
+  dados: ChecklistData | InstalacaoData;
   codigo_validacao: string | null;
   numero_publico: string | null;
   finalizado_em: string | null;
@@ -206,3 +253,8 @@ export const FOTO_CATEGORIAS: {
   { value: "teste_wifi", label: "Teste Wi-Fi" },
   { value: "outro", label: "Outro" },
 ];
+
+export const TIPO_LABEL: Record<TipoChecklist, string> = {
+  validacao_ont: "Validação de ONT",
+  instalacao: "Instalação",
+};
