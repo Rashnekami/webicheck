@@ -87,27 +87,31 @@ function Painel() {
           </div>
         </section>
 
-        <Card className="border-dashed">
-          <CardContent className="p-5">
-            <div className="flex items-start gap-3">
-              <div className="rounded-full bg-primary/10 p-2 text-primary">
-                <Sparkles className="h-5 w-5" />
+        <Link
+          to="/checklists"
+          className="block"
+        >
+          <Card className="transition hover:border-primary/50 hover:shadow-md">
+            <CardContent className="flex items-center justify-between gap-3 p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/10 p-2 text-primary">
+                  <ClipboardList className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-foreground">
+                    {user.isAdmin ? "Todos os checklists" : "Meus checklists"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {user.isAdmin
+                      ? "Fiscalize atendimentos, filtre por técnico/cidade e baixe PDFs."
+                      : "Registre novos atendimentos ou continue rascunhos em andamento."}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h3 className="font-semibold text-foreground">
-                  Etapa 1 concluída — base pronta
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Autenticação, perfis, papéis (técnico/admin) e proteção de
-                  rotas estão funcionando. Nas próximas etapas: modelos de
-                  checklist, construtor, preenchimento em campo, autosave,
-                  autorização do NOC, assinaturas, PDF permanente e painel
-                  administrativo.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardContent className="p-5 space-y-3">
