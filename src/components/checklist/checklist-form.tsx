@@ -635,7 +635,82 @@ export function ChecklistForm({
         />
       </Section>
 
-      <Section n={9} title="Registro da autorização do NOC">
+      <Section n={9} title="Equipamento e conclusão da troca">
+        <YesNoField
+          label="A ONT foi fisicamente substituída neste atendimento?"
+          value={
+            header.troca_realizada === true
+              ? "sim"
+              : header.troca_realizada === false
+                ? "nao"
+                : null
+          }
+          onChange={(v) =>
+            onHeaderChange({
+              troca_realizada: v === "sim" ? true : v === "nao" ? false : null,
+            })
+          }
+          disabled={readOnly}
+        />
+        <p className="text-xs text-muted-foreground">
+          Registre os dados do equipamento retirado. Se houve troca, preencha
+          também o equipamento instalado.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Modelo da ONT retirada</Label>
+            <Input
+              value={header.modelo_ont_retirada ?? header.modelo ?? ""}
+              disabled={readOnly}
+              onChange={(e) =>
+                onHeaderChange({ modelo_ont_retirada: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Serial da ONT retirada</Label>
+            <Input
+              value={header.serial_ont_retirada ?? header.serial ?? ""}
+              disabled={readOnly}
+              onChange={(e) =>
+                onHeaderChange({ serial_ont_retirada: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Modelo da ONT instalada</Label>
+            <Input
+              value={header.modelo_ont_instalada ?? ""}
+              disabled={readOnly || header.troca_realizada !== true}
+              placeholder={
+                header.troca_realizada === true
+                  ? ""
+                  : "Preencha somente se houve troca"
+              }
+              onChange={(e) =>
+                onHeaderChange({ modelo_ont_instalada: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Serial da ONT instalada</Label>
+            <Input
+              value={header.serial_ont_instalada ?? ""}
+              disabled={readOnly || header.troca_realizada !== true}
+              placeholder={
+                header.troca_realizada === true
+                  ? ""
+                  : "Preencha somente se houve troca"
+              }
+              onChange={(e) =>
+                onHeaderChange({ serial_ont_instalada: e.target.value })
+              }
+            />
+          </div>
+        </div>
+      </Section>
+
+      <Section n={10} title="Registro da autorização do NOC">
         <YesNoField
           label="Troca autorizada pelo NOC?"
           value={s.noc.autorizada}
