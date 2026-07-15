@@ -129,7 +129,7 @@ export const ensureChecklistSnapshot = createServerFn({ method: "POST" })
         modelo_ont_instalada: chk.modelo_ont_instalada,
         serial_ont_instalada: chk.serial_ont_instalada,
       },
-      dados: (chk.dados as Record<string, unknown>) ?? {},
+      dados: (chk.dados as unknown as { [k: string]: JsonValue }) ?? {},
       tecnico: {
         full_name: (prof?.full_name as string | undefined) ?? "",
         assinatura: (prof?.assinatura as string | null | undefined) ?? null,
