@@ -359,11 +359,10 @@ export function DocumentActions({
       <div
         style={{
           position: "fixed",
-          left: -10000,
+          left: -12000,
           top: 0,
           width: 900,
           pointerEvents: "none",
-          opacity: 0,
         }}
         aria-hidden
       >
