@@ -185,18 +185,7 @@ function ChecklistsList() {
                           </p>
                         </Link>
                         <div className="flex flex-col items-end gap-1.5">
-                          {c.status === "finalizado" ? (
-                            <Link
-                              to="/checklists/$id"
-                              params={{ id: c.id }}
-                              search={{ pdf: 1 }}
-                            >
-                              <Button variant="outline" size="sm">
-                                <FileText className="mr-1.5 h-3.5 w-3.5" />
-                                PDF
-                              </Button>
-                            </Link>
-                          ) : c.tecnico_id === user?.id ? (
+                          {c.status === "rascunho" && c.tecnico_id === user?.id ? (
                             <Button
                               variant="ghost"
                               size="sm"
