@@ -224,14 +224,23 @@ function ChecklistsList() {
                           </p>
                         </Link>
                         <div className="flex flex-col items-end gap-1.5">
-                          {c.status === "rascunho" && c.tecnico_id === user?.id ? (
+                          {(c.status === "rascunho" && c.tecnico_id === user?.id) ||
+                          user?.isAdmin ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                if (confirm("Remover este rascunho?"))
-                                  remove.mutate(c.id);
+                                const msg =
+                                  c.status === "finalizado"
+                                    ? `Apagar checklist finalizado ${c.numero_publico || c.codigo_validacao || ""}? Esta ação é permanente.`
+                                    : "Remover este rascunho?";
+                                if (confirm(msg)) remove.mutate(c.id);
                               }}
+                              title={
+                                user?.isAdmin && c.status === "finalizado"
+                                  ? "Apagar (admin)"
+                                  : "Remover rascunho"
+                              }
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>

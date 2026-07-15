@@ -92,7 +92,7 @@ function ChecklistDetail() {
   });
 
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData | InstalacaoData>(emptyChecklistData());
+  const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -117,13 +117,15 @@ function ChecklistDetail() {
       data_atendimento: row.data_atendimento,
       hora_atendimento: row.hora_atendimento,
     });
-    setData(row.dados);
+    const base =
+      row.tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+    setData({ ...(base as any), ...(row.dados as any) });
     setDirty(false);
   }, [row?.id, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: async () => {
-      await updateChecklist(id, { ...header, dados: data });
+      await updateChecklist(id, { ...header, dados: data ?? undefined });
     },
     onSuccess: () => {
       setDirty(false);
@@ -145,7 +147,7 @@ function ChecklistDetail() {
 
   const finalize = useMutation({
     mutationFn: async () => {
-      await updateChecklist(id, { ...header, dados: data });
+      await updateChecklist(id, { ...header, dados: data ?? undefined });
       return finalizeChecklist(id);
     },
     onSuccess: () => {
@@ -159,6 +161,7 @@ function ChecklistDetail() {
 
   const missing = useMemo(() => {
     const errs: string[] = [];
+    if (!data) return errs;
     if (!header.cliente?.trim()) errs.push("Cliente");
     if (!header.cidade?.trim()) errs.push("Cidade");
     if (!header.data_atendimento) errs.push("Data do atendimento");
@@ -202,7 +205,7 @@ function ChecklistDetail() {
     }
   }
 
-  if (query.isLoading || !row) {
+  if (query.isLoading || !row || !data) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <WebifibraLogo size={56} className="animate-pulse" />
