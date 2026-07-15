@@ -92,7 +92,7 @@ function ChecklistDetail() {
   });
 
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData | InstalacaoData>(emptyChecklistData());
+  const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -117,7 +117,9 @@ function ChecklistDetail() {
       data_atendimento: row.data_atendimento,
       hora_atendimento: row.hora_atendimento,
     });
-    setData(row.dados);
+    const base =
+      row.tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+    setData({ ...(base as any), ...(row.dados as any) });
     setDirty(false);
   }, [row?.id, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
