@@ -11,6 +11,7 @@ export interface CurrentUser {
   matricula: string | null;
   city: string | null;
   active: boolean;
+  assinatura: string | null;
   roles: AppRole[];
   isAdmin: boolean;
 }
@@ -26,18 +27,28 @@ export function useCurrentUser() {
         supabase.from("user_roles").select("role").eq("user_id", auth.user.id),
       ]);
       const roleList = (roles ?? []).map((r) => r.role as AppRole);
+      const p = profile as (typeof profile & { assinatura?: string | null }) | null;
       return {
         id: auth.user.id,
-        email: profile?.email ?? auth.user.email ?? "",
-        full_name: profile?.full_name ?? "",
-        phone: profile?.phone ?? null,
-        matricula: profile?.matricula ?? null,
-        city: profile?.city ?? null,
-        active: profile?.active ?? true,
+        email: p?.email ?? auth.user.email ?? "",
+        full_name: p?.full_name ?? "",
+        phone: p?.phone ?? null,
+        matricula: p?.matricula ?? null,
+        city: p?.city ?? null,
+        active: p?.active ?? true,
+        assinatura: p?.assinatura ?? null,
         roles: roleList,
         isAdmin: roleList.includes("admin"),
       };
     },
     staleTime: 60_000,
   });
+}
+
+export async function updateAssinatura(userId: string, dataUrl: string | null) {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ assinatura: dataUrl } as never)
+    .eq("id", userId);
+  if (error) throw error;
 }

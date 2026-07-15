@@ -73,7 +73,7 @@ function ChecklistsList() {
     if (tab !== "todos" && c.status !== tab) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
-    return [c.os, c.cliente, c.cidade, c.serial, c.codigo_validacao]
+    return [c.os, c.cliente, c.cidade, c.serial, c.codigo_validacao, c.numero_publico]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
   });
@@ -176,9 +176,9 @@ function ChecklistsList() {
                             {c.cidade || "cidade não informada"}
                             {c.serial ? ` · Serial ${c.serial}` : ""}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {c.status === "finalizado" && c.codigo_validacao
-                              ? c.codigo_validacao
+                          <p className="mt-1 text-xs font-medium text-primary">
+                            {c.status === "finalizado"
+                              ? c.numero_publico || c.codigo_validacao || ""
                               : `Atualizado em ${new Date(
                                   c.updated_at,
                                 ).toLocaleString("pt-BR")}`}

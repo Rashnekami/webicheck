@@ -169,6 +169,7 @@ function ChecklistDetail() {
         row: { ...row, ...header, dados: data } as ChecklistRow,
         fotos: fotosQuery.data ?? [],
         tecnicoNome: user?.full_name || user?.email || "",
+        assinatura: user?.assinatura ?? null,
       });
     } catch (e) {
       console.error(e);

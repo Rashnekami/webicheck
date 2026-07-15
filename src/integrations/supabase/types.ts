@@ -65,6 +65,7 @@ export type Database = {
           hora_atendimento: string | null
           id: string
           modelo: string | null
+          numero_publico: string | null
           os: string | null
           serial: string | null
           status: Database["public"]["Enums"]["checklist_status"]
@@ -83,6 +84,7 @@ export type Database = {
           hora_atendimento?: string | null
           id?: string
           modelo?: string | null
+          numero_publico?: string | null
           os?: string | null
           serial?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
@@ -101,6 +103,7 @@ export type Database = {
           hora_atendimento?: string | null
           id?: string
           modelo?: string | null
+          numero_publico?: string | null
           os?: string | null
           serial?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
@@ -112,6 +115,7 @@ export type Database = {
       profiles: {
         Row: {
           active: boolean
+          assinatura: string | null
           city: string | null
           created_at: string
           email: string
@@ -123,6 +127,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          assinatura?: string | null
           city?: string | null
           created_at?: string
           email: string
@@ -134,6 +139,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          assinatura?: string | null
           city?: string | null
           created_at?: string
           email?: string

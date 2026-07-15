@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
@@ -208,12 +209,19 @@ function LoginForm() {
 
 function SignupForm({ onDone }: { onDone: () => void }) {
   const navigate = useNavigate();
+  const [signature, setSignature] = useState<string | null>(null);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
     defaultValues: { full_name: "", email: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof signupSchema>) {
+    if (!signature) {
+      setSignatureError("Desenhe sua assinatura antes de continuar.");
+      return;
+    }
+    setSignatureError(null);
     const { data, error } = await supabase.auth.signUp({
       email: values.email,
       password: values.password,
@@ -229,6 +237,20 @@ function SignupForm({ onDone }: { onDone: () => void }) {
           : "Não foi possível criar a conta.",
       );
       return;
+    }
+    // Persistir assinatura: precisa da sessão. Se signUp criou sessão, gravar já;
+    // caso contrário, guardar em localStorage para gravar após confirmação/login.
+    if (data.session && data.user) {
+      await supabase
+        .from("profiles")
+        .update({ assinatura: signature } as never)
+        .eq("id", data.user.id);
+    } else {
+      try {
+        localStorage.setItem("webifibra.pending_signature", signature);
+      } catch {
+        /* ignore */
+      }
     }
     if (data.session) {
       toast.success("Conta criada com sucesso.");
@@ -279,6 +301,13 @@ function SignupForm({ onDone }: { onDone: () => void }) {
           <p className="text-xs text-destructive">
             {form.formState.errors.password.message}
           </p>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label>Assinatura</Label>
+        <SignaturePad value={signature} onChange={setSignature} height={150} />
+        {signatureError && (
+          <p className="text-xs text-destructive">{signatureError}</p>
         )}
       </div>
       <Button

@@ -1,14 +1,24 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { LogOut, ShieldCheck, HardHat, ClipboardList, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LogOut, ShieldCheck, HardHat, ClipboardList, ArrowRight, PenLine } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { useCurrentUser, updateAssinatura } from "@/hooks/use-current-user";
 import { useQueryClient } from "@tanstack/react-query";
+import { SignaturePad } from "@/components/signature-pad";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -24,6 +34,27 @@ function Painel() {
   const { data: user, isLoading } = useCurrentUser();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [sigOpen, setSigOpen] = useState(false);
+  const [sigDraft, setSigDraft] = useState<string | null>(null);
+  const [savingSig, setSavingSig] = useState(false);
+
+  // Recupera assinatura pendente do signup (quando sessão só chegou depois)
+  useEffect(() => {
+    if (!user || user.assinatura) return;
+    try {
+      const pending = localStorage.getItem("webifibra.pending_signature");
+      if (pending) {
+        updateAssinatura(user.id, pending)
+          .then(() => {
+            localStorage.removeItem("webifibra.pending_signature");
+            qc.invalidateQueries({ queryKey: ["current-user"] });
+          })
+          .catch(() => {});
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [user, qc]);
 
   async function handleSignOut() {
     await qc.cancelQueries();
@@ -31,6 +62,22 @@ function Painel() {
     await supabase.auth.signOut();
     toast.success("Sessão encerrada.");
     navigate({ to: "/auth", replace: true });
+  }
+
+  async function handleSaveSig() {
+    if (!user || !sigDraft) return;
+    setSavingSig(true);
+    try {
+      await updateAssinatura(user.id, sigDraft);
+      await qc.invalidateQueries({ queryKey: ["current-user"] });
+      toast.success("Assinatura atualizada.");
+      setSigOpen(false);
+      setSigDraft(null);
+    } catch {
+      toast.error("Não foi possível salvar a assinatura.");
+    } finally {
+      setSavingSig(false);
+    }
   }
 
   if (isLoading || !user) {
@@ -87,10 +134,7 @@ function Painel() {
           </div>
         </section>
 
-        <Link
-          to="/checklists"
-          className="block"
-        >
+        <Link to="/checklists" className="block">
           <Card className="transition hover:border-primary/50 hover:shadow-md">
             <CardContent className="flex items-center justify-between gap-3 p-5">
               <div className="flex items-start gap-3">
@@ -112,6 +156,43 @@ function Painel() {
             </CardContent>
           </Card>
         </Link>
+
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-foreground">Sua assinatura</h3>
+                <p className="text-sm text-muted-foreground">
+                  Aparece automaticamente em cada checklist finalizado.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSigDraft(user.assinatura ?? null);
+                  setSigOpen(true);
+                }}
+              >
+                <PenLine className="mr-1.5 h-4 w-4" />
+                {user.assinatura ? "Alterar" : "Cadastrar"}
+              </Button>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              {user.assinatura ? (
+                <img
+                  src={user.assinatura}
+                  alt="Assinatura"
+                  className="mx-auto h-24 object-contain"
+                />
+              ) : (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Nenhuma assinatura cadastrada.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="p-5 space-y-3">
@@ -147,6 +228,26 @@ function Painel() {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog open={sigOpen} onOpenChange={setSigOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sua assinatura</DialogTitle>
+            <DialogDescription>
+              Assine com o dedo ou caneta. Ela será usada em todos os PDFs.
+            </DialogDescription>
+          </DialogHeader>
+          <SignaturePad value={sigDraft} onChange={setSigDraft} height={180} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSigOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveSig} disabled={!sigDraft || savingSig}>
+              {savingSig ? "Salvando..." : "Salvar assinatura"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
