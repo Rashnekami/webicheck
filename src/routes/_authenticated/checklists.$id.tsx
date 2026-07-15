@@ -125,7 +125,7 @@ function ChecklistDetail() {
 
   const save = useMutation({
     mutationFn: async () => {
-      await updateChecklist(id, { ...header, dados: data });
+      await updateChecklist(id, { ...header, dados: data ?? undefined });
     },
     onSuccess: () => {
       setDirty(false);
