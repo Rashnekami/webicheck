@@ -1,50 +1,110 @@
-## Etapa 2 — Checklist de Validação de ONT
 
-Nesta etapa entregamos o **primeiro (e por ora único) tipo de checklist**: *Validação de ONT*, exatamente como no modelo `.docx` enviado. Ele será fixo em código (não haverá construtor de formulários ainda — isso fica para uma etapa futura, se você quiser). O foco é: o técnico preenche pelo celular, finaliza, e o registro fica **imutável** para fiscalização.
+## Objetivo
 
-### O que o técnico verá
-- **Lista "Meus checklists"** com filtros por status: `Rascunho`, `Finalizado`.
-- **Botão "+ Novo checklist"** → abre o formulário multi-seção (mobile-first):
-  1. Identificação do atendimento (OS, data, hora, cliente, cidade, modelo, serial, CTO/porta)
-  2. Sintoma confirmado em campo (checkboxes + "outro" + falha presenciada)
-  3. Validação física
-  4. Teste cabeado (com download/upload/ping)
-  5. Teste Wi-Fi
-  6. Evidências anexadas (checkboxes + upload de fotos)
-  7. Resultado após reset/teste final
-  8. Relato objetivo (texto longo)
-  9. Registro da autorização do NOC (autorizado sim/não, analista, data, hora, protocolo)
-- **Rascunho automático** (salva a cada alteração) — funciona mesmo com internet ruim (retry).
-- **Finalizar** → confirmação, gera código de validação + timestamp, trava edição.
-- **Baixar PDF** do checklist finalizado (layout igual ao modelo).
+Adicionar ao Webifibra, sem mexer no PDF/assinaturas/RLS/design existentes:
 
-### O que o admin (você) verá
-- **Painel** com contadores (total, no mês, por técnico, por cidade).
-- **"Todos os checklists"** com filtros: técnico, cidade, período, status, OS/cliente/serial.
-- Abrir qualquer checklist em modo leitura + baixar PDF.
-- **Fiscalização**: registros finalizados não podem ser apagados nem alterados (nem por admin — apenas leitura + PDF).
+1. **PWA instalável** (só ícone/tela inicial, sem offline).
+2. **Baixar imagem PNG** do checklist finalizado (para anexar no Hubsoft pelo celular).
+3. **Link público de validação** `/validar/:token` (sem login), com snapshot imutável, hash, QR Code, revogação/regeneração e registro de acessos.
 
-### Banco de dados
-- `checklists` — cabeçalho (id, tecnico_id, status `rascunho`/`finalizado`, os, cliente, cidade, modelo, serial, cto_porta, data_atendimento, hora_atendimento, código de validação, finalizado_em, criado_em, atualizado_em).
-- `checklist_dados` — JSON com as respostas das seções 2 a 9 (flexível, permite ajustes finos sem migração).
-- `checklist_fotos` — evidências (id, checklist_id, categoria: `etiqueta`/`leds`/`fonte`/`teste_cabeado`/`teste_wifi`/`outro`, storage_path, criado_em).
-- **Storage bucket** `evidencias` (privado) com política: técnico só vê as próprias; admin vê tudo.
-- **RLS**:
-  - Técnico: SELECT/INSERT/UPDATE/DELETE apenas dos próprios rascunhos; SELECT dos próprios finalizados; **não pode** UPDATE/DELETE de finalizados.
-  - Admin: SELECT em tudo; sem UPDATE/DELETE de finalizados (regra também no banco).
+Nada do que já funciona é reescrito. Reuso o PDF/dados atuais e adiciono uma camada nova.
 
-### PDF
-Gerado no navegador com `@react-pdf/renderer` (sem dependência de servidor, funciona no Cloudflare Worker). Layout idêntico ao modelo: cabeçalho com logo Webifibra, 9 seções, rodapé com "Técnico / Data-hora / Assinatura eletrônica + código de validação". Fotos anexadas são incluídas ao final.
+## Entregas por bloco
 
-### Rotas novas
-- `/_authenticated/checklists` — lista (técnico vê as suas / admin vê todas).
-- `/_authenticated/checklists/novo` — criar (redireciona para `/checklists/:id`).
-- `/_authenticated/checklists/:id` — editar (rascunho) ou visualizar (finalizado).
-- `/_authenticated/checklists/:id/pdf` — pré-visualizar/baixar PDF.
+### 1. PWA instalável
+- `public/manifest.webmanifest` (nome Webifibra, cor `#1a53ff`, `display: standalone`, `start_url: "/painel"`).
+- Ícones 192/512 gerados a partir da logo atual.
+- Tags no `__root.tsx` (`manifest`, `apple-touch-icon`, `theme-color` já existe).
+- Nenhum service worker.
 
-### O que **não** entra nesta etapa
-- Construtor visual de novos tipos de checklist (o modelo ONT é fixo em código).
-- Gestão de usuários pelo admin (ativar/desativar, promover técnico) — fica para Etapa 3.
-- Modo offline completo (PWA + fila de sync) — fica para Etapa 4, se necessário.
+### 2. Banco (uma migration)
+Nova tabela `checklist_document_snapshots`:
+- `id`, `checklist_id → checklists`, `version int`, `public_token_hash text unique`
+- `public_status text` (`active | revoked | replaced`), `snapshot_data jsonb`, `document_hash text`
+- `finalized_at`, `created_at`, `created_by`, `revoked_at`, `revoked_by`, `replaced_by_snapshot_id`
+- `view_count int`, `last_viewed_at`
 
-Ordem de implementação: 1) migração + storage, 2) telas de lista/criar/editar/visualizar, 3) upload de fotos, 4) finalização com código, 5) PDF. Confirma e eu já começo.
+Nova tabela `checklist_public_access_logs`:
+- `id`, `snapshot_id`, `accessed_at`, `event_type` (`view|download_pdf|download_image`), `user_agent_summary`, `ip_hash`, `referer_domain`
+
+RLS: SELECT/INSERT/UPDATE só para autenticado (admin gerencia); leitura pública via server function que valida o hash do token. GRANTs incluídos.
+
+Trigger: ao finalizar checklist (novo ou já finalizado sem snapshot) → cria versão 1. Ao re-finalizar após edição de admin → cria v2 e marca v1 como `replaced`.
+
+### 3. Server functions (`src/lib/public-checklist.functions.ts`)
+- `getPublicChecklist({ token })` — sem auth. Hash SHA-256 do token → busca snapshot ativo/substituído → retorna `snapshot_data`, `status`, `document_hash`, `finalized_at`, `version`. Registra `access_log` via `supabaseAdmin`. Resposta genérica para token inválido.
+- `revokeSnapshot({ snapshotId })` — admin only.
+- `regenerateSnapshotToken({ snapshotId })` — admin only, revoga antigo e cria novo com novo token.
+
+Callers autenticados usam `requireSupabaseAuth` + verificação `has_role('admin')`. Público usa client publishable com policy `TO anon` só na função (sem SELECT direto).
+
+### 4. Componente de documento visual (`ChecklistDocumentView`)
+Componente React HTML/Tailwind que renderiza o checklist finalizado no mesmo layout visual do PDF (cabeçalho azul, seções, checkboxes, assinaturas, QR Code no rodapé). Usado por:
+- Página de detalhe (prévia)
+- Exportação PNG (`html-to-image`)
+- Página pública `/validar/:token`
+
+Um único componente, alimentado por `snapshot_data`. Sem menus/botões dentro.
+
+### 5. Exportação PNG (cliente)
+- `bun add html-to-image qrcode`
+- `src/services/checklist-image-export.ts`: monta um container off-screen (largura fixa 1800px, fundo branco), renderiza `<ChecklistDocumentView />`, aguarda logo/fontes/QR, chama `htmlToPng`, faz download `checklist-webifibra-OS-123456.png` (ou `-CHK-000123.png`).
+- Se altura > 12000px → gera múltiplas páginas numeradas e oferece ZIP (usa `jszip`, já presente ou instalar).
+
+### 6. Link público
+- Nova rota **pública** `src/routes/validar.$token.tsx` (top-level, SSR ok, `head()` com `noindex,nofollow,noarchive`).
+- Chama `getPublicChecklist` via `useSuspenseQuery`.
+- Estados: válido / substituído / revogado / não encontrado — badge visual.
+- Renderiza `<ChecklistDocumentView />`, botões "Baixar PDF", "Baixar imagem", "Copiar link".
+- Não expõe telefone/email/endereço completo por padrão (mostra nome completo conforme sua escolha; oculta telefone/email; endereço só cidade).
+
+### 7. Ações e admin no detalhe (`checklists.$id.tsx`)
+Nova seção "Documentos e comprovação" quando `status = finalizado`:
+- Baixar PDF (mantém atual)
+- Baixar imagem
+- Copiar link público
+- Copiar texto para OS
+- Compartilhar (Web Share API com fallback)
+- Visualizar documento (dialog com `ChecklistDocumentView`)
+- **Admin apenas**: revogar link, gerar novo link, ver contadores de acesso, ver hash e versão
+
+### 8. QR Code
+- `qrcode` no cliente, tamanho 160px, canto inferior do documento.
+- Só renderiza depois do token existir.
+
+## Segurança e detalhes
+
+- Token: `crypto.randomUUID()` + `crypto.getRandomValues` → 32 bytes base64url (256 bits).
+- Armazena apenas `SHA-256(token)` no banco.
+- Hash de integridade: SHA-256 do JSON canônico do snapshot.
+- Página pública: `<meta name="robots" content="noindex,nofollow,noarchive">`.
+- Nunca expõe IDs internos, credenciais, senhas.
+- Rate limit básico (contador em memória por IP na server function) — best-effort.
+
+## Fora de escopo (para não estourar)
+
+- Geração server-side de PNG (você escolheu cliente).
+- Fila offline.
+- Bloqueio de edição pós-finalização (sua escolha foi criar nova versão).
+- Storage de PDF/PNG no servidor (gera sob demanda).
+
+## Migrations & arquivos
+
+**Novos:**
+- `public/manifest.webmanifest`, `public/icon-192.png`, `public/icon-512.png`
+- `supabase/migrations/*_snapshots.sql`
+- `src/lib/public-checklist.functions.ts`
+- `src/lib/document-hash.ts`
+- `src/components/checklist/checklist-document-view.tsx`
+- `src/components/checklist/document-actions.tsx`
+- `src/components/checklist/public-link-manager.tsx`
+- `src/services/checklist-image-export.ts`
+- `src/routes/validar.$token.tsx`
+
+**Editados:**
+- `src/routes/__root.tsx` (manifest link)
+- `src/routes/_authenticated/checklists.$id.tsx` (nova seção)
+- `src/start.ts` (garantir bearer middleware já presente)
+- `package.json` (html-to-image, qrcode, jszip)
+
+Se ok, executo em sequência: (1) manifest+ícones, (2) migration, (3) componente + hash + QR, (4) server functions, (5) rota pública, (6) exportação PNG, (7) integração no detalhe. Vou parar após a migration para você aprovar.
