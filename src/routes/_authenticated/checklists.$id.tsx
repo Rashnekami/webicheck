@@ -72,6 +72,11 @@ type HeaderPatch = Partial<
     | "cto_porta"
     | "data_atendimento"
     | "hora_atendimento"
+    | "troca_realizada"
+    | "modelo_ont_retirada"
+    | "serial_ont_retirada"
+    | "modelo_ont_instalada"
+    | "serial_ont_instalada"
   >
 >;
 
@@ -116,6 +121,11 @@ function ChecklistDetail() {
       cto_porta: row.cto_porta,
       data_atendimento: row.data_atendimento,
       hora_atendimento: row.hora_atendimento,
+      troca_realizada: row.troca_realizada,
+      modelo_ont_retirada: row.modelo_ont_retirada,
+      serial_ont_retirada: row.serial_ont_retirada,
+      modelo_ont_instalada: row.modelo_ont_instalada,
+      serial_ont_instalada: row.serial_ont_instalada,
     });
     const base =
       row.tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
@@ -290,6 +300,11 @@ function ChecklistDetail() {
                 cto_porta: header.cto_porta ?? null,
                 data_atendimento: header.data_atendimento ?? null,
                 hora_atendimento: header.hora_atendimento ?? null,
+                troca_realizada: header.troca_realizada ?? null,
+                modelo_ont_retirada: header.modelo_ont_retirada ?? null,
+                serial_ont_retirada: header.serial_ont_retirada ?? null,
+                modelo_ont_instalada: header.modelo_ont_instalada ?? null,
+                serial_ont_instalada: header.serial_ont_instalada ?? null,
               }}
               data={data as ChecklistData}
               readOnly={readOnly}

@@ -66,13 +66,18 @@ export type Database = {
           hora_atendimento: string | null
           id: string
           modelo: string | null
+          modelo_ont_instalada: string | null
+          modelo_ont_retirada: string | null
           numero_publico: string | null
           os: string | null
           plano: string | null
           serial: string | null
+          serial_ont_instalada: string | null
+          serial_ont_retirada: string | null
           status: Database["public"]["Enums"]["checklist_status"]
           tecnico_id: string
           tipo: Database["public"]["Enums"]["checklist_tipo"]
+          troca_realizada: boolean | null
           updated_at: string
         }
         Insert: {
@@ -88,13 +93,18 @@ export type Database = {
           hora_atendimento?: string | null
           id?: string
           modelo?: string | null
+          modelo_ont_instalada?: string | null
+          modelo_ont_retirada?: string | null
           numero_publico?: string | null
           os?: string | null
           plano?: string | null
           serial?: string | null
+          serial_ont_instalada?: string | null
+          serial_ont_retirada?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
           tecnico_id: string
           tipo?: Database["public"]["Enums"]["checklist_tipo"]
+          troca_realizada?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -110,13 +120,18 @@ export type Database = {
           hora_atendimento?: string | null
           id?: string
           modelo?: string | null
+          modelo_ont_instalada?: string | null
+          modelo_ont_retirada?: string | null
           numero_publico?: string | null
           os?: string | null
           plano?: string | null
           serial?: string | null
+          serial_ont_instalada?: string | null
+          serial_ont_retirada?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
           tecnico_id?: string
           tipo?: Database["public"]["Enums"]["checklist_tipo"]
+          troca_realizada?: boolean | null
           updated_at?: string
         }
         Relationships: []

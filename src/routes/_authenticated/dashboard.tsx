@@ -1,7 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
-import { ArrowLeft, Download, BarChart3, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  Download,
+  BarChart3,
+  ShieldCheck,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -15,6 +22,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -22,8 +30,34 @@ import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { listChecklists } from "@/lib/checklists";
-import type { ChecklistData, ChecklistRow } from "@/lib/checklist-schema";
+import {
+  aggregate,
+  applyFilters,
+  computePeriod,
+  toCanon,
+  type DashboardFilters,
+  type PeriodPreset,
+} from "@/lib/dashboard-analytics";
+import {
+  generatePresentationZip,
+  presentationZipFilename,
+} from "@/services/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -46,19 +80,6 @@ const COLORS = [
   "#eab308",
 ];
 
-const SINTOMA_LABELS: Record<string, string> = {
-  ont_nao_liga: "ONT não liga",
-  ont_reinicia: "ONT reinicia",
-  perde_internet: "Perde internet",
-  internet_cai_pon_acesa: "Cai com PON acesa",
-  los_acende: "LOS acende",
-  wifi_5g_desaparece: "Wi-Fi 5 GHz some",
-  wifi_ambas_desaparecem: "Ambas Wi-Fi somem",
-  wifi_falha_cabo_ok: "Wi-Fi falha, cabo OK",
-  lan_nao_funciona: "LAN não funciona",
-  lentidao: "Lentidão",
-};
-
 function Dashboard() {
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const navigate = useNavigate();
@@ -68,6 +89,20 @@ function Dashboard() {
       navigate({ to: "/painel", replace: true });
     }
   }, [user, userLoading, navigate]);
+
+  const [preset, setPreset] = useState<PeriodPreset>("mes_atual");
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
+  const [cidade, setCidade] = useState<string>("todas");
+  const [tecnicoId, setTecnicoId] = useState<string>("todos");
+  const [tipo, setTipo] = useState<"todos" | "validacao_ont" | "instalacao">(
+    "todos",
+  );
+  const [analista, setAnalista] = useState<string>("todos");
+  const [status, setStatus] = useState<
+    "todos" | "com_troca" | "sem_troca" | "nao_informado"
+  >("todos");
+  const [exporting, setExporting] = useState(false);
 
   const query = useQuery({
     queryKey: ["dashboard-checklists"],
@@ -95,22 +130,59 @@ function Dashboard() {
     return m;
   }, [profilesQuery.data]);
 
-  const ont = useMemo(
+  // Canonicaliza uma única vez todos os registros finalizados
+  const canonAll = useMemo(() => {
+    return (query.data ?? [])
+      .filter((c) => c.status === "finalizado")
+      .map((c) => toCanon(c, nomePorId));
+  }, [query.data, nomePorId]);
+
+  const period = useMemo(
     () =>
-      (query.data ?? []).filter(
-        (c) => c.tipo === "validacao_ont" && c.status === "finalizado",
-      ),
-    [query.data],
+      computePeriod(preset, {
+        start: customStart || undefined,
+        end: customEnd || undefined,
+      }),
+    [preset, customStart, customEnd],
   );
 
-  const stats = useMemo(() => computeStats(ont, nomePorId), [ont, nomePorId]);
+  const filters: DashboardFilters = useMemo(
+    () => ({
+      startISO: period.startISO,
+      endISO: period.endISO,
+      cidade: cidade !== "todas" ? cidade : undefined,
+      tecnicoId: tecnicoId !== "todos" ? tecnicoId : undefined,
+      tipo,
+      analistaNoc: analista !== "todos" ? analista : undefined,
+      status,
+    }),
+    [period, cidade, tecnicoId, tipo, analista, status],
+  );
 
-  const totalInstalacoes = useMemo(
+  const filtered = useMemo(() => applyFilters(canonAll, filters), [canonAll, filters]);
+  const agg = useMemo(() => aggregate(filtered), [filtered]);
+
+  // Opções únicas para os selects (baseadas em TODO o dataset canonizado)
+  const cidadesOpts = useMemo(
     () =>
-      (query.data ?? []).filter(
-        (c) => c.tipo === "instalacao" && c.status === "finalizado",
-      ).length,
-    [query.data],
+      Array.from(new Set(canonAll.map((r) => r.cidade).filter(Boolean))).sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [canonAll],
+  );
+  const tecnicosOpts = useMemo(() => {
+    const m = new Map<string, string>();
+    canonAll.forEach((r) => m.set(r.tecnicoId, r.tecnicoNome));
+    return Array.from(m.entries()).sort((a, b) =>
+      a[1].localeCompare(b[1], "pt-BR"),
+    );
+  }, [canonAll]);
+  const analistasOpts = useMemo(
+    () =>
+      Array.from(
+        new Set(canonAll.map((r) => r.analistaNocNome).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [canonAll],
   );
 
   if (userLoading || !user) {
@@ -122,8 +194,7 @@ function Dashboard() {
   }
   if (!user.isAdmin) return null;
 
-  function exportCSV() {
-    const rows = (query.data ?? []).filter((c) => c.status === "finalizado");
+  function exportDetailedCsv() {
     const header = [
       "numero_publico",
       "codigo_validacao",
@@ -133,30 +204,27 @@ function Dashboard() {
       "cliente",
       "cidade",
       "os",
-      "modelo",
-      "serial",
+      "modelo_retirado",
+      "serial_retirado",
+      "modelo_instalado",
+      "serial_instalado",
+      "troca_realizada",
       "sintomas",
       "analista_noc",
       "noc_autorizada",
-      "motivo",
     ];
+    const rows = (query.data ?? []).filter((c) => {
+      if (c.status !== "finalizado") return false;
+      const t = c.finalizado_em ? new Date(c.finalizado_em).getTime() : 0;
+      return (
+        t >= new Date(filters.startISO).getTime() &&
+        t < new Date(filters.endISO).getTime()
+      );
+    });
     const lines = [header.join(";")];
     for (const c of rows) {
       const tec = nomePorId.get(c.tecnico_id) || c.tecnico_id.slice(0, 8);
-      let sintomas = "";
-      let analista = "";
-      let noc = "";
-      let motivo = "";
-      if (c.tipo === "validacao_ont") {
-        const d = c.dados as ChecklistData;
-        sintomas = Object.entries(d.sintoma)
-          .filter(([, v]) => v === true)
-          .map(([k]) => SINTOMA_LABELS[k] || k)
-          .join("|");
-        analista = d.noc?.analista || "";
-        noc = d.noc?.autorizada || "";
-        motivo = d.resultado_final?.motivo || "";
-      }
+      const canon = toCanon(c, nomePorId);
       lines.push(
         [
           c.numero_publico || "",
@@ -167,28 +235,73 @@ function Dashboard() {
           c.cliente || "",
           c.cidade || "",
           c.os || "",
-          c.modelo || "",
-          c.serial || "",
-          sintomas,
-          analista,
-          noc,
-          motivo,
+          canon.modeloOntRetirada,
+          canon.serialOntRetirada,
+          canon.modeloOntInstalada,
+          canon.serialOntInstalada,
+          canon.trocaRealizada === true
+            ? "Sim"
+            : canon.trocaRealizada === false
+              ? "Não"
+              : "Não informado",
+          canon.sintomas.join(" | "),
+          canon.analistaNocNome,
+          canon.nocAutorizada === true
+            ? "Sim"
+            : canon.nocAutorizada === false
+              ? "Não"
+              : "",
         ]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(";"),
       );
     }
-    const blob = new Blob([`\ufeff${lines.join("\n")}`], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `webifibra-checklists-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    downloadBlob(
+      new Blob([`\ufeff${lines.join("\r\n")}\r\n`], {
+        type: "text/csv;charset=utf-8",
+      }),
+      `webifibra-base-detalhada-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  }
+
+  async function exportPresentationZip() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await generatePresentationZip({
+        records: filtered,
+        filters,
+        filterMetadata: {
+          cidade: cidade !== "todas" ? cidade : undefined,
+          tecnicoNome:
+            tecnicoId !== "todos"
+              ? tecnicosOpts.find(([id]) => id === tecnicoId)?.[1]
+              : undefined,
+          tipo:
+            tipo === "validacao_ont"
+              ? "Validação de ONT"
+              : tipo === "instalacao"
+                ? "Instalação"
+                : undefined,
+          analistaNoc: analista !== "todos" ? analista : undefined,
+          status:
+            status === "com_troca"
+              ? "Com troca realizada"
+              : status === "sem_troca"
+                ? "Sem troca"
+                : status === "nao_informado"
+                  ? "Não informado"
+                  : undefined,
+        },
+      });
+      downloadBlob(blob, presentationZipFilename(filters));
+      toast.success("Pacote para PowerPoint gerado.");
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o pacote de apresentação. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -215,18 +328,177 @@ function Dashboard() {
             <Badge className="bg-white/20 text-white">
               <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Admin
             </Badge>
-            <Button
-              size="sm"
-              onClick={exportCSV}
-              className="bg-white text-primary hover:bg-white/90"
-            >
-              <Download className="mr-1.5 h-4 w-4" /> Exportar CSV
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  disabled={exporting}
+                  className="bg-white text-primary hover:bg-white/90"
+                >
+                  {exporting ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      Preparando arquivos...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-1.5 h-4 w-4" /> Exportar
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuItem onClick={exportDetailedCsv}>
+                  <div>
+                    <p className="font-medium">Base detalhada — CSV</p>
+                    <p className="text-xs text-muted-foreground">
+                      Registro linha a linha para auditoria
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportPresentationZip}>
+                  <div>
+                    <p className="font-medium">Pacote para PowerPoint — ZIP</p>
+                    <p className="text-xs text-muted-foreground">
+                      Um CSV por indicador, pronto para colar em gráficos
+                    </p>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+        {/* Filtros */}
+        <Card>
+          <CardContent className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4 lg:grid-cols-7">
+            <div className="col-span-2 md:col-span-2 lg:col-span-2">
+              <Label className="text-xs">Período</Label>
+              <Select value={preset} onValueChange={(v) => setPreset(v as PeriodPreset)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mes_atual">Mês atual</SelectItem>
+                  <SelectItem value="mes_anterior">Mês anterior</SelectItem>
+                  <SelectItem value="ultimos_30">Últimos 30 dias</SelectItem>
+                  <SelectItem value="personalizado">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {preset === "personalizado" && (
+              <>
+                <div>
+                  <Label className="text-xs">De</Label>
+                  <Input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Até</Label>
+                  <Input
+                    type="date"
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+            <div>
+              <Label className="text-xs">Cidade</Label>
+              <Select value={cidade} onValueChange={setCidade}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas</SelectItem>
+                  {cidadesOpts.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Técnico</Label>
+              <Select value={tecnicoId} onValueChange={setTecnicoId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {tecnicosOpts.map(([id, nome]) => (
+                    <SelectItem key={id} value={id}>
+                      {nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <Select value={tipo} onValueChange={(v) => setTipo(v as typeof tipo)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="validacao_ont">Validação de ONT</SelectItem>
+                  <SelectItem value="instalacao">Instalação</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Analista NOC</Label>
+              <Select value={analista} onValueChange={setAnalista}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {analistasOpts.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Status da troca</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="com_troca">Com troca realizada</SelectItem>
+                  <SelectItem value="sem_troca">Sem troca</SelectItem>
+                  <SelectItem value="nao_informado">Não informado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {agg.totalNaoInformado > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              {agg.totalNaoInformado} validaç
+              {agg.totalNaoInformado === 1 ? "ão" : "ões"} sem informação de
+              troca. Esses registros não são contados como trocas realizadas.
+              Peça ao técnico responsável para preencher o campo “A ONT foi
+              fisicamente substituída?” no checklist.
+            </p>
+          </div>
+        )}
+
         {query.isLoading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             Carregando dados...
@@ -234,26 +506,26 @@ function Dashboard() {
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatCard label="Trocas de ONT" value={stats.totalOnt} />
-              <StatCard label="Instalações" value={totalInstalacoes} />
+              <StatCard label="Validações de ONT" value={agg.totalOnt} />
               <StatCard
-                label="Trocas este mês"
-                value={stats.esteMes}
-                sub={mesAtual()}
+                label="Trocas realizadas"
+                value={agg.totalTrocas}
+                sub={`${agg.totalSemTroca} sem troca`}
               />
+              <StatCard label="Instalações" value={agg.totalInstalacoes} />
               <StatCard
-                label="Cidades atendidas"
-                value={stats.cidades.length}
+                label="Cidades com troca"
+                value={agg.cidadesComTroca.length}
               />
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <ChartCard
                 title="Principais problemas"
-                subtitle="Sintomas mais frequentes nas trocas"
+                subtitle="Sintomas mais frequentes nas validações"
               >
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={stats.sintomas} layout="vertical" margin={{ left: 20 }}>
+                  <BarChart data={agg.sintomas} layout="vertical" margin={{ left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" allowDecimals={false} />
                     <YAxis type="category" dataKey="name" width={130} />
@@ -265,10 +537,10 @@ function Dashboard() {
 
               <ChartCard
                 title="Modelos mais trocados"
-                subtitle="Baseado no modelo da ONT registrada"
+                subtitle="Apenas trocas efetivamente realizadas"
               >
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={stats.modelos}>
+                  <BarChart data={agg.modelos}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
@@ -280,10 +552,10 @@ function Dashboard() {
 
               <ChartCard
                 title="Analistas que mais liberaram trocas"
-                subtitle="NOC autorizou a troca"
+                subtitle="Autorizações positivas do NOC"
               >
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={stats.analistas}>
+                  <BarChart data={agg.analistas}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
@@ -295,10 +567,10 @@ function Dashboard() {
 
               <ChartCard
                 title="Técnicos que mais trocaram"
-                subtitle="Ranking por número de checklists finalizados"
+                subtitle="Trocas fisicamente realizadas"
               >
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={stats.tecnicos}>
+                  <BarChart data={agg.tecnicos}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
@@ -315,13 +587,13 @@ function Dashboard() {
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
-                      data={stats.cidades}
+                      data={agg.cidades}
                       dataKey="value"
                       nameKey="name"
                       outerRadius={110}
                       label
                     >
-                      {stats.cidades.map((_, i) => (
+                      {agg.cidades.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
@@ -344,22 +616,22 @@ function Dashboard() {
                       <tr>
                         <th className="px-3 py-2 text-left font-medium">Cidade</th>
                         <th className="px-3 py-2 text-left font-medium">Principal problema</th>
-                        <th className="px-3 py-2 text-right font-medium">Trocas</th>
+                        <th className="px-3 py-2 text-right font-medium">Ocorrências</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {stats.motivosPorCidade.length === 0 ? (
+                      {agg.motivosPorCidade.length === 0 ? (
                         <tr>
                           <td colSpan={3} className="py-6 text-center text-muted-foreground">
                             Sem dados ainda.
                           </td>
                         </tr>
                       ) : (
-                        stats.motivosPorCidade.map((r) => (
+                        agg.motivosPorCidade.map((r) => (
                           <tr key={r.cidade} className="border-t">
                             <td className="px-3 py-2 font-medium">{r.cidade}</td>
                             <td className="px-3 py-2">{r.principal}</td>
-                            <td className="px-3 py-2 text-right">{r.total}</td>
+                            <td className="px-3 py-2 text-right">{r.quantidade}</td>
                           </tr>
                         ))
                       )}
@@ -419,96 +691,13 @@ function ChartCard({
   );
 }
 
-function mesAtual() {
-  return new Date().toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-type Stats = {
-  totalOnt: number;
-  esteMes: number;
-  sintomas: { name: string; value: number }[];
-  modelos: { name: string; value: number }[];
-  analistas: { name: string; value: number }[];
-  tecnicos: { name: string; value: number }[];
-  cidades: { name: string; value: number }[];
-  motivosPorCidade: { cidade: string; principal: string; total: number }[];
-};
-
-function computeStats(ont: ChecklistRow[], nomes: Map<string, string>): Stats {
-  const now = new Date();
-  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
-  const sintomasCount: Record<string, number> = {};
-  const modelosCount: Record<string, number> = {};
-  const analistasCount: Record<string, number> = {};
-  const tecnicosCount: Record<string, number> = {};
-  const cidadesCount: Record<string, number> = {};
-  const cidadeSintomas: Record<string, Record<string, number>> = {};
-  let esteMes = 0;
-
-  for (const c of ont) {
-    if (c.finalizado_em?.slice(0, 7) === ym) esteMes++;
-    const d = c.dados as ChecklistData;
-
-    for (const [k, v] of Object.entries(d.sintoma || {})) {
-      if (v === true) {
-        const label = SINTOMA_LABELS[k] || k;
-        sintomasCount[label] = (sintomasCount[label] || 0) + 1;
-      }
-    }
-
-    const modelo = (c.modelo || "").trim();
-    if (modelo) modelosCount[modelo] = (modelosCount[modelo] || 0) + 1;
-
-    if (d.noc?.autorizada === "sim") {
-      const a = (d.noc.analista || "").trim() || "(sem nome)";
-      analistasCount[a] = (analistasCount[a] || 0) + 1;
-    }
-
-    const tec = nomes.get(c.tecnico_id) || c.tecnico_id.slice(0, 8);
-    tecnicosCount[tec] = (tecnicosCount[tec] || 0) + 1;
-
-    const cidade = (c.cidade || "").trim() || "(sem cidade)";
-    cidadesCount[cidade] = (cidadesCount[cidade] || 0) + 1;
-
-    if (!cidadeSintomas[cidade]) cidadeSintomas[cidade] = {};
-    for (const [k, v] of Object.entries(d.sintoma || {})) {
-      if (v === true) {
-        const label = SINTOMA_LABELS[k] || k;
-        cidadeSintomas[cidade][label] =
-          (cidadeSintomas[cidade][label] || 0) + 1;
-      }
-    }
-  }
-
-  const toArr = (r: Record<string, number>, limit = 10) =>
-    Object.entries(r)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, limit);
-
-  const motivosPorCidade = Object.entries(cidadeSintomas)
-    .map(([cidade, syms]) => {
-      const top = Object.entries(syms).sort((a, b) => b[1] - a[1])[0];
-      return {
-        cidade,
-        principal: top ? top[0] : "—",
-        total: cidadesCount[cidade] || 0,
-      };
-    })
-    .sort((a, b) => b.total - a.total);
-
-  return {
-    totalOnt: ont.length,
-    esteMes,
-    sintomas: toArr(sintomasCount, 10),
-    modelos: toArr(modelosCount, 8),
-    analistas: toArr(analistasCount, 8),
-    tecnicos: toArr(tecnicosCount, 8),
-    cidades: toArr(cidadesCount, 8),
-    motivosPorCidade,
-  };
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
