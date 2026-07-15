@@ -330,23 +330,34 @@ function ChecklistDetail() {
         )}
 
         {row.status === "finalizado" && (
-          <Card>
-            <CardContent className="space-y-1 p-4 text-sm">
-              <p>
-                <span className="text-muted-foreground">Código de validação:</span>{" "}
-                <b>{row.codigo_validacao}</b>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Finalizado em:</span>{" "}
-                {row.finalizado_em
-                  ? new Date(row.finalizado_em).toLocaleString("pt-BR")
-                  : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Registro imutável para fins de fiscalização.
-              </p>
-            </CardContent>
-          </Card>
+          <>
+            <DocumentActions
+              row={{ ...row, ...header, dados: data } as ChecklistRow}
+              tecnicoNome={user?.full_name || user?.email || ""}
+              assinatura={user?.assinatura ?? null}
+              isAdmin={!!user?.isAdmin}
+              onDownloadPdf={handlePdf}
+              pdfBusy={pdfBusy}
+            />
+
+            <Card>
+              <CardContent className="space-y-1 p-4 text-sm">
+                <p>
+                  <span className="text-muted-foreground">Código de validação:</span>{" "}
+                  <b>{row.codigo_validacao}</b>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Finalizado em:</span>{" "}
+                  {row.finalizado_em
+                    ? new Date(row.finalizado_em).toLocaleString("pt-BR")
+                    : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Registro imutável para fins de fiscalização.
+                </p>
+              </CardContent>
+            </Card>
+          </>
         )}
       </main>
 
