@@ -173,6 +173,7 @@ export interface ChecklistRow {
   hora_atendimento: string | null;
   dados: ChecklistData;
   codigo_validacao: string | null;
+  numero_publico: string | null;
   finalizado_em: string | null;
   created_at: string;
   updated_at: string;
