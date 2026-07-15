@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { LogOut, ShieldCheck, HardHat, Sparkles } from "lucide-react";
+import { LogOut, ShieldCheck, HardHat, ClipboardList, ArrowRight } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
