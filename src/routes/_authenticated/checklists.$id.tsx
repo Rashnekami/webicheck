@@ -161,6 +161,7 @@ function ChecklistDetail() {
 
   const missing = useMemo(() => {
     const errs: string[] = [];
+    if (!data) return errs;
     if (!header.cliente?.trim()) errs.push("Cliente");
     if (!header.cidade?.trim()) errs.push("Cidade");
     if (!header.data_atendimento) errs.push("Data do atendimento");
