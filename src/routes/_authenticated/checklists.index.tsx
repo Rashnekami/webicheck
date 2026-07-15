@@ -73,7 +73,7 @@ function ChecklistsList() {
     if (tab !== "todos" && c.status !== tab) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
-    return [c.os, c.cliente, c.cidade, c.serial, c.codigo_validacao]
+    return [c.os, c.cliente, c.cidade, c.serial, c.codigo_validacao, c.numero_publico]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
   });
