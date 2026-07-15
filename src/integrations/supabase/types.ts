@@ -61,15 +61,18 @@ export type Database = {
           cto_porta: string | null
           dados: Json
           data_atendimento: string | null
+          endereco: string | null
           finalizado_em: string | null
           hora_atendimento: string | null
           id: string
           modelo: string | null
           numero_publico: string | null
           os: string | null
+          plano: string | null
           serial: string | null
           status: Database["public"]["Enums"]["checklist_status"]
           tecnico_id: string
+          tipo: Database["public"]["Enums"]["checklist_tipo"]
           updated_at: string
         }
         Insert: {
@@ -80,15 +83,18 @@ export type Database = {
           cto_porta?: string | null
           dados?: Json
           data_atendimento?: string | null
+          endereco?: string | null
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
           modelo?: string | null
           numero_publico?: string | null
           os?: string | null
+          plano?: string | null
           serial?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
           tecnico_id: string
+          tipo?: Database["public"]["Enums"]["checklist_tipo"]
           updated_at?: string
         }
         Update: {
@@ -99,15 +105,18 @@ export type Database = {
           cto_porta?: string | null
           dados?: Json
           data_atendimento?: string | null
+          endereco?: string | null
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
           modelo?: string | null
           numero_publico?: string | null
           os?: string | null
+          plano?: string | null
           serial?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
           tecnico_id?: string
+          tipo?: Database["public"]["Enums"]["checklist_tipo"]
           updated_at?: string
         }
         Relationships: []
@@ -188,6 +197,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "tecnico"
       checklist_status: "rascunho" | "finalizado"
+      checklist_tipo: "validacao_ont" | "instalacao"
       foto_categoria:
         | "etiqueta"
         | "leds"
@@ -324,6 +334,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "tecnico"],
       checklist_status: ["rascunho", "finalizado"],
+      checklist_tipo: ["validacao_ont", "instalacao"],
       foto_categoria: [
         "etiqueta",
         "leds",
