@@ -4,10 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { computeDocumentHash, generatePublicToken } from "@/lib/document-hash";
 
 // Snapshot payload: everything needed to render the document publicly.
+// Uses JsonValue-friendly types to satisfy TSS serializable-return validation.
+type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | { [k: string]: JsonValue } | JsonValue[];
+
 export interface SnapshotPayload {
   tipo: "validacao_ont" | "instalacao";
-  header: Record<string, unknown>;
-  dados: Record<string, unknown>;
+  header: { [k: string]: JsonValue };
+  dados: { [k: string]: JsonValue };
   tecnico: { full_name: string; assinatura: string | null };
   numero_publico: string | null;
   codigo_validacao: string | null;
@@ -17,12 +21,11 @@ export interface SnapshotPayload {
 
 export interface PublicSnapshotView {
   status: "active" | "revoked" | "replaced" | "not_found";
-  version?: number;
-  finalized_at?: string;
-  document_hash?: string;
-  short_hash?: string;
-  payload?: SnapshotPayload;
-  replaced_at?: string | null;
+  version: number | null;
+  finalized_at: string | null;
+  document_hash: string | null;
+  short_hash: string | null;
+  payload: SnapshotPayload | null;
 }
 
 export interface AdminSnapshotSummary {
