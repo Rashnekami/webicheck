@@ -258,10 +258,17 @@ export const reactivateChecklistSnapshot = createServerFn({ method: "POST" })
 export const getPublicChecklist = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => d)
   .handler(async ({ data }): Promise<PublicSnapshotView> => {
+    const empty: PublicSnapshotView = {
+      status: "not_found",
+      version: null,
+      finalized_at: null,
+      document_hash: null,
+      short_hash: null,
+      payload: null,
+    };
+
     const token = (data.token ?? "").trim();
-    if (!token || token.length < 20 || token.length > 128) {
-      return { status: "not_found" };
-    }
+    if (!token || token.length < 20 || token.length > 128) return empty;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: snap } = await supabaseAdmin
@@ -272,11 +279,10 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
       .eq("public_token", token)
       .maybeSingle();
 
-    if (!snap) return { status: "not_found" };
+    if (!snap) return empty;
 
     // Registra o acesso (best-effort)
     try {
-      const req = getRequest();
       const uaRaw = getRequestHeader("user-agent") ?? "";
       const referer = getRequestHeader("referer") ?? "";
       let refererDomain: string | null = null;
@@ -306,26 +312,6 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
         ip_hash: ipHash,
         referer_domain: refererDomain,
       });
-      if (snap.public_status === "active") {
-        await supabaseAdmin
-          .from("checklist_document_snapshots")
-          .update({
-            view_count: (
-              await supabaseAdmin
-                .from("checklist_document_snapshots")
-                .select("view_count")
-                .eq("id", snap.id)
-                .single()
-            ).data?.view_count
-              ? undefined
-              : undefined,
-            last_viewed_at: new Date().toISOString(),
-          })
-          .eq("id", snap.id);
-        // Increment atômico separado (best-effort) — RPC seria melhor, aqui rápido:
-        await supabaseAdmin.rpc as unknown as never;
-      }
-      void req;
     } catch (e) {
       console.warn("access log failed", e);
     }
@@ -340,7 +326,10 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
           .single();
         await supabaseAdmin
           .from("checklist_document_snapshots")
-          .update({ view_count: (cur?.view_count ?? 0) + 1 })
+          .update({
+            view_count: (cur?.view_count ?? 0) + 1,
+            last_viewed_at: new Date().toISOString(),
+          })
           .eq("id", snap.id);
       } catch {
         // ignore
@@ -348,24 +337,16 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
     }
 
     const status = snap.public_status as "active" | "revoked" | "replaced";
+    const shortHash = snap.document_hash.slice(0, 8).toUpperCase();
 
-    if (status === "revoked") {
+    if (status !== "active") {
       return {
-        status: "revoked",
+        status,
         version: snap.version,
         finalized_at: snap.finalized_at,
         document_hash: snap.document_hash,
-        short_hash: snap.document_hash.slice(0, 8).toUpperCase(),
-      };
-    }
-
-    if (status === "replaced") {
-      return {
-        status: "replaced",
-        version: snap.version,
-        finalized_at: snap.finalized_at,
-        document_hash: snap.document_hash,
-        short_hash: snap.document_hash.slice(0, 8).toUpperCase(),
+        short_hash: shortHash,
+        payload: null,
       };
     }
 
@@ -374,7 +355,7 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
       version: snap.version,
       finalized_at: snap.finalized_at,
       document_hash: snap.document_hash,
-      short_hash: snap.document_hash.slice(0, 8).toUpperCase(),
-      payload: snap.snapshot_data as SnapshotPayload,
+      short_hash: shortHash,
+      payload: snap.snapshot_data as unknown as SnapshotPayload,
     };
   });
