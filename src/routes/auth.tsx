@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
