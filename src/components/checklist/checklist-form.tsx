@@ -117,8 +117,8 @@ export function ChecklistForm({
     (patch: Partial<ChecklistData[K]>) =>
       onDataChange((prev) => ({
         ...prev,
-        [section]: { ...prev[section], ...patch },
-      }));
+        [section]: { ...(prev[section] as object), ...(patch as object) },
+      })) as unknown as void;
 
   const s = data;
 
