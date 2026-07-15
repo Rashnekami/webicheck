@@ -7,7 +7,9 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
-  
+  Wifi,
+  Wrench,
+  BarChart3,
 } from "lucide-react";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -28,6 +30,14 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { TIPO_LABEL, type TipoChecklist } from "@/lib/checklist-schema";
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
   head: () => ({
@@ -42,6 +52,7 @@ function ChecklistsList() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"todos" | "rascunho" | "finalizado">("todos");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const scope = user?.isAdmin ? "all" : "mine";
 
@@ -52,9 +63,10 @@ function ChecklistsList() {
   });
 
   const create = useMutation({
-    mutationFn: () => createDraft(user!.id),
+    mutationFn: (tipo: TipoChecklist) => createDraft(user!.id, tipo),
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["checklists"] });
+      setPickerOpen(false);
       navigate({ to: "/checklists/$id", params: { id } });
     },
     onError: () => toast.error("Não foi possível criar o checklist."),
@@ -100,11 +112,24 @@ function ChecklistsList() {
               </h1>
             </div>
           </div>
-          {user?.isAdmin && (
-            <Badge className="bg-white/20 text-white hover:bg-white/25">
-              <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Admin
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {user?.isAdmin && (
+              <>
+                <Link to="/dashboard">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="bg-white/15 text-white hover:bg-white/25"
+                  >
+                    <BarChart3 className="mr-1 h-3.5 w-3.5" /> Dashboard
+                  </Button>
+                </Link>
+                <Badge className="bg-white/20 text-white hover:bg-white/25">
+                  <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Admin
+                </Badge>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -117,8 +142,7 @@ function ChecklistsList() {
           />
           <Button
             size="lg"
-            onClick={() => create.mutate()}
-            disabled={create.isPending}
+            onClick={() => setPickerOpen(true)}
             className="whitespace-nowrap"
           >
             <Plus className="mr-1.5 h-4 w-4" /> Novo checklist
@@ -143,7 +167,7 @@ function ChecklistsList() {
                   <p className="text-sm text-muted-foreground">
                     Nenhum checklist por aqui ainda.
                   </p>
-                  <Button onClick={() => create.mutate()}>
+                  <Button onClick={() => setPickerOpen(true)}>
                     <Plus className="mr-1.5 h-4 w-4" /> Criar o primeiro
                   </Button>
                 </CardContent>
@@ -163,6 +187,21 @@ function ChecklistsList() {
                             <span className="font-semibold">
                               {c.cliente || "Sem cliente"}
                             </span>
+                            <Badge
+                              variant="outline"
+                              className={
+                                c.tipo === "instalacao"
+                                  ? "border-sky-500/40 text-sky-700 dark:text-sky-400"
+                                  : "border-primary/40 text-primary"
+                              }
+                            >
+                              {c.tipo === "instalacao" ? (
+                                <Wrench className="mr-1 h-3 w-3" />
+                              ) : (
+                                <Wifi className="mr-1 h-3 w-3" />
+                              )}
+                              {TIPO_LABEL[c.tipo]}
+                            </Badge>
                             {c.status === "finalizado" ? (
                               <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15">
                                 Finalizado
@@ -207,6 +246,50 @@ function ChecklistsList() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Qual checklist você quer preencher?</DialogTitle>
+            <DialogDescription>
+              Escolha o tipo de atendimento. Cada modelo tem seus próprios
+              campos e gera um PDF específico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={create.isPending}
+              onClick={() => create.mutate("validacao_ont")}
+              className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition hover:border-primary hover:bg-primary/5"
+            >
+              <div className="rounded-full bg-primary/10 p-2 text-primary">
+                <Wifi className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold">Validação de ONT</h3>
+              <p className="text-xs text-muted-foreground">
+                Justificar troca de equipamento com evidências, testes e
+                autorização do NOC.
+              </p>
+            </button>
+            <button
+              type="button"
+              disabled={create.isPending}
+              onClick={() => create.mutate("instalacao")}
+              className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition hover:border-primary hover:bg-primary/5"
+            >
+              <div className="rounded-full bg-sky-500/10 p-2 text-sky-600">
+                <Wrench className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold">Instalação</h3>
+              <p className="text-xs text-muted-foreground">
+                Validação técnica e orientação ao cliente ao fim da instalação,
+                com assinatura do cliente.
+              </p>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

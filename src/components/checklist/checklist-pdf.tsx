@@ -7,7 +7,7 @@ import {
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
-import type { ChecklistRow, FotoRow } from "@/lib/checklist-schema";
+import type { ChecklistData, ChecklistRow, FotoRow } from "@/lib/checklist-schema";
 import { FOTO_CATEGORIAS } from "@/lib/checklist-schema";
 import { signedFotoUrl } from "@/lib/checklists";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
@@ -262,7 +262,7 @@ function ChecklistDocument({
   assinatura,
   logoUri,
 }: Params & { logoUri: string }) {
-  const d = row.dados;
+  const d = row.dados as ChecklistData;
   const numero = row.numero_publico || "— pendente —";
   return (
     <Document>
@@ -446,13 +446,6 @@ function ChecklistDocument({
             <View style={styles.signLine}>
               <Text style={styles.signName}>{tecnicoNome || "—"}</Text>
               <Text style={styles.signLabel}>Técnico responsável</Text>
-            </View>
-          </View>
-          <View style={styles.signBox}>
-            <View style={{ flex: 1 }} />
-            <View style={styles.signLine}>
-              <Text style={styles.signName}>{d.noc.analista || "—"}</Text>
-              <Text style={styles.signLabel}>Analista NOC</Text>
             </View>
           </View>
         </View>

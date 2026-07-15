@@ -29,6 +29,7 @@ import {
 
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { ChecklistForm } from "@/components/checklist/checklist-form";
+import { InstalacaoForm } from "@/components/checklist/instalacao-form";
 import {
   deleteFoto,
   finalizeChecklist,
@@ -40,12 +41,16 @@ import {
 } from "@/lib/checklists";
 import {
   emptyChecklistData,
+  emptyInstalacaoData,
   FOTO_CATEGORIAS,
+  TIPO_LABEL,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
+  type InstalacaoData,
 } from "@/lib/checklist-schema";
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
+import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 
 export const Route = createFileRoute("/_authenticated/checklists/$id")({
   head: () => ({
@@ -60,6 +65,8 @@ type HeaderPatch = Partial<
     | "os"
     | "cliente"
     | "cidade"
+    | "endereco"
+    | "plano"
     | "modelo"
     | "serial"
     | "cto_porta"
@@ -81,11 +88,11 @@ function ChecklistDetail() {
   const fotosQuery = useQuery({
     queryKey: ["checklist-fotos", id],
     queryFn: () => listFotos(id),
+    enabled: query.data?.tipo === "validacao_ont",
   });
 
-  // Local editable state
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData>(emptyChecklistData());
+  const [data, setData] = useState<ChecklistData | InstalacaoData>(emptyChecklistData());
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -94,14 +101,16 @@ function ChecklistDetail() {
 
   const row = query.data;
   const readOnly = !row || row.status === "finalizado" || row.tecnico_id !== user?.id;
+  const tipo = row?.tipo ?? "validacao_ont";
 
-  // Sync state when server row arrives
   useEffect(() => {
     if (!row) return;
     setHeader({
       os: row.os,
       cliente: row.cliente,
       cidade: row.cidade,
+      endereco: row.endereco,
+      plano: row.plano,
       modelo: row.modelo,
       serial: row.serial,
       cto_porta: row.cto_porta,
@@ -124,7 +133,6 @@ function ChecklistDetail() {
     onError: () => toast.error("Falha ao salvar. Verifique sua conexão."),
   });
 
-  // Debounced autosave
   useEffect(() => {
     if (!dirty || readOnly) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -137,7 +145,6 @@ function ChecklistDetail() {
 
   const finalize = useMutation({
     mutationFn: async () => {
-      // salva pendências primeiro
       await updateChecklist(id, { ...header, dados: data });
       return finalizeChecklist(id);
     },
@@ -154,23 +161,39 @@ function ChecklistDetail() {
     const errs: string[] = [];
     if (!header.cliente?.trim()) errs.push("Cliente");
     if (!header.cidade?.trim()) errs.push("Cidade");
-    if (!header.modelo?.trim()) errs.push("Modelo da ONT");
-    if (!header.serial?.trim()) errs.push("Serial da ONT");
     if (!header.data_atendimento) errs.push("Data do atendimento");
-    if (!data.relato.trim()) errs.push("Relato do técnico");
+    if (tipo === "validacao_ont") {
+      const d = data as ChecklistData;
+      if (!header.modelo?.trim()) errs.push("Modelo da ONT");
+      if (!header.serial?.trim()) errs.push("Serial da ONT");
+      if (!d.relato?.trim()) errs.push("Relato do técnico");
+    } else {
+      const d = data as InstalacaoData;
+      if (!header.endereco?.trim()) errs.push("Endereço");
+      if (!d.assinatura_cliente) errs.push("Assinatura do cliente");
+    }
     return errs;
-  }, [header, data]);
+  }, [header, data, tipo]);
 
   async function handlePdf() {
     if (!row) return;
     try {
       setPdfBusy(true);
-      await generateChecklistPdf({
-        row: { ...row, ...header, dados: data } as ChecklistRow,
-        fotos: fotosQuery.data ?? [],
-        tecnicoNome: user?.full_name || user?.email || "",
-        assinatura: user?.assinatura ?? null,
-      });
+      const merged = { ...row, ...header, dados: data } as ChecklistRow;
+      if (tipo === "instalacao") {
+        await generateInstalacaoPdf({
+          row: merged,
+          tecnicoNome: user?.full_name || user?.email || "",
+          assinatura: user?.assinatura ?? null,
+        });
+      } else {
+        await generateChecklistPdf({
+          row: merged,
+          fotos: fotosQuery.data ?? [],
+          tecnicoNome: user?.full_name || user?.email || "",
+          assinatura: user?.assinatura ?? null,
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar o PDF.");
@@ -201,7 +224,7 @@ function ChecklistDetail() {
             </Link>
             <div className="min-w-0">
               <p className="truncate text-xs uppercase tracking-wider opacity-80">
-                {row.status === "finalizado" ? "Checklist finalizado" : "Checklist (rascunho)"}
+                {TIPO_LABEL[tipo]} · {row.status === "finalizado" ? "Finalizado" : "Rascunho"}
               </p>
               <h1 className="truncate text-base font-semibold">
                 {header.cliente || "Sem cliente"}
@@ -230,36 +253,62 @@ function ChecklistDetail() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
-        <ChecklistForm
-          header={{
-            os: header.os ?? null,
-            cliente: header.cliente ?? null,
-            cidade: header.cidade ?? null,
-            modelo: header.modelo ?? null,
-            serial: header.serial ?? null,
-            cto_porta: header.cto_porta ?? null,
-            data_atendimento: header.data_atendimento ?? null,
-            hora_atendimento: header.hora_atendimento ?? null,
-          }}
-          data={data}
-          readOnly={readOnly}
-          onHeaderChange={(patch) => {
-            setHeader((p) => ({ ...p, ...patch }));
-            setDirty(true);
-          }}
-          onDataChange={(fn) => {
-            setData((p) => fn(p));
-            setDirty(true);
-          }}
-        />
+        {tipo === "instalacao" ? (
+          <InstalacaoForm
+            header={{
+              os: header.os ?? null,
+              cliente: header.cliente ?? null,
+              cidade: header.cidade ?? null,
+              endereco: header.endereco ?? null,
+              plano: header.plano ?? null,
+              data_atendimento: header.data_atendimento ?? null,
+              hora_atendimento: header.hora_atendimento ?? null,
+            }}
+            data={data as InstalacaoData}
+            readOnly={readOnly}
+            onHeaderChange={(patch) => {
+              setHeader((p) => ({ ...p, ...patch }));
+              setDirty(true);
+            }}
+            onDataChange={(fn) => {
+              setData((p) => fn(p as InstalacaoData));
+              setDirty(true);
+            }}
+          />
+        ) : (
+          <>
+            <ChecklistForm
+              header={{
+                os: header.os ?? null,
+                cliente: header.cliente ?? null,
+                cidade: header.cidade ?? null,
+                modelo: header.modelo ?? null,
+                serial: header.serial ?? null,
+                cto_porta: header.cto_porta ?? null,
+                data_atendimento: header.data_atendimento ?? null,
+                hora_atendimento: header.hora_atendimento ?? null,
+              }}
+              data={data as ChecklistData}
+              readOnly={readOnly}
+              onHeaderChange={(patch) => {
+                setHeader((p) => ({ ...p, ...patch }));
+                setDirty(true);
+              }}
+              onDataChange={(fn) => {
+                setData((p) => fn(p as ChecklistData));
+                setDirty(true);
+              }}
+            />
 
-        <FotosSection
-          checklistId={id}
-          tecnicoId={row.tecnico_id}
-          readOnly={readOnly}
-          canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
-          fotos={fotosQuery.data ?? []}
-        />
+            <FotosSection
+              checklistId={id}
+              tecnicoId={row.tecnico_id}
+              readOnly={readOnly}
+              canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
+              fotos={fotosQuery.data ?? []}
+            />
+          </>
+        )}
 
         {row.status === "finalizado" && (
           <Card>
@@ -282,7 +331,6 @@ function ChecklistDetail() {
         )}
       </main>
 
-      {/* Barra de ações fixa */}
       <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
           <Button variant="outline" onClick={() => navigate({ to: "/checklists" })}>
@@ -499,25 +547,28 @@ function FotoTile({
   return (
     <li className="group relative overflow-hidden rounded-md border">
       {url ? (
-        <img src={url} alt={label} className="aspect-square w-full object-cover" />
+        <img src={url} alt={label} className="h-32 w-full object-cover" />
       ) : (
-        <div className="flex aspect-square w-full items-center justify-center bg-muted">
+        <div className="flex h-32 w-full items-center justify-center bg-muted">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-        {label}
+      <div className="p-2 text-xs">
+        <p className="truncate font-medium">{label}</p>
       </div>
       {canDelete && (
         <button
           type="button"
           onClick={onDelete}
-          className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition group-hover:opacity-100"
+          className="absolute right-1 top-1 rounded-full bg-background/80 p-1 opacity-0 shadow transition group-hover:opacity-100"
           aria-label="Remover foto"
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </button>
       )}
     </li>
   );
 }
+
+// suppress unused var warning for emptyInstalacaoData retained import
+void emptyInstalacaoData;

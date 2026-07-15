@@ -1,15 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   emptyChecklistData,
+  emptyInstalacaoData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
+  type InstalacaoData,
+  type TipoChecklist,
 } from "./checklist-schema";
 
 function normalizeRow(row: any): ChecklistRow {
+  const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
+  const base =
+    tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
   return {
     ...row,
-    dados: { ...emptyChecklistData(), ...(row.dados ?? {}) } as ChecklistData,
+    tipo,
+    dados: { ...(base as any), ...(row.dados ?? {}) },
   } as ChecklistRow;
 }
 
@@ -38,14 +45,20 @@ export async function getChecklist(id: string): Promise<ChecklistRow> {
   return normalizeRow(data);
 }
 
-export async function createDraft(userId: string): Promise<string> {
+export async function createDraft(
+  userId: string,
+  tipo: TipoChecklist = "validacao_ont",
+): Promise<string> {
+  const dados =
+    tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
   const { data, error } = await supabase
     .from("checklists")
     .insert({
       tecnico_id: userId,
       status: "rascunho",
-      dados: emptyChecklistData() as any,
-    })
+      tipo,
+      dados: dados as any,
+    } as any)
     .select("id")
     .single();
   if (error) throw error;
@@ -60,13 +73,15 @@ export async function updateChecklist(
       | "os"
       | "cliente"
       | "cidade"
+      | "endereco"
+      | "plano"
       | "modelo"
       | "serial"
       | "cto_porta"
       | "data_atendimento"
       | "hora_atendimento"
     >
-  > & { dados?: ChecklistData },
+  > & { dados?: ChecklistData | InstalacaoData },
 ): Promise<void> {
   const { error } = await supabase
     .from("checklists")
