@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      checklist_document_snapshots: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          document_hash: string
+          finalized_at: string
+          id: string
+          last_viewed_at: string | null
+          public_status: string
+          public_token: string
+          replaced_by_snapshot_id: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          snapshot_data: Json
+          version: number
+          view_count: number
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          document_hash: string
+          finalized_at: string
+          id?: string
+          last_viewed_at?: string | null
+          public_status?: string
+          public_token: string
+          replaced_by_snapshot_id?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          snapshot_data: Json
+          version?: number
+          view_count?: number
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          document_hash?: string
+          finalized_at?: string
+          id?: string
+          last_viewed_at?: string | null
+          public_status?: string
+          public_token?: string
+          replaced_by_snapshot_id?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          snapshot_data?: Json
+          version?: number
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_document_snapshots_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_document_snapshots_replaced_by_snapshot_id_fkey"
+            columns: ["replaced_by_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_document_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_fotos: {
         Row: {
           categoria: Database["public"]["Enums"]["foto_categoria"]
@@ -48,6 +117,44 @@ export type Database = {
             columns: ["checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_public_access_logs: {
+        Row: {
+          accessed_at: string
+          event_type: string
+          id: string
+          ip_hash: string | null
+          referer_domain: string | null
+          snapshot_id: string
+          user_agent_summary: string | null
+        }
+        Insert: {
+          accessed_at?: string
+          event_type: string
+          id?: string
+          ip_hash?: string | null
+          referer_domain?: string | null
+          snapshot_id: string
+          user_agent_summary?: string | null
+        }
+        Update: {
+          accessed_at?: string
+          event_type?: string
+          id?: string
+          ip_hash?: string | null
+          referer_domain?: string | null
+          snapshot_id?: string
+          user_agent_summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_public_access_logs_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_document_snapshots"
             referencedColumns: ["id"]
           },
         ]
