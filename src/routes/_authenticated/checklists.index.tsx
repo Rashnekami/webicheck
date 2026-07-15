@@ -7,7 +7,7 @@ import {
   Plus,
   ShieldCheck,
   Trash2,
-  FileText,
+  
 } from "lucide-react";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
