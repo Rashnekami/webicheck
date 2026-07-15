@@ -14,6 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
+      checklist_fotos: {
+        Row: {
+          categoria: Database["public"]["Enums"]["foto_categoria"]
+          checklist_id: string
+          created_at: string
+          id: string
+          legenda: string | null
+          storage_path: string
+          tecnico_id: string
+        }
+        Insert: {
+          categoria?: Database["public"]["Enums"]["foto_categoria"]
+          checklist_id: string
+          created_at?: string
+          id?: string
+          legenda?: string | null
+          storage_path: string
+          tecnico_id: string
+        }
+        Update: {
+          categoria?: Database["public"]["Enums"]["foto_categoria"]
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          legenda?: string | null
+          storage_path?: string
+          tecnico_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_fotos_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklists: {
+        Row: {
+          cidade: string | null
+          cliente: string | null
+          codigo_validacao: string | null
+          created_at: string
+          cto_porta: string | null
+          dados: Json
+          data_atendimento: string | null
+          finalizado_em: string | null
+          hora_atendimento: string | null
+          id: string
+          modelo: string | null
+          os: string | null
+          serial: string | null
+          status: Database["public"]["Enums"]["checklist_status"]
+          tecnico_id: string
+          updated_at: string
+        }
+        Insert: {
+          cidade?: string | null
+          cliente?: string | null
+          codigo_validacao?: string | null
+          created_at?: string
+          cto_porta?: string | null
+          dados?: Json
+          data_atendimento?: string | null
+          finalizado_em?: string | null
+          hora_atendimento?: string | null
+          id?: string
+          modelo?: string | null
+          os?: string | null
+          serial?: string | null
+          status?: Database["public"]["Enums"]["checklist_status"]
+          tecnico_id: string
+          updated_at?: string
+        }
+        Update: {
+          cidade?: string | null
+          cliente?: string | null
+          codigo_validacao?: string | null
+          created_at?: string
+          cto_porta?: string | null
+          dados?: Json
+          data_atendimento?: string | null
+          finalizado_em?: string | null
+          hora_atendimento?: string | null
+          id?: string
+          modelo?: string | null
+          os?: string | null
+          serial?: string | null
+          status?: Database["public"]["Enums"]["checklist_status"]
+          tecnico_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           active: boolean
@@ -86,6 +181,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "tecnico"
+      checklist_status: "rascunho" | "finalizado"
+      foto_categoria:
+        | "etiqueta"
+        | "leds"
+        | "fonte"
+        | "teste_cabeado"
+        | "teste_wifi"
+        | "outro"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -214,6 +317,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "tecnico"],
+      checklist_status: ["rascunho", "finalizado"],
+      foto_categoria: [
+        "etiqueta",
+        "leds",
+        "fonte",
+        "teste_cabeado",
+        "teste_wifi",
+        "outro",
+      ],
     },
   },
 } as const
