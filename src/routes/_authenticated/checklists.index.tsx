@@ -176,9 +176,9 @@ function ChecklistsList() {
                             {c.cidade || "cidade não informada"}
                             {c.serial ? ` · Serial ${c.serial}` : ""}
                           </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {c.status === "finalizado" && c.codigo_validacao
-                              ? c.codigo_validacao
+                          <p className="mt-1 text-xs font-medium text-primary">
+                            {c.status === "finalizado"
+                              ? c.numero_publico || c.codigo_validacao || ""
                               : `Atualizado em ${new Date(
                                   c.updated_at,
                                 ).toLocaleString("pt-BR")}`}
