@@ -96,6 +96,34 @@ function ChecklistDetail() {
     queryFn: () => listFotos(id),
     enabled: query.data?.tipo === "validacao_ont",
   });
+  const tecnicoId = query.data?.tecnico_id;
+  const tecnicoQuery = useQuery({
+    queryKey: ["checklist-tecnico", tecnicoId],
+    enabled: !!tecnicoId,
+    queryFn: async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name,email,assinatura")
+        .eq("id", tecnicoId!)
+        .maybeSingle();
+      return data as {
+        full_name: string | null;
+        email: string | null;
+        assinatura: string | null;
+      } | null;
+    },
+    staleTime: 60_000,
+  });
+  const tecnicoNome =
+    tecnicoQuery.data?.full_name ||
+    tecnicoQuery.data?.email ||
+    (query.data?.tecnico_id === user?.id
+      ? user?.full_name || user?.email || ""
+      : "");
+  const tecnicoAssinatura =
+    tecnicoQuery.data?.assinatura ??
+    (query.data?.tecnico_id === user?.id ? user?.assinatura ?? null : null);
 
   const [header, setHeader] = useState<HeaderPatch>({});
   const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
