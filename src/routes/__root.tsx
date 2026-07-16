@@ -84,7 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
-      { title: "Webifibra — Checklist Técnico de Campo" },
+      { title: "Checklist Técnico de Campo" },
       {
         name: "description",
         content:
@@ -94,19 +94,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#1a53ff" },
       {
         property: "og:title",
-        content: "Webifibra — Checklist Técnico de Campo",
+        content: "Checklist Técnico de Campo",
       },
       {
         property: "og:description",
         content:
-          "Checklists de campo com autorização do NOC, assinatura eletrônica e PDF permanente.",
+          "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Checklist Técnico de Campo" },
+      { name: "twitter:description", content: "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/32c528c1-1008-4d15-892f-7a76676fc3e0/id-preview-fb7bf718--c8f9924b-9de1-43c0-93ff-96920deea995.lovable.app-1784159397578.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/32c528c1-1008-4d15-892f-7a76676fc3e0/id-preview-fb7bf718--c8f9924b-9de1-43c0-93ff-96920deea995.lovable.app-1784159397578.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
       {
