@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { InstallButton } from "@/components/pwa/install-button";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -103,14 +104,20 @@ function Painel() {
               <h1 className="text-lg font-semibold">Checklist Técnico</h1>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleSignOut}
-            className="bg-white/15 text-white hover:bg-white/25"
-          >
-            <LogOut className="mr-1.5 h-4 w-4" /> Sair
-          </Button>
+          <div className="flex items-center gap-2">
+            <InstallButton
+              variant="secondary"
+              className="bg-white/15 text-white hover:bg-white/25"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleSignOut}
+              className="bg-white/15 text-white hover:bg-white/25"
+            >
+              <LogOut className="mr-1.5 h-4 w-4" /> Sair
+            </Button>
+          </div>
         </div>
       </header>
 
