@@ -135,9 +135,20 @@ function AuthPage() {
           </CardContent>
         </Card>
 
+        <div className="mt-4">
+          <InstallButton
+            variant="secondary"
+            size="lg"
+            fullWidth
+            label="Instalar aplicativo"
+            className="bg-white/95 text-primary hover:bg-white"
+          />
+        </div>
+
         <p className="mt-6 text-center text-xs text-white/80">
           © {new Date().getFullYear()} Webifibra — uso interno
         </p>
+
       </div>
     </div>
   );
