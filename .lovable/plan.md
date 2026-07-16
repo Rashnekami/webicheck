@@ -1,110 +1,92 @@
-
 ## Objetivo
 
-Adicionar ao Webifibra, sem mexer no PDF/assinaturas/RLS/design existentes:
+Transformar o Webifibra em PWA instalável completo em Android e iOS, com:
+- Ícone e splash da marca
+- Abertura em tela cheia (standalone)
+- Funcionamento offline básico (shell do app + navegação)
+- Botão visível de "Instalar app"
 
-1. **PWA instalável** (só ícone/tela inicial, sem offline).
-2. **Baixar imagem PNG** do checklist finalizado (para anexar no Hubsoft pelo celular).
-3. **Link público de validação** `/validar/:token` (sem login), com snapshot imutável, hash, QR Code, revogação/regeneração e registro de acessos.
+Preservando design, autenticação, Cloud, checklists, PDFs e link público.
 
-Nada do que já funciona é reescrito. Reuso o PDF/dados atuais e adiciono uma camada nova.
+## O que já existe
 
-## Entregas por bloco
+- `public/manifest.webmanifest` com `display: standalone`, `start_url: /painel`, ícones 192/512 e `apple-touch-icon`.
+- Tags `manifest`, `apple-touch-icon` e `theme-color` já em `src/routes/__root.tsx`.
+- Nenhum service worker registrado (correto — instalável, mas sem offline e sem prompt visível).
 
-### 1. PWA instalável
-- `public/manifest.webmanifest` (nome Webifibra, cor `#1a53ff`, `display: standalone`, `start_url: "/painel"`).
-- Ícones 192/512 gerados a partir da logo atual.
-- Tags no `__root.tsx` (`manifest`, `apple-touch-icon`, `theme-color` já existe).
-- Nenhum service worker.
+Falta: tags iOS de tela cheia, service worker offline seguro para Lovable, e UI de instalação.
 
-### 2. Banco (uma migration)
-Nova tabela `checklist_document_snapshots`:
-- `id`, `checklist_id → checklists`, `version int`, `public_token_hash text unique`
-- `public_status text` (`active | revoked | replaced`), `snapshot_data jsonb`, `document_hash text`
-- `finalized_at`, `created_at`, `created_by`, `revoked_at`, `revoked_by`, `replaced_by_snapshot_id`
-- `view_count int`, `last_viewed_at`
+## O que vai ser feito
 
-Nova tabela `checklist_public_access_logs`:
-- `id`, `snapshot_id`, `accessed_at`, `event_type` (`view|download_pdf|download_image`), `user_agent_summary`, `ip_hash`, `referer_domain`
+### 1. Metadados iOS/Android e splash
+Editar `src/routes/__root.tsx`:
+- `apple-mobile-web-app-capable: yes`
+- `apple-mobile-web-app-status-bar-style: black-translucent`
+- `apple-mobile-web-app-title: Webifibra`
+- `mobile-web-app-capable: yes`
+- Gerar `public/apple-splash-*.png` (2 tamanhos principais — iPhone retrato) e adicionar `<link rel="apple-touch-startup-image">`.
+- Ajustar manifest: adicionar `id: "/"`, `categories`, `screenshots` opcionais e um ícone `purpose: "maskable"` separado (hoje só um entry combina "any maskable", o que degrada em Android — separar em dois entries).
 
-RLS: SELECT/INSERT/UPDATE só para autenticado (admin gerencia); leitura pública via server function que valida o hash do token. GRANTs incluídos.
+### 2. Service worker offline (via vite-plugin-pwa, seguindo a skill PWA)
+- `bun add -D vite-plugin-pwa`
+- Editar `vite.config.ts` para adicionar `VitePWA` com:
+  - `registerType: "autoUpdate"`
+  - `injectRegister: null`
+  - `devOptions: { enabled: false }`
+  - `strategies: "generateSW"`
+  - `workbox`: navegações `NetworkFirst`, assets hashados `CacheFirst`, exclusão de `/~oauth`, `/api/*`, `/validar/*` (dinâmico, sempre online) e rotas autenticadas de dados.
+  - Filename `/sw.js`.
+- Criar `src/pwa/register-sw.ts` — wrapper único de registro, com todos os guards da skill:
+  - Só registra se `import.meta.env.PROD`
+  - Recusa em iframe, hostnames `id-preview--*`, `preview--*`, `*.lovableproject.com`, `*.lovableproject-dev.com`, `*.beta.lovable.dev`
+  - Kill switch `?sw=off`
+  - Em qualquer contexto recusado: `unregister()` de qualquer SW existente em `/sw.js`
+- Chamar o wrapper uma única vez a partir de `src/start.ts` (client bootstrap).
 
-Trigger: ao finalizar checklist (novo ou já finalizado sem snapshot) → cria versão 1. Ao re-finalizar após edição de admin → cria v2 e marca v1 como `replaced`.
+Fallback offline: página cacheada do shell `/painel` (via NetworkFirst com cache de navegação). Sem tentar sincronizar mutações offline (fora de escopo desta iteração).
 
-### 3. Server functions (`src/lib/public-checklist.functions.ts`)
-- `getPublicChecklist({ token })` — sem auth. Hash SHA-256 do token → busca snapshot ativo/substituído → retorna `snapshot_data`, `status`, `document_hash`, `finalized_at`, `version`. Registra `access_log` via `supabaseAdmin`. Resposta genérica para token inválido.
-- `revokeSnapshot({ snapshotId })` — admin only.
-- `regenerateSnapshotToken({ snapshotId })` — admin only, revoga antigo e cria novo com novo token.
+### 3. Botão "Instalar app" visível
+Criar `src/components/pwa/install-button.tsx`:
+- Escuta `beforeinstallprompt` (Android/Chrome desktop), guarda o evento, mostra botão "Instalar app" no cabeçalho autenticado.
+- Ao clicar: `prompt()` + trata `userChoice`.
+- Detecta iOS Safari (sem `beforeinstallprompt`): abre um dialog com instruções passo a passo ("Toque em Compartilhar → Adicionar à Tela de Início").
+- Esconde quando `display-mode: standalone` (já instalado) ou `navigator.standalone`.
+- Persistência leve em `localStorage` para permitir "lembrar depois" sem sumir para sempre.
 
-Callers autenticados usam `requireSupabaseAuth` + verificação `has_role('admin')`. Público usa client publishable com policy `TO anon` só na função (sem SELECT direto).
+Integração: renderizar o botão no header do layout `_authenticated/route.tsx` (ou onde estiver a barra superior atual), e também um card discreto em `/painel` na primeira visita.
 
-### 4. Componente de documento visual (`ChecklistDocumentView`)
-Componente React HTML/Tailwind que renderiza o checklist finalizado no mesmo layout visual do PDF (cabeçalho azul, seções, checkboxes, assinaturas, QR Code no rodapé). Usado por:
-- Página de detalhe (prévia)
-- Exportação PNG (`html-to-image`)
-- Página pública `/validar/:token`
+### 4. Sinalização de status
+- Toast "Novo app disponível — recarregar" quando o SW detectar update (`autoUpdate` + evento).
+- Badge "Offline" pequeno quando `navigator.onLine === false`.
 
-Um único componente, alimentado por `snapshot_data`. Sem menus/botões dentro.
+### 5. Verificação
+- Build de produção local, checar via Playwright que:
+  - `/manifest.webmanifest` retorna 200 com os campos esperados
+  - `/sw.js` existe apenas no build de produção
+  - Tags iOS presentes no HTML
+  - Botão "Instalar app" aparece após disparar `beforeinstallprompt` simulado
+- Confirmar no ambiente Lovable preview que **nenhum** SW é registrado (guard funcionando).
 
-### 5. Exportação PNG (cliente)
-- `bun add html-to-image qrcode`
-- `src/services/checklist-image-export.ts`: monta um container off-screen (largura fixa 1800px, fundo branco), renderiza `<ChecklistDocumentView />`, aguarda logo/fontes/QR, chama `htmlToPng`, faz download `checklist-webifibra-OS-123456.png` (ou `-CHK-000123.png`).
-- Se altura > 12000px → gera múltiplas páginas numeradas e oferece ZIP (usa `jszip`, já presente ou instalar).
+## Fora de escopo
+- Sincronização offline de mutações (formulários salvos localmente e enviados depois).
+- Push notifications.
+- Empacotamento nativo (Capacitor/TWA) — segue web PWA.
 
-### 6. Link público
-- Nova rota **pública** `src/routes/validar.$token.tsx` (top-level, SSR ok, `head()` com `noindex,nofollow,noarchive`).
-- Chama `getPublicChecklist` via `useSuspenseQuery`.
-- Estados: válido / substituído / revogado / não encontrado — badge visual.
-- Renderiza `<ChecklistDocumentView />`, botões "Baixar PDF", "Baixar imagem", "Copiar link".
-- Não expõe telefone/email/endereço completo por padrão (mostra nome completo conforme sua escolha; oculta telefone/email; endereço só cidade).
-
-### 7. Ações e admin no detalhe (`checklists.$id.tsx`)
-Nova seção "Documentos e comprovação" quando `status = finalizado`:
-- Baixar PDF (mantém atual)
-- Baixar imagem
-- Copiar link público
-- Copiar texto para OS
-- Compartilhar (Web Share API com fallback)
-- Visualizar documento (dialog com `ChecklistDocumentView`)
-- **Admin apenas**: revogar link, gerar novo link, ver contadores de acesso, ver hash e versão
-
-### 8. QR Code
-- `qrcode` no cliente, tamanho 160px, canto inferior do documento.
-- Só renderiza depois do token existir.
-
-## Segurança e detalhes
-
-- Token: `crypto.randomUUID()` + `crypto.getRandomValues` → 32 bytes base64url (256 bits).
-- Armazena apenas `SHA-256(token)` no banco.
-- Hash de integridade: SHA-256 do JSON canônico do snapshot.
-- Página pública: `<meta name="robots" content="noindex,nofollow,noarchive">`.
-- Nunca expõe IDs internos, credenciais, senhas.
-- Rate limit básico (contador em memória por IP na server function) — best-effort.
-
-## Fora de escopo (para não estourar)
-
-- Geração server-side de PNG (você escolheu cliente).
-- Fila offline.
-- Bloqueio de edição pós-finalização (sua escolha foi criar nova versão).
-- Storage de PDF/PNG no servidor (gera sob demanda).
-
-## Migrations & arquivos
+## Arquivos
 
 **Novos:**
-- `public/manifest.webmanifest`, `public/icon-192.png`, `public/icon-512.png`
-- `supabase/migrations/*_snapshots.sql`
-- `src/lib/public-checklist.functions.ts`
-- `src/lib/document-hash.ts`
-- `src/components/checklist/checklist-document-view.tsx`
-- `src/components/checklist/document-actions.tsx`
-- `src/components/checklist/public-link-manager.tsx`
-- `src/services/checklist-image-export.ts`
-- `src/routes/validar.$token.tsx`
+- `src/pwa/register-sw.ts`
+- `src/components/pwa/install-button.tsx`
+- `src/components/pwa/ios-install-dialog.tsx`
+- `public/apple-splash-1170x2532.png`, `public/apple-splash-1290x2796.png` (gerados)
 
 **Editados:**
-- `src/routes/__root.tsx` (manifest link)
-- `src/routes/_authenticated/checklists.$id.tsx` (nova seção)
-- `src/start.ts` (garantir bearer middleware já presente)
-- `package.json` (html-to-image, qrcode, jszip)
+- `public/manifest.webmanifest` (id, ícone maskable separado)
+- `src/routes/__root.tsx` (tags iOS + splash links)
+- `src/routes/_authenticated/route.tsx` (botão no header)
+- `src/routes/_authenticated/painel.tsx` (card de instalação)
+- `src/start.ts` (chamada do register)
+- `vite.config.ts` (VitePWA)
+- `package.json` (vite-plugin-pwa)
 
-Se ok, executo em sequência: (1) manifest+ícones, (2) migration, (3) componente + hash + QR, (4) server functions, (5) rota pública, (6) exportação PNG, (7) integração no detalhe. Vou parar após a migration para você aprovar.
+Se aprovar, executo nessa ordem: manifest+ícones/splash+tags iOS → botão instalar (Android+iOS) → vite-plugin-pwa + wrapper guardado → verificação.

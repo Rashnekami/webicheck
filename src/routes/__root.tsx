@@ -92,6 +92,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { name: "author", content: "Webifibra" },
       { name: "theme-color", content: "#1a53ff" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Webifibra" },
+      { name: "application-name", content: "Webifibra" },
       {
         property: "og:title",
         content: "Checklist Técnico de Campo",
@@ -112,6 +117,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      {
+        rel: "apple-touch-startup-image",
+        href: "/apple-splash-1170x2532.png",
+      },
       {
         rel: "preconnect",
         href: "https://fonts.googleapis.com",
