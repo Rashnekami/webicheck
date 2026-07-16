@@ -2,6 +2,11 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+import { registerAppServiceWorker } from "./pwa/register-sw";
+
+if (typeof window !== "undefined") {
+  registerAppServiceWorker();
+}
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
