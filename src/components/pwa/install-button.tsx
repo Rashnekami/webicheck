@@ -71,9 +71,6 @@ export function InstallButton({
 
   if (installed) return null;
 
-  // iOS: no beforeinstallprompt. Show button that opens instructions.
-  if (!promptEvent && !iosDevice) return null;
-
   async function handleClick() {
     if (promptEvent) {
       await promptEvent.prompt();
@@ -82,8 +79,9 @@ export function InstallButton({
       setPromptEvent(null);
       return;
     }
-    if (iosDevice) setIosOpen(true);
+    setIosOpen(true);
   }
+
 
   return (
     <>
