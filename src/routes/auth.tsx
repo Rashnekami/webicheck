@@ -21,6 +21,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
+import { InstallButton } from "@/components/pwa/install-button";
+
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
