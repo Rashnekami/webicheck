@@ -361,8 +361,8 @@ function ChecklistDetail() {
           <>
             <DocumentActions
               row={{ ...row, ...header, dados: data } as ChecklistRow}
-              tecnicoNome={user?.full_name || user?.email || ""}
-              assinatura={user?.assinatura ?? null}
+              tecnicoNome={tecnicoNome}
+              assinatura={tecnicoAssinatura}
               isAdmin={!!user?.isAdmin}
               onDownloadPdf={handlePdf}
               pdfBusy={pdfBusy}
