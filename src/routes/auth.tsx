@@ -21,6 +21,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
+import { InstallButton } from "@/components/pwa/install-button";
+
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -133,9 +135,20 @@ function AuthPage() {
           </CardContent>
         </Card>
 
+        <div className="mt-4">
+          <InstallButton
+            variant="secondary"
+            size="lg"
+            fullWidth
+            label="Instalar aplicativo"
+            className="bg-white/95 text-primary hover:bg-white"
+          />
+        </div>
+
         <p className="mt-6 text-center text-xs text-white/80">
           © {new Date().getFullYear()} Webifibra — uso interno
         </p>
+
       </div>
     </div>
   );

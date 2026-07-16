@@ -71,9 +71,6 @@ export function InstallButton({
 
   if (installed) return null;
 
-  // iOS: no beforeinstallprompt. Show button that opens instructions.
-  if (!promptEvent && !iosDevice) return null;
-
   async function handleClick() {
     if (promptEvent) {
       await promptEvent.prompt();
@@ -82,8 +79,9 @@ export function InstallButton({
       setPromptEvent(null);
       return;
     }
-    if (iosDevice) setIosOpen(true);
+    setIosOpen(true);
   }
+
 
   return (
     <>
@@ -101,45 +99,52 @@ export function InstallButton({
       <Dialog open={iosOpen} onOpenChange={setIosOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Instalar Webifibra no iPhone</DialogTitle>
+            <DialogTitle>
+              {iosDevice ? "Instalar Webifibra no iPhone" : "Instalar Webifibra"}
+            </DialogTitle>
             <DialogDescription>
-              O Safari não instala apps automaticamente. Siga os passos abaixo:
+              {iosDevice
+                ? "O Safari não instala apps automaticamente. Siga os passos abaixo:"
+                : "Siga os passos abaixo para adicionar o app à tela inicial:"}
             </DialogDescription>
           </DialogHeader>
-          <ol className="space-y-3 text-sm">
-            <li className="flex items-start gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
-                1
-              </span>
-              <p>
-                Toque no botão <strong>Compartilhar</strong>{" "}
-                <Share className="inline h-4 w-4 align-text-bottom" /> na barra inferior do Safari.
-              </p>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
-                2
-              </span>
-              <p>
-                Role até <strong>Adicionar à Tela de Início</strong>{" "}
-                <Plus className="inline h-4 w-4 align-text-bottom" /> e toque.
-              </p>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
-                3
-              </span>
-              <p>
-                Confirme em <strong>Adicionar</strong>. O ícone da Webifibra aparecerá na sua tela
-                inicial.
-              </p>
-            </li>
-          </ol>
+          {iosDevice ? (
+            <ol className="space-y-3 text-sm">
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">1</span>
+                <p>Toque no botão <strong>Compartilhar</strong> <Share className="inline h-4 w-4 align-text-bottom" /> na barra inferior do Safari.</p>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">2</span>
+                <p>Role até <strong>Adicionar à Tela de Início</strong> <Plus className="inline h-4 w-4 align-text-bottom" /> e toque.</p>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">3</span>
+                <p>Confirme em <strong>Adicionar</strong>. O ícone da Webifibra aparecerá na sua tela inicial.</p>
+              </li>
+            </ol>
+          ) : (
+            <ol className="space-y-3 text-sm">
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">1</span>
+                <p>No Chrome, toque no menu <strong>⋮</strong> no canto superior direito.</p>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">2</span>
+                <p>Selecione <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>.</p>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">3</span>
+                <p>Confirme em <strong>Instalar</strong>. O ícone da Webifibra aparecerá na sua tela inicial.</p>
+              </li>
+            </ol>
+          )}
           <DialogFooter>
             <Button onClick={() => setIosOpen(false)}>Entendi</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </>
   );
 }
