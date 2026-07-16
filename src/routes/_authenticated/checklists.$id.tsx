@@ -225,15 +225,15 @@ function ChecklistDetail() {
       if (tipo === "instalacao") {
         await generateInstalacaoPdf({
           row: merged,
-          tecnicoNome: user?.full_name || user?.email || "",
-          assinatura: user?.assinatura ?? null,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
         });
       } else {
         await generateChecklistPdf({
           row: merged,
           fotos: fotosQuery.data ?? [],
-          tecnicoNome: user?.full_name || user?.email || "",
-          assinatura: user?.assinatura ?? null,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
         });
       }
     } catch (e) {
