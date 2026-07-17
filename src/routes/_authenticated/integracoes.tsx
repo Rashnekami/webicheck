@@ -92,15 +92,23 @@ function IntegracoesPage() {
               Gerar
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Endpoints do Agent:
-            <br />
-            <code className="text-[11px]">POST {baseUrl}/api/public/webi-diagnostic/resolve-checklist</code>
-            <br />
-            <code className="text-[11px]">POST {baseUrl}/api/public/webi-diagnostic/upload-report</code>
-            <br />
-            Autenticação: header <code>X-Webi-Integration-Key</code>.
-          </p>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p>Endpoints do Agent (headers: <code>X-Webi-Integration-Key</code>):</p>
+            <p className="font-mono text-[11px]">POST {baseUrl}/api/public/webi-diagnostic/resolve-checklist</p>
+            <p className="font-mono text-[11px]">POST {baseUrl}/api/public/webi-diagnostic/upload-report</p>
+            <p className="pt-1">
+              O Agent deve enviar <code>checklist_code</code> exatamente como o
+              técnico digita (ex: <code>WEBICHECK20260001</code> ou{" "}
+              <code>WEBICHECK20260001-R2</code>). Se o checklist tiver sido
+              substituído, a API responde <code>409 CHECKLIST_SUPERSEDED</code> com{" "}
+              <code>latest_checklist_code</code>.
+            </p>
+            <p>
+              Etapas aceitas em <code>test_stage</code>: <code>before_change</code>,{" "}
+              <code>after_ont_change</code>, <code>noc_retest</code>,{" "}
+              <code>additional_test</code>.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
