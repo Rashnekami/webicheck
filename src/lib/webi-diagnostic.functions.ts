@@ -34,7 +34,7 @@ export interface DiagnosticReportRow {
   report_sequence: number;
   status: "active" | "revoked" | "replaced";
   created_at: string;
-  metadata: Record<string, unknown>;
+  metadata: { [k: string]: JsonVal };
 }
 
 export interface IntegrationTokenRow {
@@ -268,7 +268,7 @@ export interface CaseTimelineItem {
   at: string;
   id: string;
   label: string;
-  meta: Record<string, unknown>;
+  meta: { [k: string]: JsonVal };
 }
 
 export const listCaseTimeline = createServerFn({ method: "POST" })
