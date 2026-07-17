@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { parseChecklistCode } from "@/lib/checklist-code";
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const ALLOWED_STAGES = new Set([
@@ -7,6 +8,11 @@ const ALLOWED_STAGES = new Set([
   "noc_retest",
   "additional_test",
 ]);
+
+function fmtCode(numero_publico: string | null, revision: number): string {
+  if (!numero_publico) return "";
+  return revision > 1 ? `${numero_publico}-R${revision}` : numero_publico;
+}
 
 async function sha256HexOf(bytes: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", bytes);
@@ -65,7 +71,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
 
         const contentType = request.headers.get("content-type") ?? "";
         if (!contentType.startsWith("multipart/form-data"))
-          return json({ error: "expected_multipart_form_data" }, 400);
+          return json({ error: "expected_multipart_form_data" }, 415);
 
         let form: FormData;
         try {
@@ -74,7 +80,8 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           return json({ error: "invalid_multipart" }, 400);
         }
 
-        const checklistId = String(form.get("checklist_id") ?? "").trim();
+        const checklistIdRaw = String(form.get("checklist_id") ?? "").trim();
+        const checklistCodeRaw = String(form.get("checklist_code") ?? "").trim();
         const sessionId = String(form.get("diagnostic_session_id") ?? "").trim();
         const stage = String(form.get("test_stage") ?? "").trim();
         const claimedHash = String(form.get("sha256") ?? "")
@@ -84,7 +91,8 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
         const generatedAt = String(form.get("generated_at") ?? "").trim() || null;
         const fileEntry = form.get("file");
 
-        if (!checklistId) return json({ error: "missing_checklist_id" }, 400);
+        if (!checklistIdRaw && !checklistCodeRaw)
+          return json({ error: "missing_checklist_identifier" }, 400);
         if (!sessionId) return json({ error: "missing_diagnostic_session_id" }, 400);
         if (!ALLOWED_STAGES.has(stage))
           return json({ error: "invalid_test_stage" }, 400);
@@ -94,11 +102,13 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           return json({ error: "file_too_large", max_bytes: MAX_BYTES }, 413);
         if (fileEntry.size < 8)
           return json({ error: "file_too_small" }, 400);
+        if (fileEntry.type && fileEntry.type !== "application/pdf")
+          return json({ error: "unsupported_media_type" }, 415);
 
         const buf = await fileEntry.arrayBuffer();
         const head = new Uint8Array(buf.slice(0, 5));
         const magic = String.fromCharCode(...head);
-        if (magic !== "%PDF-") return json({ error: "not_a_pdf" }, 400);
+        if (magic !== "%PDF-") return json({ error: "not_a_pdf" }, 415);
 
         const realHash = await sha256HexOf(buf);
         if (claimedHash && claimedHash !== realHash)
@@ -106,6 +116,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             { error: "hash_mismatch", expected: realHash, got: claimedHash },
             400,
           );
+
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -122,16 +133,70 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
         if (!checkRate(token.id))
           return json({ error: "rate_limited" }, 429);
 
-        // Autoriza: checklist deve pertencer ao user do token OU user ser admin.
-        // E deve ser a versão atual (is_current=true).
-        const { data: chk } = await supabaseAdmin
-          .from("checklists")
-          .select("id, case_id, tecnico_id, is_current, status")
-          .eq("id", checklistId)
-          .maybeSingle();
+        // Resolve o checklist pelo id direto ou pelo checklist_code (com -Rn).
+        // Auto-corrige envios que citam a base sem -Rn (usa a revisão atual).
+        type ChecklistRowMini = {
+          id: string;
+          case_id: string;
+          tecnico_id: string;
+          is_current: boolean;
+          status: string;
+          numero_publico: string | null;
+          codigo_validacao: string | null;
+          revision_number: number;
+        };
+        let chk: ChecklistRowMini | null = null;
+
+        if (checklistIdRaw) {
+          const { data } = await supabaseAdmin
+            .from("checklists")
+            .select(
+              "id, case_id, tecnico_id, is_current, status, numero_publico, codigo_validacao, revision_number",
+            )
+            .eq("id", checklistIdRaw)
+            .maybeSingle();
+          chk = (data as unknown as ChecklistRowMini | null) ?? null;
+        } else {
+          const p = parseChecklistCode(checklistCodeRaw);
+          if (!p.base)
+            return json({ error: "invalid_checklist_code" }, 400);
+          const col = p.kind === "codigo_validacao" ? "codigo_validacao" : "numero_publico";
+          let q = supabaseAdmin
+            .from("checklists")
+            .select(
+              "id, case_id, tecnico_id, is_current, status, numero_publico, codigo_validacao, revision_number",
+            )
+            .eq(col, p.base);
+          if (p.revision != null) q = q.eq("revision_number", p.revision);
+          else q = q.eq("is_current", true);
+          const { data } = await q.limit(1).maybeSingle();
+          chk = (data as unknown as ChecklistRowMini | null) ?? null;
+        }
+
+
         if (!chk) return json({ error: "checklist_not_found" }, 404);
-        if (!chk.is_current)
-          return json({ error: "checklist_not_current_version" }, 409);
+        if (chk.status !== "finalizado")
+          return json({ error: "checklist_not_finalized" }, 409);
+        if (!chk.is_current) {
+          // Redireciona para a revisão atual do case
+          const { data: current } = await supabaseAdmin
+            .from("checklists")
+            .select("numero_publico, revision_number")
+            .eq("case_id", chk.case_id)
+            .eq("is_current", true)
+            .maybeSingle();
+          return json(
+            {
+              error: "CHECKLIST_SUPERSEDED",
+              message: "Envie o diagnóstico para a versão atual.",
+              latest_checklist_code: current
+                ? fmtCode(current.numero_publico, current.revision_number)
+                : null,
+            },
+            409,
+          );
+        }
+
 
         if (chk.tecnico_id !== token.user_id) {
           const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
@@ -214,6 +279,13 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             created_at: inserted.created_at,
             sha256: realHash,
             report_sequence: nextSeq,
+            test_stage: stage,
+          },
+          checklist: {
+            id: chk.id,
+            case_id: chk.case_id,
+            checklist_code: fmtCode(chk.numero_publico, chk.revision_number),
+            revision_number: chk.revision_number,
           },
         });
       },

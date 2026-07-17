@@ -1,67 +1,68 @@
-# Integração WebiCheck ↔ Webi Diagnostic + Revisões
 
-Escopo grande. Vou entregar em 4 fases para você validar entre elas, tudo sobre o projeto atual (sem recriar nada, sem tocar visual/PDF existentes).
+## O que já está pronto
 
-## Fase 1 — Banco (migrations, sem quebrar dados)
+**Banco / storage**
+- `checklists` com `case_id`, `parent_checklist_id`, `revision_number`, `revision_reason`, `service_stage`, `is_current`, `superseded_by_checklist_id`, `revised_at`, `revised_by` (com backfill dos existentes).
+- `checklist_diagnostic_reports` com todos os campos do spec, índices e status active/revoked/replaced.
+- `webi_integration_tokens` com hash SHA-256, prefix, scopes, revogação e último uso.
+- Bucket privado `webi-diagnostic-reports` com path `{case_id}/{checklist_id}/{report_id}.pdf` e policy de INSERT restrita ao dono do case ou admin.
 
-**Alterações em `checklists`:**
-- `case_id UUID`, `parent_checklist_id UUID`, `revision_number INT default 1`, `revision_reason TEXT`, `revision_notes TEXT`, `service_stage TEXT default 'initial'`, `is_current BOOLEAN default true`, `superseded_by_checklist_id UUID`, `revised_at TIMESTAMPTZ`, `revised_by UUID`.
-- Backfill: `case_id = id`, `revision_number = 1`, `service_stage = 'initial'`, `is_current = true` para linhas existentes.
-- Índice único parcial: só 1 `is_current = true` por `case_id`.
-- CHECK em `service_stage` (initial | pre_change | post_ont_change | noc_retest | additional_test).
+**Backend**
+- Server functions: `createChecklistRevision`, listagem de diagnósticos, timeline consolidada, URL assinada de download.
+- Endpoints públicos TanStack `/api/public/webi-diagnostic/resolve-checklist` e `/upload-report` com validação de token, magic bytes `%PDF-`, SHA-256 no servidor, limite de tamanho, rate limit 30/min por token, bloqueio de duplicidade, exigência de `is_current=true`, verificação de dono/admin.
+- Fluxo do Agent testado end-to-end (resolve, upload OK, duplicidade, token inválido). Token de sandbox revogado.
 
-**Nova tabela `checklist_diagnostic_reports`** com todos os campos pedidos, índices, UNIQUE(`case_id`, `diagnostic_session_id`) impedindo dupla anexação. RLS: técnico dono ou admin. GRANTs padrão.
+**Frontend**
+- `/integracoes` para gerar/copiar/revogar chave (mostrada só uma vez).
+- Painel de revisões no checklist (`case-revisions-panel`) com modal de motivo, criação de rascunho, timeline, lista de diagnósticos e botão "Dossiê PDF" mesclando via `pdf-lib`.
+- `buildChecklistPdfBlob` / `buildInstalacaoPdfBlob` retornando Blob sem forçar download.
+- Snapshot imutável (`checklist_document_snapshots`) + link público `/validar/:token` + QR + exportação PNG mantidos.
 
-**Nova tabela `webi_integration_tokens`**: hash SHA-256, prefix visível, escopos, revogação. RLS: usuário dono / admin.
+## O que ainda falta para bater 100% com o spec
 
-**Storage:** bucket privado `webi-diagnostic-reports` via tool (não SQL). Path `{case_id}/{checklist_id}/{report_id}.pdf`. Policies para técnico dono + admin + service_role.
+### 1. Compatibilidade do endpoint com o spec do Agent
+- O spec exige body `{ "checklist_code": "WEBICHECK...-R2" }` aceitando `numero_publico`, `codigo_validacao` e códigos com sufixo `-Rn`; hoje o endpoint só aceita `{ numero_publico | codigo_validacao | case_id }`. Adicionar parser de `checklist_code` (trim, uppercase, split `-R<n>`), resolver a revisão correspondente e:
+  - Se o código apontar para revisão antiga com versão mais nova disponível, devolver HTTP 409 `CHECKLIST_SUPERSEDED` com `latest_checklist_code`.
+  - Retornar `default_test_stage` derivado de `service_stage` e `diagnostic_count`.
+- `upload-report`: aceitar `checklist_code` além de `checklist_id`; devolver `checklist_code` (com `-Rn`) e `revision_number` no payload de resposta.
+- Mapear códigos de erro do spec (401/403/404/409/413/415/500) — hoje alguns usam 400.
 
-## Fase 2 — Backend
+### 2. Identificação visual da revisão
+- Exibir "WEBICHECK...-R{n}" em listagens, detalhe, PDFs e no snapshot.
+- Badge "Versão atual" / "Substituída por revisão mais recente" no detalhe do checklist e na página `/validar/:token`; hoje o aviso de supersede existe só dentro do painel autenticado.
+- Página pública deve ler `is_current`/`superseded_by_checklist_id` e mostrar banner + botão "Abrir versão mais recente" para o link antigo.
 
-**Edge function `webi-diagnostic`** (mantida como única edge function nova; o restante do app usa `createServerFn`. Justificativa: chamada externa de app desktop precisa de URL estável e header customizado, e o WebiCheck já usa edge functions previamente).
-Correção: usar TanStack **server route público** em `src/routes/api/public/webi-diagnostic/{resolve-checklist,upload-report}.ts` — sem CORS de navegador (é agente desktop), auth via header `X-Webi-Integration-Key`, valida hash do token contra `webi_integration_tokens`, atualiza `last_used_at`.
+### 3. Seção "Diagnósticos Webi Diagnostic" formal no checklist
+- Componente dedicado agrupado por etapa (Antes/Depois/NOC/Adicional) com sessão, versão do Agent, datas, tamanho, início do SHA-256, status, download por URL assinada e botão "Revogar" (admin).
+- Timeline visual do atendimento (hoje só existe como dados na server function).
 
-Endpoints exatamente como especificado (resolve-checklist / upload-report), com todos os validators (PDF mágico `%PDF-`, MIME, SHA-256 recalculado, tamanho, duplicidade, rate limit em memória por token, sanitização de nome).
+### 4. Botões de PDF pedidos
+- "Baixar somente esta versão do checklist" (existe como PDF simples).
+- "Baixar PDF completo desta versão" = checklist + fotos + diagnósticos da revisão (parcial: dossiê atual junta tudo do case).
+- "Baixar dossiê completo do atendimento" já existe; padronizar rótulo e adicionar capa com número do atendimento + timeline como páginas.
 
-**Server functions internas:**
-- `createChecklistRevision({ checklistId, reason, stage, notes })` — copia campos permitidos, seta `parent_checklist_id`, incrementa `revision_number`, marca anterior como `is_current=false` + `superseded_by`, começa como rascunho.
-- `listDiagnosticReports`, `getDiagnosticDownloadUrl`, `revokeDiagnosticReport`.
-- `listCaseTimeline({ caseId })` — retorna revisões + diagnósticos + eventos em ordem cronológica.
-- `listIntegrationTokens`, `createIntegrationToken`, `revokeIntegrationToken`.
+### 5. Snapshots + auditoria por diagnóstico
+- Ao vincular/revogar diagnóstico, gerar nova versão em `checklist_document_snapshots` incluindo `report_id`, `session_id`, etapa, sha, tamanho, versão do Agent, datas; marcar snapshot anterior como `replaced` em vez de sobrescrever.
 
-**Snapshot público** existente (`ensureChecklistSnapshot`) passa a incluir os diagnósticos anexados no payload documental; snapshot antigo vira `replaced` (comportamento atual preservado). Página `/validar/:token` mostra aviso "Existe versão mais recente" quando `superseded_by_checklist_id` estiver setado, com botão para abrir o link mais novo.
+### 6. Revogação de relatório
+- UI + server function para admin marcar `status=revoked` (com `revoked_at`/`revoked_by`), removendo o PDF do dossiê corrente mas mantendo o registro. Não excluir do storage.
 
-## Fase 3 — Frontend
+### 7. Dashboards agrupam por atendimento
+- Ajustar contagens em `dashboard-analytics.ts` para deduplicar por `case_id` (hoje conta cada revisão).
 
-**Novas telas / componentes:**
-- `Configurações → Integrações → Webi Diagnostic` (`/_authenticated/integracoes.tsx`): gerar / listar / revogar tokens. Token completo mostrado uma única vez em modal com botão copiar.
-- Em `checklists.$id.tsx`, quando `status === 'finalizado'`:
-  - Botão **"Criar revisão / registrar pós-troca"** com modal (motivo + observação + etapa).
-  - Seção **"Diagnósticos Webi Diagnostic"** agrupada por etapa, com metadados, download (URL assinada), revogar (admin).
-  - **Linha do tempo** do atendimento (todas as revisões do `case_id` + diagnósticos).
-  - Novos botões de PDF: *baixar esta versão*, *PDF completo desta versão* (checklist + fotos + diagnósticos via pdf-lib), *dossiê do atendimento* (todas as revisões em ordem).
-  - Ao carregar uma revisão não-atual, banner "Versão anterior — abrir versão atual".
+### 8. Testes automatizados
+- Nada existe em `src/**/__tests__` para a integração. Cobrir os 22 cenários listados no spec (chave válida/ inválida, checklist inexistente/rascunho, técnico de outro checklist, PDF inválido, arquivo grande, hash divergente, upload OK, duplicidade, criação de revisão, preservação da anterior, uma única atual, bloqueio em versão antiga, upload pós-troca, múltiplos retestes, timeline, URL assinada, merge de PDFs preservando páginas, revogação sem exclusão, link antigo → atual, dashboard sem duplicar).
 
-**PDF refactor:** `generateChecklistPdf` e `generateInstalacaoPdf` ganham modo `returnBlob: true` (não dispara download). Combinação via `pdf-lib` (`bun add pdf-lib`) preservando páginas nativas dos PDFs do Diagnostic.
+### 9. Divergência arquitetural documentada
+- Spec pede Supabase Edge Function `webi-diagnostic`; o projeto usa TanStack server routes (padrão da stack). Manter TanStack e documentar a URL real (`https://webicheck.lovable.app/api/public/webi-diagnostic/...`) na tela de Integrações e no README do Agent.
 
-**Listagem / dashboard:** agrupar por `case_id` para métricas (uma visita por atendimento, não por revisão). Cada linha da lista mostra badge da versão atual (`-R2` etc.).
+## Sequência sugerida (quando você aprovar)
 
-**Página pública `/validar/:token`** ganha aviso + botão quando substituída, e passa a mostrar seção de diagnósticos + linha do tempo.
-
-## Fase 4 — Testes e entrega
-
-Testes com `bunx vitest run` cobrindo os cenários listados (token válido/inválido, PDF inválido, hash divergente, duplicidade, revisão preservando anterior, único `is_current`, bloqueio de upload em versão antiga, timeline, combinação de PDFs preservando páginas).
-
-**Entrega:**
-- Lista de migrations, arquivos criados/alterados.
-- URLs dos endpoints: `https://webicheck.lovable.app/api/public/webi-diagnostic/resolve-checklist` e `.../upload-report`.
-- Exemplos de request/response.
-- Variáveis de ambiente (nenhuma nova pública; token é dado pelo próprio app).
-- Nenhum segredo no frontend, nenhum SUPABASE_SERVICE_ROLE_KEY exposto.
-
-## Ajustes que preciso confirmar
-
-1. **Endpoints como TanStack server routes públicos** em `/api/public/webi-diagnostic/*` em vez de nova Supabase Edge Function — é o padrão desta stack e evita criar edge function nova. Funciona igual para o app desktop (mesma URL estável `webicheck.lovable.app`). OK?
-2. **Rate limit**: sem infra de rate limit nativa; posso implementar contador em memória por instância (best-effort) ou pular. OK best-effort?
-3. **`pdf-lib`** como dependência nova para combinar PDFs. OK?
-4. Posso executar as **4 fases seguidas sem parar** ou prefere validar entre cada uma?
+1. Endpoints: parse de `checklist_code`, resposta com `-Rn`, 409 `CHECKLIST_SUPERSEDED`, tabela de códigos HTTP.
+2. Link público: banner + botão "Abrir versão mais recente" quando `is_current=false`.
+3. Componente "Diagnósticos" no detalhe do checklist (agrupado por etapa) + timeline visual + revogar.
+4. Numeração `-Rn` visível em listagens, PDFs, snapshot.
+5. Snapshots por diagnóstico (nova versão + `replaced`).
+6. Dashboard por `case_id`.
+7. Testes automatizados dos 22 cenários (Vitest).
+8. Documentar variáveis (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) e URLs finais na tela de Integrações.

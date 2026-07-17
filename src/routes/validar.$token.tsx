@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, Loader2, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Copy, Download, Loader2, ShieldCheck, ShieldAlert, ShieldX, ArrowRight } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { getPublicChecklist } from "@/lib/public-checklist.functions";
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
@@ -112,6 +113,26 @@ function ValidarPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-3 py-4">
+        {data.latest_public_token ? (
+          <div className="mb-3 flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Existe uma versão mais recente deste checklist.</p>
+              {data.latest_checklist_code ? (
+                <p className="text-xs opacity-80">
+                  Versão atual: <b>{data.latest_checklist_code}</b>
+                </p>
+              ) : null}
+            </div>
+            <Link
+              to="/validar/$token"
+              params={{ token: data.latest_public_token }}
+              className="inline-flex items-center gap-1 self-start rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 sm:self-auto"
+            >
+              Abrir versão mais recente <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        ) : null}
+
         <div className="mb-3 flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={copyLink}>
             <Copy className="mr-1.5 h-4 w-4" /> Copiar link
@@ -125,6 +146,7 @@ function ValidarPage() {
             Baixar imagem
           </Button>
         </div>
+
 
         <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
           <ChecklistDocumentView

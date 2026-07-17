@@ -38,6 +38,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { TIPO_LABEL, type TipoChecklist } from "@/lib/checklist-schema";
+import { formatChecklistCode } from "@/lib/checklist-code";
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
   head: () => ({
@@ -82,6 +83,8 @@ function ChecklistsList() {
   });
 
   const items = (query.data ?? []).filter((c) => {
+    // Esconde revisões antigas (is_current=false) da listagem principal.
+    if ((c as any).is_current === false) return false;
     if (tab !== "todos" && c.status !== tab) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
@@ -217,7 +220,11 @@ function ChecklistsList() {
                           </p>
                           <p className="mt-1 text-xs font-medium text-primary">
                             {c.status === "finalizado"
-                              ? c.numero_publico || c.codigo_validacao || ""
+                              ? formatChecklistCode({
+                                  numero_publico: c.numero_publico,
+                                  codigo_validacao: c.codigo_validacao,
+                                  revision_number: (c as any).revision_number,
+                                }) || ""
                               : `Atualizado em ${new Date(
                                   c.updated_at,
                                 ).toLocaleString("pt-BR")}`}
