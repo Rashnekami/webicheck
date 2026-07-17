@@ -269,6 +269,9 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
       document_hash: null,
       short_hash: null,
       payload: null,
+      latest_public_token: null,
+      latest_checklist_code: null,
+      latest_revision_number: null,
     };
 
     const token = (data.token ?? "").trim();
