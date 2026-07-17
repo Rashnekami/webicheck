@@ -186,6 +186,26 @@ function Painel() {
           </Link>
         )}
 
+        <Link to="/integracoes" className="block">
+          <Card className="transition hover:border-primary/50 hover:shadow-md">
+            <CardContent className="flex items-center justify-between gap-3 p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/10 p-2 text-primary">
+                  <PenLine className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-foreground">Integrações</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Chaves para o Webi Diagnostic Agent enviar os PDFs
+                    diretamente para o checklist.
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+
         <Card>
           <CardContent className="p-5 space-y-3">
             <div className="flex items-start justify-between gap-3">

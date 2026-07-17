@@ -1,92 +1,67 @@
-## Objetivo
+# Integração WebiCheck ↔ Webi Diagnostic + Revisões
 
-Transformar o Webifibra em PWA instalável completo em Android e iOS, com:
-- Ícone e splash da marca
-- Abertura em tela cheia (standalone)
-- Funcionamento offline básico (shell do app + navegação)
-- Botão visível de "Instalar app"
+Escopo grande. Vou entregar em 4 fases para você validar entre elas, tudo sobre o projeto atual (sem recriar nada, sem tocar visual/PDF existentes).
 
-Preservando design, autenticação, Cloud, checklists, PDFs e link público.
+## Fase 1 — Banco (migrations, sem quebrar dados)
 
-## O que já existe
+**Alterações em `checklists`:**
+- `case_id UUID`, `parent_checklist_id UUID`, `revision_number INT default 1`, `revision_reason TEXT`, `revision_notes TEXT`, `service_stage TEXT default 'initial'`, `is_current BOOLEAN default true`, `superseded_by_checklist_id UUID`, `revised_at TIMESTAMPTZ`, `revised_by UUID`.
+- Backfill: `case_id = id`, `revision_number = 1`, `service_stage = 'initial'`, `is_current = true` para linhas existentes.
+- Índice único parcial: só 1 `is_current = true` por `case_id`.
+- CHECK em `service_stage` (initial | pre_change | post_ont_change | noc_retest | additional_test).
 
-- `public/manifest.webmanifest` com `display: standalone`, `start_url: /painel`, ícones 192/512 e `apple-touch-icon`.
-- Tags `manifest`, `apple-touch-icon` e `theme-color` já em `src/routes/__root.tsx`.
-- Nenhum service worker registrado (correto — instalável, mas sem offline e sem prompt visível).
+**Nova tabela `checklist_diagnostic_reports`** com todos os campos pedidos, índices, UNIQUE(`case_id`, `diagnostic_session_id`) impedindo dupla anexação. RLS: técnico dono ou admin. GRANTs padrão.
 
-Falta: tags iOS de tela cheia, service worker offline seguro para Lovable, e UI de instalação.
+**Nova tabela `webi_integration_tokens`**: hash SHA-256, prefix visível, escopos, revogação. RLS: usuário dono / admin.
 
-## O que vai ser feito
+**Storage:** bucket privado `webi-diagnostic-reports` via tool (não SQL). Path `{case_id}/{checklist_id}/{report_id}.pdf`. Policies para técnico dono + admin + service_role.
 
-### 1. Metadados iOS/Android e splash
-Editar `src/routes/__root.tsx`:
-- `apple-mobile-web-app-capable: yes`
-- `apple-mobile-web-app-status-bar-style: black-translucent`
-- `apple-mobile-web-app-title: Webifibra`
-- `mobile-web-app-capable: yes`
-- Gerar `public/apple-splash-*.png` (2 tamanhos principais — iPhone retrato) e adicionar `<link rel="apple-touch-startup-image">`.
-- Ajustar manifest: adicionar `id: "/"`, `categories`, `screenshots` opcionais e um ícone `purpose: "maskable"` separado (hoje só um entry combina "any maskable", o que degrada em Android — separar em dois entries).
+## Fase 2 — Backend
 
-### 2. Service worker offline (via vite-plugin-pwa, seguindo a skill PWA)
-- `bun add -D vite-plugin-pwa`
-- Editar `vite.config.ts` para adicionar `VitePWA` com:
-  - `registerType: "autoUpdate"`
-  - `injectRegister: null`
-  - `devOptions: { enabled: false }`
-  - `strategies: "generateSW"`
-  - `workbox`: navegações `NetworkFirst`, assets hashados `CacheFirst`, exclusão de `/~oauth`, `/api/*`, `/validar/*` (dinâmico, sempre online) e rotas autenticadas de dados.
-  - Filename `/sw.js`.
-- Criar `src/pwa/register-sw.ts` — wrapper único de registro, com todos os guards da skill:
-  - Só registra se `import.meta.env.PROD`
-  - Recusa em iframe, hostnames `id-preview--*`, `preview--*`, `*.lovableproject.com`, `*.lovableproject-dev.com`, `*.beta.lovable.dev`
-  - Kill switch `?sw=off`
-  - Em qualquer contexto recusado: `unregister()` de qualquer SW existente em `/sw.js`
-- Chamar o wrapper uma única vez a partir de `src/start.ts` (client bootstrap).
+**Edge function `webi-diagnostic`** (mantida como única edge function nova; o restante do app usa `createServerFn`. Justificativa: chamada externa de app desktop precisa de URL estável e header customizado, e o WebiCheck já usa edge functions previamente).
+Correção: usar TanStack **server route público** em `src/routes/api/public/webi-diagnostic/{resolve-checklist,upload-report}.ts` — sem CORS de navegador (é agente desktop), auth via header `X-Webi-Integration-Key`, valida hash do token contra `webi_integration_tokens`, atualiza `last_used_at`.
 
-Fallback offline: página cacheada do shell `/painel` (via NetworkFirst com cache de navegação). Sem tentar sincronizar mutações offline (fora de escopo desta iteração).
+Endpoints exatamente como especificado (resolve-checklist / upload-report), com todos os validators (PDF mágico `%PDF-`, MIME, SHA-256 recalculado, tamanho, duplicidade, rate limit em memória por token, sanitização de nome).
 
-### 3. Botão "Instalar app" visível
-Criar `src/components/pwa/install-button.tsx`:
-- Escuta `beforeinstallprompt` (Android/Chrome desktop), guarda o evento, mostra botão "Instalar app" no cabeçalho autenticado.
-- Ao clicar: `prompt()` + trata `userChoice`.
-- Detecta iOS Safari (sem `beforeinstallprompt`): abre um dialog com instruções passo a passo ("Toque em Compartilhar → Adicionar à Tela de Início").
-- Esconde quando `display-mode: standalone` (já instalado) ou `navigator.standalone`.
-- Persistência leve em `localStorage` para permitir "lembrar depois" sem sumir para sempre.
+**Server functions internas:**
+- `createChecklistRevision({ checklistId, reason, stage, notes })` — copia campos permitidos, seta `parent_checklist_id`, incrementa `revision_number`, marca anterior como `is_current=false` + `superseded_by`, começa como rascunho.
+- `listDiagnosticReports`, `getDiagnosticDownloadUrl`, `revokeDiagnosticReport`.
+- `listCaseTimeline({ caseId })` — retorna revisões + diagnósticos + eventos em ordem cronológica.
+- `listIntegrationTokens`, `createIntegrationToken`, `revokeIntegrationToken`.
 
-Integração: renderizar o botão no header do layout `_authenticated/route.tsx` (ou onde estiver a barra superior atual), e também um card discreto em `/painel` na primeira visita.
+**Snapshot público** existente (`ensureChecklistSnapshot`) passa a incluir os diagnósticos anexados no payload documental; snapshot antigo vira `replaced` (comportamento atual preservado). Página `/validar/:token` mostra aviso "Existe versão mais recente" quando `superseded_by_checklist_id` estiver setado, com botão para abrir o link mais novo.
 
-### 4. Sinalização de status
-- Toast "Novo app disponível — recarregar" quando o SW detectar update (`autoUpdate` + evento).
-- Badge "Offline" pequeno quando `navigator.onLine === false`.
+## Fase 3 — Frontend
 
-### 5. Verificação
-- Build de produção local, checar via Playwright que:
-  - `/manifest.webmanifest` retorna 200 com os campos esperados
-  - `/sw.js` existe apenas no build de produção
-  - Tags iOS presentes no HTML
-  - Botão "Instalar app" aparece após disparar `beforeinstallprompt` simulado
-- Confirmar no ambiente Lovable preview que **nenhum** SW é registrado (guard funcionando).
+**Novas telas / componentes:**
+- `Configurações → Integrações → Webi Diagnostic` (`/_authenticated/integracoes.tsx`): gerar / listar / revogar tokens. Token completo mostrado uma única vez em modal com botão copiar.
+- Em `checklists.$id.tsx`, quando `status === 'finalizado'`:
+  - Botão **"Criar revisão / registrar pós-troca"** com modal (motivo + observação + etapa).
+  - Seção **"Diagnósticos Webi Diagnostic"** agrupada por etapa, com metadados, download (URL assinada), revogar (admin).
+  - **Linha do tempo** do atendimento (todas as revisões do `case_id` + diagnósticos).
+  - Novos botões de PDF: *baixar esta versão*, *PDF completo desta versão* (checklist + fotos + diagnósticos via pdf-lib), *dossiê do atendimento* (todas as revisões em ordem).
+  - Ao carregar uma revisão não-atual, banner "Versão anterior — abrir versão atual".
 
-## Fora de escopo
-- Sincronização offline de mutações (formulários salvos localmente e enviados depois).
-- Push notifications.
-- Empacotamento nativo (Capacitor/TWA) — segue web PWA.
+**PDF refactor:** `generateChecklistPdf` e `generateInstalacaoPdf` ganham modo `returnBlob: true` (não dispara download). Combinação via `pdf-lib` (`bun add pdf-lib`) preservando páginas nativas dos PDFs do Diagnostic.
 
-## Arquivos
+**Listagem / dashboard:** agrupar por `case_id` para métricas (uma visita por atendimento, não por revisão). Cada linha da lista mostra badge da versão atual (`-R2` etc.).
 
-**Novos:**
-- `src/pwa/register-sw.ts`
-- `src/components/pwa/install-button.tsx`
-- `src/components/pwa/ios-install-dialog.tsx`
-- `public/apple-splash-1170x2532.png`, `public/apple-splash-1290x2796.png` (gerados)
+**Página pública `/validar/:token`** ganha aviso + botão quando substituída, e passa a mostrar seção de diagnósticos + linha do tempo.
 
-**Editados:**
-- `public/manifest.webmanifest` (id, ícone maskable separado)
-- `src/routes/__root.tsx` (tags iOS + splash links)
-- `src/routes/_authenticated/route.tsx` (botão no header)
-- `src/routes/_authenticated/painel.tsx` (card de instalação)
-- `src/start.ts` (chamada do register)
-- `vite.config.ts` (VitePWA)
-- `package.json` (vite-plugin-pwa)
+## Fase 4 — Testes e entrega
 
-Se aprovar, executo nessa ordem: manifest+ícones/splash+tags iOS → botão instalar (Android+iOS) → vite-plugin-pwa + wrapper guardado → verificação.
+Testes com `bunx vitest run` cobrindo os cenários listados (token válido/inválido, PDF inválido, hash divergente, duplicidade, revisão preservando anterior, único `is_current`, bloqueio de upload em versão antiga, timeline, combinação de PDFs preservando páginas).
+
+**Entrega:**
+- Lista de migrations, arquivos criados/alterados.
+- URLs dos endpoints: `https://webicheck.lovable.app/api/public/webi-diagnostic/resolve-checklist` e `.../upload-report`.
+- Exemplos de request/response.
+- Variáveis de ambiente (nenhuma nova pública; token é dado pelo próprio app).
+- Nenhum segredo no frontend, nenhum SUPABASE_SERVICE_ROLE_KEY exposto.
+
+## Ajustes que preciso confirmar
+
+1. **Endpoints como TanStack server routes públicos** em `/api/public/webi-diagnostic/*` em vez de nova Supabase Edge Function — é o padrão desta stack e evita criar edge function nova. Funciona igual para o app desktop (mesma URL estável `webicheck.lovable.app`). OK?
+2. **Rate limit**: sem infra de rate limit nativa; posso implementar contador em memória por instância (best-effort) ou pular. OK best-effort?
+3. **`pdf-lib`** como dependência nova para combinar PDFs. OK?
+4. Posso executar as **4 fases seguidas sem parar** ou prefere validar entre cada uma?

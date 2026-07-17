@@ -14,6 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      checklist_diagnostic_reports: {
+        Row: {
+          agent_version: string | null
+          case_id: string
+          checklist_id: string
+          created_at: string
+          diagnostic_session_id: string
+          generated_at: string | null
+          id: string
+          metadata: Json
+          mime_type: string
+          original_filename: string
+          report_sequence: number
+          revoked_at: string | null
+          revoked_by: string | null
+          sha256: string
+          size_bytes: number
+          status: string
+          storage_path: string
+          supersedes_report_id: string | null
+          test_stage: string
+          uploaded_by: string
+        }
+        Insert: {
+          agent_version?: string | null
+          case_id: string
+          checklist_id: string
+          created_at?: string
+          diagnostic_session_id: string
+          generated_at?: string | null
+          id?: string
+          metadata?: Json
+          mime_type: string
+          original_filename: string
+          report_sequence?: number
+          revoked_at?: string | null
+          revoked_by?: string | null
+          sha256: string
+          size_bytes: number
+          status?: string
+          storage_path: string
+          supersedes_report_id?: string | null
+          test_stage: string
+          uploaded_by: string
+        }
+        Update: {
+          agent_version?: string | null
+          case_id?: string
+          checklist_id?: string
+          created_at?: string
+          diagnostic_session_id?: string
+          generated_at?: string | null
+          id?: string
+          metadata?: Json
+          mime_type?: string
+          original_filename?: string
+          report_sequence?: number
+          revoked_at?: string | null
+          revoked_by?: string | null
+          sha256?: string
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          supersedes_report_id?: string | null
+          test_stage?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_diagnostic_reports_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_diagnostic_reports_supersedes_report_id_fkey"
+            columns: ["supersedes_report_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_diagnostic_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_document_snapshots: {
         Row: {
           checklist_id: string
@@ -161,6 +245,7 @@ export type Database = {
       }
       checklists: {
         Row: {
+          case_id: string
           cidade: string | null
           cliente: string | null
           codigo_validacao: string | null
@@ -172,22 +257,32 @@ export type Database = {
           finalizado_em: string | null
           hora_atendimento: string | null
           id: string
+          is_current: boolean
           modelo: string | null
           modelo_ont_instalada: string | null
           modelo_ont_retirada: string | null
           numero_publico: string | null
           os: string | null
+          parent_checklist_id: string | null
           plano: string | null
+          revised_at: string | null
+          revised_by: string | null
+          revision_notes: string | null
+          revision_number: number
+          revision_reason: string | null
           serial: string | null
           serial_ont_instalada: string | null
           serial_ont_retirada: string | null
+          service_stage: string
           status: Database["public"]["Enums"]["checklist_status"]
+          superseded_by_checklist_id: string | null
           tecnico_id: string
           tipo: Database["public"]["Enums"]["checklist_tipo"]
           troca_realizada: boolean | null
           updated_at: string
         }
         Insert: {
+          case_id: string
           cidade?: string | null
           cliente?: string | null
           codigo_validacao?: string | null
@@ -199,22 +294,32 @@ export type Database = {
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
+          is_current?: boolean
           modelo?: string | null
           modelo_ont_instalada?: string | null
           modelo_ont_retirada?: string | null
           numero_publico?: string | null
           os?: string | null
+          parent_checklist_id?: string | null
           plano?: string | null
+          revised_at?: string | null
+          revised_by?: string | null
+          revision_notes?: string | null
+          revision_number?: number
+          revision_reason?: string | null
           serial?: string | null
           serial_ont_instalada?: string | null
           serial_ont_retirada?: string | null
+          service_stage?: string
           status?: Database["public"]["Enums"]["checklist_status"]
+          superseded_by_checklist_id?: string | null
           tecnico_id: string
           tipo?: Database["public"]["Enums"]["checklist_tipo"]
           troca_realizada?: boolean | null
           updated_at?: string
         }
         Update: {
+          case_id?: string
           cidade?: string | null
           cliente?: string | null
           codigo_validacao?: string | null
@@ -226,22 +331,46 @@ export type Database = {
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
+          is_current?: boolean
           modelo?: string | null
           modelo_ont_instalada?: string | null
           modelo_ont_retirada?: string | null
           numero_publico?: string | null
           os?: string | null
+          parent_checklist_id?: string | null
           plano?: string | null
+          revised_at?: string | null
+          revised_by?: string | null
+          revision_notes?: string | null
+          revision_number?: number
+          revision_reason?: string | null
           serial?: string | null
           serial_ont_instalada?: string | null
           serial_ont_retirada?: string | null
+          service_stage?: string
           status?: Database["public"]["Enums"]["checklist_status"]
+          superseded_by_checklist_id?: string | null
           tecnico_id?: string
           tipo?: Database["public"]["Enums"]["checklist_tipo"]
           troca_realizada?: boolean | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "checklists_parent_checklist_id_fkey"
+            columns: ["parent_checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklists_superseded_by_checklist_id_fkey"
+            columns: ["superseded_by_checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -299,6 +428,48 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webi_integration_tokens: {
+        Row: {
+          active: boolean
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string[]
+          token_hash: string
+          token_prefix: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash: string
+          token_prefix: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash?: string
+          token_prefix?: string
           user_id?: string
         }
         Relationships: []
