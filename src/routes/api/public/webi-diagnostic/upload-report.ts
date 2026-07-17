@@ -277,6 +277,13 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             created_at: inserted.created_at,
             sha256: realHash,
             report_sequence: nextSeq,
+            test_stage: stage,
+          },
+          checklist: {
+            id: chk.id,
+            case_id: chk.case_id,
+            checklist_code: fmtCode(chk.numero_publico, chk.revision_number),
+            revision_number: chk.revision_number,
           },
         });
       },
