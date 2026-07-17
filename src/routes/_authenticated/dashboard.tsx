@@ -130,10 +130,12 @@ function Dashboard() {
     return m;
   }, [profilesQuery.data]);
 
-  // Canonicaliza uma única vez todos os registros finalizados
+  // Canonicaliza uma única vez todos os registros finalizados.
+  // Deduplica por case: cada atendimento conta apenas 1 vez (revisão atual).
   const canonAll = useMemo(() => {
     return (query.data ?? [])
       .filter((c) => c.status === "finalizado")
+      .filter((c) => (c as any).is_current !== false)
       .map((c) => toCanon(c, nomePorId));
   }, [query.data, nomePorId]);
 
