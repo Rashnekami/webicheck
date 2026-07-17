@@ -154,7 +154,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             )
             .eq("id", checklistIdRaw)
             .maybeSingle();
-          chk = (data as never) ?? null;
+          chk = (data as typeof chk) ?? null;
         } else {
           const p = parseChecklistCode(checklistCodeRaw);
           if (!p.base)
@@ -169,7 +169,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           if (p.revision != null) q = q.eq("revision_number", p.revision);
           else q = q.eq("is_current", true);
           const { data } = await q.limit(1).maybeSingle();
-          chk = (data as never) ?? null;
+          chk = (data as typeof chk) ?? null;
         }
 
         if (!chk) return json({ error: "checklist_not_found" }, 404);
