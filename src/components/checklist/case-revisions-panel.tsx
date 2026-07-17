@@ -209,18 +209,35 @@ export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "",
 
       <Card>
         <CardContent className="space-y-3 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold">Diagnósticos Webi Diagnostic</h3>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                qc.invalidateQueries({ queryKey: ["case-diagnostics", caseId] })
-              }
-            >
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDossie}
+                disabled={dossieBusy || !isFinalizado}
+                title={isFinalizado ? "Baixar dossiê consolidado (checklist + diagnósticos)" : "Disponível após finalizar o checklist"}
+              >
+                {dossieBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileArchive className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Dossiê PDF
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  qc.invalidateQueries({ queryKey: ["case-diagnostics", caseId] })
+                }
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
+              </Button>
+            </div>
           </div>
+
           {diagsQ.isLoading && (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           )}
