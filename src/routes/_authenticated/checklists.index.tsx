@@ -83,6 +83,8 @@ function ChecklistsList() {
   });
 
   const items = (query.data ?? []).filter((c) => {
+    // Esconde revisões antigas (is_current=false) da listagem principal.
+    if ((c as any).is_current === false) return false;
     if (tab !== "todos" && c.status !== tab) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
