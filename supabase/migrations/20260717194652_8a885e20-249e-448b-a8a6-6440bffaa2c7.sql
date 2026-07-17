@@ -1,0 +1,1 @@
+ALTER TABLE public.checklists ALTER COLUMN case_id SET DEFAULT gen_random_uuid();
