@@ -64,9 +64,13 @@ interface Props {
     parent_checklist_id?: string | null;
   };
   isAdmin: boolean;
+  fotos?: FotoRow[];
+  tecnicoNome?: string;
+  tecnicoAssinatura?: string | null;
 }
 
-export function CaseRevisionsPanel({ row, isAdmin }: Props) {
+export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "", tecnicoAssinatura = null }: Props) {
+
   const qc = useQueryClient();
   const navigate = useNavigate();
   const caseId = row.case_id ?? row.id;
