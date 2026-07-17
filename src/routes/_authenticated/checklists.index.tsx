@@ -220,7 +220,11 @@ function ChecklistsList() {
                           </p>
                           <p className="mt-1 text-xs font-medium text-primary">
                             {c.status === "finalizado"
-                              ? c.numero_publico || c.codigo_validacao || ""
+                              ? formatChecklistCode({
+                                  numero_publico: c.numero_publico,
+                                  codigo_validacao: c.codigo_validacao,
+                                  revision_number: (c as any).revision_number,
+                                }) || ""
                               : `Atualizado em ${new Date(
                                   c.updated_at,
                                 ).toLocaleString("pt-BR")}`}
