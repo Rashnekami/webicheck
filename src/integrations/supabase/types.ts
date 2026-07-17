@@ -282,7 +282,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          case_id: string
+          case_id?: string
           cidade?: string | null
           cliente?: string | null
           codigo_validacao?: string | null
