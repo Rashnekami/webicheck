@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { parseChecklistCode } from "@/lib/checklist-code";
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
 const ALLOWED_STAGES = new Set([
@@ -7,6 +8,11 @@ const ALLOWED_STAGES = new Set([
   "noc_retest",
   "additional_test",
 ]);
+
+function fmtCode(numero_publico: string | null, revision: number): string {
+  if (!numero_publico) return "";
+  return revision > 1 ? `${numero_publico}-R${revision}` : numero_publico;
+}
 
 async function sha256HexOf(bytes: ArrayBuffer): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", bytes);
