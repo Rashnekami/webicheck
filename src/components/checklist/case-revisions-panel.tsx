@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Download, FilePlus2, Loader2, RefreshCw, ShieldOff } from "lucide-react";
+import { Download, FileArchive, FilePlus2, Loader2, RefreshCw, ShieldOff } from "lucide-react";
+import type { FotoRow } from "@/lib/checklist-schema";
+import { generateDossiePdf } from "@/components/checklist/dossie-pdf";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
