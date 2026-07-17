@@ -217,6 +217,7 @@ function Dashboard() {
     ];
     const rows = (query.data ?? []).filter((c) => {
       if (c.status !== "finalizado") return false;
+      if ((c as any).is_current === false) return false;
       const t = c.finalizado_em ? new Date(c.finalizado_em).getTime() : 0;
       return (
         t >= new Date(filters.startISO).getTime() &&
