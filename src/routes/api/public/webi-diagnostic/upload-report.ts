@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
 
         const contentType = request.headers.get("content-type") ?? "";
         if (!contentType.startsWith("multipart/form-data"))
-          return json({ error: "expected_multipart_form_data" }, 400);
+          return json({ error: "expected_multipart_form_data" }, 415);
 
         let form: FormData;
         try {
@@ -80,7 +80,8 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           return json({ error: "invalid_multipart" }, 400);
         }
 
-        const checklistId = String(form.get("checklist_id") ?? "").trim();
+        const checklistIdRaw = String(form.get("checklist_id") ?? "").trim();
+        const checklistCodeRaw = String(form.get("checklist_code") ?? "").trim();
         const sessionId = String(form.get("diagnostic_session_id") ?? "").trim();
         const stage = String(form.get("test_stage") ?? "").trim();
         const claimedHash = String(form.get("sha256") ?? "")
@@ -90,7 +91,8 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
         const generatedAt = String(form.get("generated_at") ?? "").trim() || null;
         const fileEntry = form.get("file");
 
-        if (!checklistId) return json({ error: "missing_checklist_id" }, 400);
+        if (!checklistIdRaw && !checklistCodeRaw)
+          return json({ error: "missing_checklist_identifier" }, 400);
         if (!sessionId) return json({ error: "missing_diagnostic_session_id" }, 400);
         if (!ALLOWED_STAGES.has(stage))
           return json({ error: "invalid_test_stage" }, 400);
@@ -100,11 +102,13 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           return json({ error: "file_too_large", max_bytes: MAX_BYTES }, 413);
         if (fileEntry.size < 8)
           return json({ error: "file_too_small" }, 400);
+        if (fileEntry.type && fileEntry.type !== "application/pdf")
+          return json({ error: "unsupported_media_type" }, 415);
 
         const buf = await fileEntry.arrayBuffer();
         const head = new Uint8Array(buf.slice(0, 5));
         const magic = String.fromCharCode(...head);
-        if (magic !== "%PDF-") return json({ error: "not_a_pdf" }, 400);
+        if (magic !== "%PDF-") return json({ error: "not_a_pdf" }, 415);
 
         const realHash = await sha256HexOf(buf);
         if (claimedHash && claimedHash !== realHash)
@@ -112,6 +116,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             { error: "hash_mismatch", expected: realHash, got: claimedHash },
             400,
           );
+
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
