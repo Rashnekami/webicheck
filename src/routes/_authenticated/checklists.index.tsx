@@ -38,6 +38,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { TIPO_LABEL, type TipoChecklist } from "@/lib/checklist-schema";
+import { formatChecklistCode } from "@/lib/checklist-code";
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
   head: () => ({
