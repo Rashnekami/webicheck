@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, Loader2, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Copy, Download, Loader2, ShieldCheck, ShieldAlert, ShieldX, ArrowRight } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { getPublicChecklist } from "@/lib/public-checklist.functions";
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
