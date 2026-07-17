@@ -299,7 +299,7 @@ export const listCaseTimeline = createServerFn({ method: "POST" })
         at: r.revised_at ?? r.created_at,
         id: r.id,
         label: `Revisão R${r.revision_number} — ${r.service_stage}`,
-        meta: r as unknown as Record<string, unknown>,
+        meta: r as unknown as { [k: string]: JsonVal },
       }),
     );
     (diags ?? []).forEach((d) =>
@@ -308,7 +308,7 @@ export const listCaseTimeline = createServerFn({ method: "POST" })
         at: d.created_at,
         id: d.id,
         label: `Diagnóstico ${d.test_stage} #${d.report_sequence}`,
-        meta: d as unknown as Record<string, unknown>,
+        meta: d as unknown as { [k: string]: JsonVal },
       }),
     );
     out.sort((a, b) => a.at.localeCompare(b.at));
