@@ -281,12 +281,53 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
     const { data: snap } = await supabaseAdmin
       .from("checklist_document_snapshots")
       .select(
-        "id, version, public_status, snapshot_data, document_hash, finalized_at, revoked_at",
+        "id, checklist_id, version, public_status, snapshot_data, document_hash, finalized_at, revoked_at",
       )
       .eq("public_token", token)
       .maybeSingle();
 
     if (!snap) return empty;
+
+    // Descobre se essa linha de checklist virou revisão antiga (superseded).
+    let latest_public_token: string | null = null;
+    let latest_checklist_code: string | null = null;
+    let latest_revision_number: number | null = null;
+    try {
+      const { data: chkRow } = await supabaseAdmin
+        .from("checklists")
+        .select("case_id, is_current")
+        .eq("id", snap.checklist_id)
+        .maybeSingle();
+      if (chkRow && chkRow.is_current === false && chkRow.case_id) {
+        const { data: cur } = await supabaseAdmin
+          .from("checklists")
+          .select("id, numero_publico, revision_number")
+          .eq("case_id", chkRow.case_id)
+          .eq("is_current", true)
+          .maybeSingle();
+        if (cur) {
+          latest_revision_number = cur.revision_number ?? null;
+          const base = cur.numero_publico ?? "";
+          latest_checklist_code = base
+            ? cur.revision_number > 1
+              ? `${base}-R${cur.revision_number}`
+              : base
+            : null;
+          const { data: curSnap } = await supabaseAdmin
+            .from("checklist_document_snapshots")
+            .select("public_token")
+            .eq("checklist_id", cur.id)
+            .eq("public_status", "active")
+            .order("version", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          latest_public_token = curSnap?.public_token ?? null;
+        }
+      }
+    } catch {
+      // ignora
+    }
+
 
     // Registra o acesso (best-effort)
     try {
