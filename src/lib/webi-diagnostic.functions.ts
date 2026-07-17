@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+type JsonPrim = string | number | boolean | null;
+type JsonVal = JsonPrim | { [k: string]: JsonVal } | JsonVal[];
+
 // ---------------- Tipos ----------------
 export type ServiceStage =
   | "initial"

@@ -14,9 +14,12 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
+import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
+import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -42,6 +45,12 @@ const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   path: '/painel',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedIntegracoesRoute =
+  AuthenticatedIntegracoesRouteImport.update({
+    id: '/integracoes',
+    path: '/integracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -59,24 +68,42 @@ const AuthenticatedChecklistsIdRoute =
     path: '/checklists/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicWebiDiagnosticUploadReportRoute =
+  ApiPublicWebiDiagnosticUploadReportRouteImport.update({
+    id: '/api/public/webi-diagnostic/upload-report',
+    path: '/api/public/webi-diagnostic/upload-report',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticResolveChecklistRoute =
+  ApiPublicWebiDiagnosticResolveChecklistRouteImport.update({
+    id: '/api/public/webi-diagnostic/resolve-checklist',
+    path: '/api/public/webi-diagnostic/resolve-checklist',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/webi-diagnostic/resolve-checklist': typeof ApiPublicWebiDiagnosticResolveChecklistRoute
+  '/api/public/webi-diagnostic/upload-report': typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/webi-diagnostic/resolve-checklist': typeof ApiPublicWebiDiagnosticResolveChecklistRoute
+  '/api/public/webi-diagnostic/upload-report': typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -84,10 +111,13 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/webi-diagnostic/resolve-checklist': typeof ApiPublicWebiDiagnosticResolveChecklistRoute
+  '/api/public/webi-diagnostic/upload-report': typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -95,29 +125,38 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/integracoes'
     | '/painel'
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists/'
+    | '/api/public/webi-diagnostic/resolve-checklist'
+    | '/api/public/webi-diagnostic/upload-report'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/integracoes'
     | '/painel'
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists'
+    | '/api/public/webi-diagnostic/resolve-checklist'
+    | '/api/public/webi-diagnostic/upload-report'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/dashboard'
+    | '/_authenticated/integracoes'
     | '/_authenticated/painel'
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/checklists/'
+    | '/api/public/webi-diagnostic/resolve-checklist'
+    | '/api/public/webi-diagnostic/upload-report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -125,6 +164,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
+  ApiPublicWebiDiagnosticResolveChecklistRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRoute
+  ApiPublicWebiDiagnosticUploadReportRoute: typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -164,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPainelRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/integracoes': {
+      id: '/_authenticated/integracoes'
+      path: '/integracoes'
+      fullPath: '/integracoes'
+      preLoaderRoute: typeof AuthenticatedIntegracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -185,11 +233,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/webi-diagnostic/upload-report': {
+      id: '/api/public/webi-diagnostic/upload-report'
+      path: '/api/public/webi-diagnostic/upload-report'
+      fullPath: '/api/public/webi-diagnostic/upload-report'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticUploadReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/resolve-checklist': {
+      id: '/api/public/webi-diagnostic/resolve-checklist'
+      path: '/api/public/webi-diagnostic/resolve-checklist'
+      fullPath: '/api/public/webi-diagnostic/resolve-checklist'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
@@ -197,6 +260,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
@@ -210,6 +274,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ValidarTokenRoute: ValidarTokenRoute,
+  ApiPublicWebiDiagnosticResolveChecklistRoute:
+    ApiPublicWebiDiagnosticResolveChecklistRoute,
+  ApiPublicWebiDiagnosticUploadReportRoute:
+    ApiPublicWebiDiagnosticUploadReportRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
