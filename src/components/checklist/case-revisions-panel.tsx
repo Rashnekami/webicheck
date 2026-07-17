@@ -126,7 +126,27 @@ export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "",
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [dossieBusy, setDossieBusy] = useState(false);
+  async function handleDossie() {
+    try {
+      setDossieBusy(true);
+      await generateDossiePdf({
+        row,
+        fotos,
+        tecnicoNome,
+        assinatura: tecnicoAssinatura,
+        diagnostics: diagsQ.data ?? [],
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o dossiê.");
+    } finally {
+      setDossieBusy(false);
+    }
+  }
+
   const isFinalizado = row.status === "finalizado";
+
 
   return (
     <div className="space-y-4">
