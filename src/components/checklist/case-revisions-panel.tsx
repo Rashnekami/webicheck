@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Download, FilePlus2, Loader2, RefreshCw, ShieldOff } from "lucide-react";
+import { Download, FileArchive, FilePlus2, Loader2, RefreshCw, ShieldOff } from "lucide-react";
+import type { FotoRow } from "@/lib/checklist-schema";
+import { generateDossiePdf } from "@/components/checklist/dossie-pdf";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,9 +64,13 @@ interface Props {
     parent_checklist_id?: string | null;
   };
   isAdmin: boolean;
+  fotos?: FotoRow[];
+  tecnicoNome?: string;
+  tecnicoAssinatura?: string | null;
 }
 
-export function CaseRevisionsPanel({ row, isAdmin }: Props) {
+export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "", tecnicoAssinatura = null }: Props) {
+
   const qc = useQueryClient();
   const navigate = useNavigate();
   const caseId = row.case_id ?? row.id;
@@ -119,7 +126,27 @@ export function CaseRevisionsPanel({ row, isAdmin }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const [dossieBusy, setDossieBusy] = useState(false);
+  async function handleDossie() {
+    try {
+      setDossieBusy(true);
+      await generateDossiePdf({
+        row,
+        fotos,
+        tecnicoNome,
+        assinatura: tecnicoAssinatura,
+        diagnostics: diagsQ.data ?? [],
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o dossiê.");
+    } finally {
+      setDossieBusy(false);
+    }
+  }
+
   const isFinalizado = row.status === "finalizado";
+
 
   return (
     <div className="space-y-4">
@@ -182,18 +209,35 @@ export function CaseRevisionsPanel({ row, isAdmin }: Props) {
 
       <Card>
         <CardContent className="space-y-3 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold">Diagnósticos Webi Diagnostic</h3>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                qc.invalidateQueries({ queryKey: ["case-diagnostics", caseId] })
-              }
-            >
-              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDossie}
+                disabled={dossieBusy || !isFinalizado}
+                title={isFinalizado ? "Baixar dossiê consolidado (checklist + diagnósticos)" : "Disponível após finalizar o checklist"}
+              >
+                {dossieBusy ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileArchive className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Dossiê PDF
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  qc.invalidateQueries({ queryKey: ["case-diagnostics", caseId] })
+                }
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
+              </Button>
+            </div>
           </div>
+
           {diagsQ.isLoading && (
             <p className="text-sm text-muted-foreground">Carregando…</p>
           )}

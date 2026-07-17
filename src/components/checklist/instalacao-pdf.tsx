@@ -386,13 +386,13 @@ function InstalacaoDocument({
   );
 }
 
-export async function generateInstalacaoPdf({
+export async function buildInstalacaoPdfBlob({
   row,
   tecnicoNome,
   assinatura,
-}: Params) {
+}: Params): Promise<Blob> {
   const logoUri = await toDataUri(logoAsset.url).catch(() => "");
-  const blob = await pdf(
+  return await pdf(
     <InstalacaoDocument
       row={row}
       tecnicoNome={tecnicoNome}
@@ -400,7 +400,11 @@ export async function generateInstalacaoPdf({
       logoUri={logoUri}
     />,
   ).toBlob();
-  const nome = `instalacao-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}.pdf`;
+}
+
+export async function generateInstalacaoPdf(params: Params) {
+  const blob = await buildInstalacaoPdfBlob(params);
+  const nome = `instalacao-${params.row.numero_publico || params.row.codigo_validacao || params.row.id.slice(0, 8)}.pdf`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -410,3 +414,4 @@ export async function generateInstalacaoPdf({
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
+

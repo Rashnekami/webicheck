@@ -1,0 +1,2 @@
+INSERT INTO public.webi_integration_tokens (user_id, name, token_prefix, token_hash, scopes, active)
+VALUES ('55235614-4a86-4beb-9e0b-da6a55e4ff5a', 'Sandbox Test Token', 'wdk_5CC835', '080797d09a53d76aac418a7e72b579a785cdf5aec805cae693f77acb6099eeb2', ARRAY['diagnostic:upload'], true);

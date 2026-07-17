@@ -346,7 +346,11 @@ function ChecklistDetail() {
             <CaseRevisionsPanel
               row={row as never}
               isAdmin={!!user?.isAdmin}
+              fotos={fotosQuery.data ?? []}
+              tecnicoNome={tecnicoNome}
+              tecnicoAssinatura={tecnicoAssinatura}
             />
+
 
             <Card>
               <CardContent className="space-y-1 p-4 text-sm">
