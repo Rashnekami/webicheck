@@ -26,6 +26,10 @@ export interface PublicSnapshotView {
   document_hash: string | null;
   short_hash: string | null;
   payload: SnapshotPayload | null;
+  // Se a linha exibida foi substituída por uma revisão mais nova do mesmo case
+  latest_public_token: string | null;
+  latest_checklist_code: string | null;
+  latest_revision_number: number | null;
 }
 
 export interface AdminSnapshotSummary {
