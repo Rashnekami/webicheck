@@ -395,6 +395,9 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
         document_hash: snap.document_hash,
         short_hash: shortHash,
         payload: null,
+        latest_public_token,
+        latest_checklist_code,
+        latest_revision_number,
       };
     }
 
@@ -405,5 +408,8 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
       document_hash: snap.document_hash,
       short_hash: shortHash,
       payload: snap.snapshot_data as unknown as SnapshotPayload,
+      latest_public_token,
+      latest_checklist_code,
+      latest_revision_number,
     };
   });
