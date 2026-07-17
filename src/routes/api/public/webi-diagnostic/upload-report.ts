@@ -135,7 +135,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
 
         // Resolve o checklist pelo id direto ou pelo checklist_code (com -Rn).
         // Auto-corrige envios que citam a base sem -Rn (usa a revisão atual).
-        let chk: {
+        type ChecklistRowMini = {
           id: string;
           case_id: string;
           tecnico_id: string;
@@ -144,7 +144,8 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           numero_publico: string | null;
           codigo_validacao: string | null;
           revision_number: number;
-        } | null = null;
+        };
+        let chk: ChecklistRowMini | null = null;
 
         if (checklistIdRaw) {
           const { data } = await supabaseAdmin
@@ -154,7 +155,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             )
             .eq("id", checklistIdRaw)
             .maybeSingle();
-          chk = (data as typeof chk) ?? null;
+          chk = (data as unknown as ChecklistRowMini | null) ?? null;
         } else {
           const p = parseChecklistCode(checklistCodeRaw);
           if (!p.base)
@@ -169,8 +170,9 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           if (p.revision != null) q = q.eq("revision_number", p.revision);
           else q = q.eq("is_current", true);
           const { data } = await q.limit(1).maybeSingle();
-          chk = (data as typeof chk) ?? null;
+          chk = (data as unknown as ChecklistRowMini | null) ?? null;
         }
+
 
         if (!chk) return json({ error: "checklist_not_found" }, 404);
         if (chk.status !== "finalizado")
