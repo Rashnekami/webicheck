@@ -133,16 +133,68 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
         if (!checkRate(token.id))
           return json({ error: "rate_limited" }, 429);
 
-        // Autoriza: checklist deve pertencer ao user do token OU user ser admin.
-        // E deve ser a versão atual (is_current=true).
-        const { data: chk } = await supabaseAdmin
-          .from("checklists")
-          .select("id, case_id, tecnico_id, is_current, status")
-          .eq("id", checklistId)
-          .maybeSingle();
+        // Resolve o checklist pelo id direto ou pelo checklist_code (com -Rn).
+        // Auto-corrige envios que citam a base sem -Rn (usa a revisão atual).
+        let chk: {
+          id: string;
+          case_id: string;
+          tecnico_id: string;
+          is_current: boolean;
+          status: string;
+          numero_publico: string | null;
+          codigo_validacao: string | null;
+          revision_number: number;
+        } | null = null;
+
+        if (checklistIdRaw) {
+          const { data } = await supabaseAdmin
+            .from("checklists")
+            .select(
+              "id, case_id, tecnico_id, is_current, status, numero_publico, codigo_validacao, revision_number",
+            )
+            .eq("id", checklistIdRaw)
+            .maybeSingle();
+          chk = (data as never) ?? null;
+        } else {
+          const p = parseChecklistCode(checklistCodeRaw);
+          if (!p.base)
+            return json({ error: "invalid_checklist_code" }, 400);
+          const col = p.kind === "codigo_validacao" ? "codigo_validacao" : "numero_publico";
+          let q = supabaseAdmin
+            .from("checklists")
+            .select(
+              "id, case_id, tecnico_id, is_current, status, numero_publico, codigo_validacao, revision_number",
+            )
+            .eq(col, p.base);
+          if (p.revision != null) q = q.eq("revision_number", p.revision);
+          else q = q.eq("is_current", true);
+          const { data } = await q.limit(1).maybeSingle();
+          chk = (data as never) ?? null;
+        }
+
         if (!chk) return json({ error: "checklist_not_found" }, 404);
-        if (!chk.is_current)
-          return json({ error: "checklist_not_current_version" }, 409);
+        if (chk.status !== "finalizado")
+          return json({ error: "checklist_not_finalized" }, 409);
+        if (!chk.is_current) {
+          // Redireciona para a revisão atual do case
+          const { data: current } = await supabaseAdmin
+            .from("checklists")
+            .select("numero_publico, revision_number")
+            .eq("case_id", chk.case_id)
+            .eq("is_current", true)
+            .maybeSingle();
+          return json(
+            {
+              error: "CHECKLIST_SUPERSEDED",
+              message: "Envie o diagnóstico para a versão atual.",
+              latest_checklist_code: current
+                ? fmtCode(current.numero_publico, current.revision_number)
+                : null,
+            },
+            409,
+          );
+        }
+
 
         if (chk.tecnico_id !== token.user_id) {
           const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
