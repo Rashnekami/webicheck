@@ -52,6 +52,7 @@ import {
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
+import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
 
 export const Route = createFileRoute("/_authenticated/checklists/$id")({
   head: () => ({
@@ -340,6 +341,11 @@ function ChecklistDetail() {
               isAdmin={!!user?.isAdmin}
               onDownloadPdf={handlePdf}
               pdfBusy={pdfBusy}
+            />
+
+            <CaseRevisionsPanel
+              row={row as never}
+              isAdmin={!!user?.isAdmin}
             />
 
             <Card>
