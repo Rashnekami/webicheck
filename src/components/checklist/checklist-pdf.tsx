@@ -506,12 +506,12 @@ function ChecklistDocument({
   );
 }
 
-export async function generateChecklistPdf({
+export async function buildChecklistPdfBlob({
   row,
   fotos,
   tecnicoNome,
   assinatura,
-}: Params) {
+}: Params): Promise<Blob> {
   const [logoUri, fotosComUri] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
     Promise.all(
@@ -527,7 +527,7 @@ export async function generateChecklistPdf({
     ),
   ]);
 
-  const blob = await pdf(
+  return await pdf(
     <ChecklistDocument
       row={row}
       fotos={fotosComUri}
@@ -536,8 +536,11 @@ export async function generateChecklistPdf({
       logoUri={logoUri}
     />,
   ).toBlob();
+}
 
-  const nome = `checklist-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}.pdf`;
+export async function generateChecklistPdf(params: Params) {
+  const blob = await buildChecklistPdfBlob(params);
+  const nome = `checklist-${params.row.numero_publico || params.row.codigo_validacao || params.row.id.slice(0, 8)}.pdf`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -547,3 +550,4 @@ export async function generateChecklistPdf({
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
+
