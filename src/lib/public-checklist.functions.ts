@@ -17,6 +17,8 @@ export interface SnapshotPayload {
   codigo_validacao: string | null;
   finalizado_em: string | null;
   created_at: string;
+  revision_number?: number | null;
+  checklist_code?: string | null;
 }
 
 export interface PublicSnapshotView {
