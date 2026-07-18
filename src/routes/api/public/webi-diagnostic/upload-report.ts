@@ -272,6 +272,16 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
           .update({ last_used_at: new Date().toISOString() })
           .eq("id", token.id);
 
+        // Regenera snapshot público incluindo o novo diagnóstico (best-effort).
+        try {
+          const { regenerateChecklistSnapshot } = await import(
+            "@/lib/snapshot-service.server"
+          );
+          await regenerateChecklistSnapshot(chk.id);
+        } catch (e) {
+          console.warn("snapshot_regenerate_failed", e);
+        }
+
         return json({
           ok: true,
           report: {
