@@ -116,7 +116,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checkl
         let query = supabaseAdmin
           .from("checklists")
           .select(
-            "id, case_id, revision_number, is_current, status, os, cliente, cidade, numero_publico, codigo_validacao, service_stage, revision_reason, tecnico_id",
+            "id, case_id, revision_number, is_current, status, os, cliente, cidade, numero_publico, codigo_validacao, service_stage, revision_reason, tecnico_id, equipment_tag_code, serial_ont_retirada, serial_ont_instalada",
           )
           .eq("status", "finalizado")
           .order("revision_number", { ascending: false })
@@ -205,6 +205,17 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checkl
             is_current: true,
             default_test_stage: defaultTestStage,
             diagnostic_count: diagnosticCount ?? 0,
+            equipment_tag_code: checklist.equipment_tag_code,
+            removed_ont_serial: checklist.serial_ont_retirada,
+            installed_ont_serial: checklist.serial_ont_instalada,
+            branding: {
+              provider_name: "Webifibra",
+              product_name: "Webi Diagnostic",
+              primary_color: "#1A53FF",
+              secondary_color: "#0F3FD4",
+              logo_url: null,
+              footer_text: "Webifibra · Webi Diagnostic Platform",
+            },
           },
         });
       },
