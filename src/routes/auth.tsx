@@ -70,9 +70,23 @@ function AuthPage() {
   const [tab, setTab] = useState<"login" | "signup" | "forgot">("login");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/painel", replace: true });
-      else setChecking(false);
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        setChecking(false);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active")
+        .eq("id", data.session.user.id)
+        .maybeSingle();
+      if (!profile?.active) {
+        await supabase.auth.signOut();
+        toast.error("Seu acesso está inativo. Procure um administrador.");
+        setChecking(false);
+        return;
+      }
+      navigate({ to: "/painel", replace: true });
     });
   }, [navigate]);
 
@@ -162,7 +176,7 @@ function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
-    const { error } = await supabase.auth.signInWithPassword(values);
+    const { data, error } = await supabase.auth.signInWithPassword(values);
     if (error) {
       if (error.message.toLowerCase().includes("invalid")) {
         toast.error("E-mail ou senha inválidos.");
@@ -171,6 +185,18 @@ function LoginForm() {
       }
       return;
     }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("active")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (!profile?.active) {
+      await supabase.auth.signOut();
+      toast.error("Seu acesso está inativo. Procure um administrador.");
+      return;
+    }
+
     navigate({ to: "/painel", replace: true });
   }
 
