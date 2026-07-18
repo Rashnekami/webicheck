@@ -51,7 +51,7 @@ function json(body: unknown, status = 200) {
 }
 
 function sanitizeFilename(name: string): string {
-  const cleaned = name.replace(/[^\w.\-]+/g, "_").slice(0, 120);
+  const cleaned = name.replace(/[^\w.-]+/g, "_").slice(0, 120);
   return cleaned || "report.pdf";
 }
 
