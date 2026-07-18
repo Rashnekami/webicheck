@@ -102,22 +102,52 @@ export function CaseRevisionsPanel({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const [dossieBusy, setDossieBusy] = useState(false);
-  async function handleDossie() {
+  const [busy, setBusy] = useState<"none" | "checklist" | "revision" | "dossie">("none");
+  async function handleChecklistOnly() {
     try {
-      setDossieBusy(true);
+      setBusy("checklist");
+      await downloadChecklistOnly({ row, fotos, tecnicoNome, assinatura: tecnicoAssinatura });
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o PDF do checklist.");
+    } finally {
+      setBusy("none");
+    }
+  }
+  async function handleRevisionPdf() {
+    try {
+      setBusy("revision");
       await generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
         assinatura: tecnicoAssinatura,
         diagnostics: diagsQ.data ?? [],
+        scope: "revision",
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o PDF desta versão.");
+    } finally {
+      setBusy("none");
+    }
+  }
+  async function handleDossie() {
+    try {
+      setBusy("dossie");
+      await generateDossiePdf({
+        row,
+        fotos,
+        tecnicoNome,
+        assinatura: tecnicoAssinatura,
+        diagnostics: diagsQ.data ?? [],
+        scope: "case",
       });
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar o dossiê.");
     } finally {
-      setDossieBusy(false);
+      setBusy("none");
     }
   }
 
