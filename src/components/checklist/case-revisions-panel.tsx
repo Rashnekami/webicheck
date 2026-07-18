@@ -36,6 +36,12 @@ import {
   type ServiceStage,
 } from "@/lib/webi-diagnostic.functions";
 
+type RevisionStage =
+  | "pre_change"
+  | "post_ont_change"
+  | "noc_retest"
+  | "additional_test";
+
 const STAGE_LABELS: Record<ServiceStage, string> = {
   initial: "Atendimento inicial",
   pre_change: "Pré-troca",
@@ -43,6 +49,7 @@ const STAGE_LABELS: Record<ServiceStage, string> = {
   noc_retest: "Reteste NOC",
   additional_test: "Teste adicional",
 };
+
 
 interface Props {
   row: ChecklistRow & {
@@ -78,7 +85,7 @@ export function CaseRevisionsPanel({
   const [revOpen, setRevOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
-  const [stage, setStage] = useState<ServiceStage>("post_ont_change");
+  const [stage, setStage] = useState<RevisionStage>("post_ont_change");
 
   const createRev = useMutation({
     mutationFn: () =>
@@ -261,7 +268,7 @@ export function CaseRevisionsPanel({
           <div className="space-y-3">
             <div>
               <Label>Etapa do atendimento</Label>
-              <Select value={stage} onValueChange={(v) => setStage(v as ServiceStage)}>
+              <Select value={stage} onValueChange={(v) => setStage(v as RevisionStage)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

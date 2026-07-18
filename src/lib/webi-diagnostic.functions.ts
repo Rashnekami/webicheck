@@ -77,13 +77,15 @@ function randomTokenValue(prefix = "wdk_"): string {
 }
 
 // ---------------- Revisão de checklist ----------------
-const REVISION_STAGES: ServiceStage[] = [
-  "initial",
+// Etapas válidas SOMENTE para revisões (revision_number > 1).
+// 'initial' é reservado ao primeiro checklist do caso.
+const REVISION_ONLY_STAGES = [
   "pre_change",
   "post_ont_change",
   "noc_retest",
   "additional_test",
-];
+] as const;
+type RevisionStage = (typeof REVISION_ONLY_STAGES)[number];
 
 export const createChecklistRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -91,112 +93,56 @@ export const createChecklistRevision = createServerFn({ method: "POST" })
     (d: {
       checklistId: string;
       reason: string;
-      stage: ServiceStage;
+      stage: RevisionStage;
       notes?: string | null;
     }) => {
       if (!d.checklistId) throw new Error("checklistId obrigatório.");
       if (!d.reason || d.reason.trim().length < 3)
         throw new Error("Informe o motivo da revisão.");
-      if (!REVISION_STAGES.includes(d.stage))
-        throw new Error("Etapa inválida.");
+      if (!REVISION_ONLY_STAGES.includes(d.stage))
+        throw new Error(
+          "Etapa inválida para revisão. Use pré-troca, pós-troca, reteste NOC ou teste adicional.",
+        );
       return d;
     },
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: parent, error } = await supabase
-      .from("checklists")
-      .select("*")
-      .eq("id", data.checklistId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!parent) throw new Error("Checklist não encontrado.");
-    if (parent.status !== "finalizado")
-      throw new Error("Só é possível revisar checklists finalizados.");
-
-    const { data: isAdmin } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "admin",
-    });
-    if (parent.tecnico_id !== userId && !isAdmin)
-      throw new Error("Sem permissão para revisar este checklist.");
-
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
+    const { supabase } = context;
+    // Toda a lógica (propriedade, próximo número, unset is_current, insert shell,
+    // superseded_by do pai) é executada atomicamente pela RPC transacional.
+    const { data: row, error } = await supabase.rpc(
+      "create_checklist_revision",
+      {
+        _parent_id: data.checklistId,
+        _reason: data.reason.trim(),
+        _stage: data.stage,
+        _notes: data.notes?.trim() || undefined,
+      },
     );
-
-    // Descobre próximo revision_number para o case
-    const { data: last } = await supabaseAdmin
-      .from("checklists")
-      .select("revision_number")
-      .eq("case_id", parent.case_id)
-      .order("revision_number", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const nextRev = (last?.revision_number ?? 1) + 1;
-
-    // Marca atual como não-atual (single-current index será mantido)
-    const { error: unsetErr } = await supabaseAdmin
-      .from("checklists")
-      .update({ is_current: false })
-      .eq("case_id", parent.case_id)
-      .eq("is_current", true);
-    if (unsetErr) throw new Error(unsetErr.message);
-
-    // Copia campos permitidos
-    const carry = {
-      tecnico_id: parent.tecnico_id,
-      tipo: parent.tipo,
-      status: "rascunho" as const,
-      os: parent.os,
-      cliente: parent.cliente,
-      cidade: parent.cidade,
-      endereco: parent.endereco,
-      plano: parent.plano,
-      modelo: parent.modelo,
-      serial: parent.serial,
-      cto_porta: parent.cto_porta,
-      data_atendimento: parent.data_atendimento,
-      hora_atendimento: parent.hora_atendimento,
-      troca_realizada: parent.troca_realizada,
-      modelo_ont_retirada: parent.modelo_ont_retirada,
-      serial_ont_retirada: parent.serial_ont_retirada,
-      modelo_ont_instalada: parent.modelo_ont_instalada,
-      serial_ont_instalada: parent.serial_ont_instalada,
-      dados: parent.dados,
-      case_id: parent.case_id,
-      parent_checklist_id: parent.id,
-      revision_number: nextRev,
-      revision_reason: data.reason.trim(),
-      revision_notes: data.notes?.trim() || null,
-      service_stage: data.stage,
-      is_current: true,
-      revised_at: new Date().toISOString(),
-      revised_by: userId,
-    };
-
-    const { data: created, error: insErr } = await supabaseAdmin
-      .from("checklists")
-      .insert(carry as never)
-      .select("id")
-      .single();
-    if (insErr) {
-      // Rollback do unset se falhar
-      await supabaseAdmin
-        .from("checklists")
-        .update({ is_current: true })
-        .eq("id", parent.id);
-      throw new Error(insErr.message);
+    if (error) {
+      const msg = error.message || "";
+      if (msg.includes("forbidden"))
+        throw new Error("Sem permissão para revisar este checklist.");
+      if (msg.includes("parent_not_finalized"))
+        throw new Error("Só é possível revisar checklists finalizados.");
+      if (msg.includes("invalid_stage_for_revision"))
+        throw new Error("Etapa inválida para revisão.");
+      if (msg.includes("checklist_not_found"))
+        throw new Error("Checklist não encontrado.");
+      if (msg.includes("uq_checklists_case_revision"))
+        throw new Error(
+          "Já existe uma revisão em andamento para este atendimento.",
+        );
+      throw new Error(msg);
     }
-
-    // Atualiza pai com superseded_by
-    await supabaseAdmin
-      .from("checklists")
-      .update({ superseded_by_checklist_id: created.id })
-      .eq("id", parent.id);
-
-    return { id: created.id, revision_number: nextRev };
+    const first = Array.isArray(row) ? row[0] : row;
+    if (!first) throw new Error("Falha ao criar revisão.");
+    return {
+      id: first.id as string,
+      revision_number: first.revision_number as number,
+    };
   });
+
 
 // ---------------- Diagnósticos ----------------
 export const listDiagnosticReports = createServerFn({ method: "POST" })
