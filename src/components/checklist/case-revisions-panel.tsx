@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { FileArchive, FilePlus2, Loader2 } from "lucide-react";
+import { FileArchive, FileDown, FilePlus2, Files, Loader2 } from "lucide-react";
 import type { FotoRow } from "@/lib/checklist-schema";
-import { generateDossiePdf } from "@/components/checklist/dossie-pdf";
+import { downloadChecklistOnly, generateDossiePdf } from "@/components/checklist/dossie-pdf";
 import { DiagnosticsSection } from "@/components/checklist/diagnostics-section";
 import { CaseTimeline } from "@/components/checklist/case-timeline";
 
