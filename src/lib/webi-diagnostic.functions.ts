@@ -123,6 +123,10 @@ export const createChecklistRevision = createServerFn({ method: "POST" })
       const msg = error.message || "";
       if (msg.includes("forbidden"))
         throw new Error("Sem permissão para revisar este checklist.");
+      if (msg.includes("parent_not_current"))
+        throw new Error(
+          "Esta versão não é mais a atual. Atualize a página antes de criar outra revisão.",
+        );
       if (msg.includes("parent_not_finalized"))
         throw new Error("Só é possível revisar checklists finalizados.");
       if (msg.includes("invalid_stage_for_revision"))
@@ -207,17 +211,20 @@ export const revokeDiagnosticReport = createServerFn({ method: "POST" })
       .select("checklist_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
+    let snapshotStatus: "ready" | "pending" = "ready";
     if (rep?.checklist_id) {
       try {
         const { regenerateChecklistSnapshot } = await import(
           "@/lib/snapshot-service.server"
         );
-        await regenerateChecklistSnapshot(rep.checklist_id);
-      } catch (e) {
-        console.warn("snapshot_regenerate_failed", e);
+        const snapshot = await regenerateChecklistSnapshot(rep.checklist_id);
+        if (!snapshot) throw new Error("snapshot_not_created");
+      } catch (error) {
+        snapshotStatus = "pending";
+        console.error("snapshot_regenerate_failed", error);
       }
     }
-    return { ok: true };
+    return { ok: true, snapshot_status: snapshotStatus };
   });
 
 // ---------------- Timeline do atendimento ----------------
