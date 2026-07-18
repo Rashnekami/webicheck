@@ -542,7 +542,9 @@ export async function buildChecklistPdfBlob({
 
 export async function generateChecklistPdf(params: Params) {
   const blob = await buildChecklistPdfBlob(params);
-  const nome = `checklist-${params.row.numero_publico || params.row.codigo_validacao || params.row.id.slice(0, 8)}.pdf`;
+  const rev = (params.row as unknown as { revision_number?: number }).revision_number ?? 1;
+  const revSuffix = rev > 1 ? `-R${rev}` : "";
+  const nome = `checklist-${params.row.numero_publico || params.row.codigo_validacao || params.row.id.slice(0, 8)}${revSuffix}.pdf`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
