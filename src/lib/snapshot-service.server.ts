@@ -106,6 +106,7 @@ export async function regenerateChecklistSnapshot(
       cto_porta: checklist.cto_porta,
       data_atendimento: checklist.data_atendimento,
       hora_atendimento: checklist.hora_atendimento,
+      equipment_tag_code: checklist.equipment_tag_code,
       troca_realizada: checklist.troca_realizada,
       modelo_ont_retirada: checklist.modelo_ont_retirada,
       serial_ont_retirada: checklist.serial_ont_retirada,

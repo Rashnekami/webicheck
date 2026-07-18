@@ -42,6 +42,7 @@ interface Props {
   tecnicoNome: string;
   assinatura: string | null;
   isAdmin: boolean;
+  canManageSnapshot: boolean;
   onDownloadPdf: (publicUrl?: string | null) => void;
   pdfBusy: boolean;
 }
@@ -51,6 +52,7 @@ export function DocumentActions({
   tecnicoNome,
   assinatura,
   isAdmin,
+  canManageSnapshot,
   onDownloadPdf,
   pdfBusy,
 }: Props) {
@@ -77,11 +79,16 @@ export function DocumentActions({
 
   // Auto-cria snapshot na primeira vez que a página abre o checklist finalizado
   useEffect(() => {
-    if (row.status === "finalizado" && snapQuery.data === null && !ensureMut.isPending) {
+    if (
+      canManageSnapshot &&
+      row.status === "finalizado" &&
+      snapQuery.data === null &&
+      !ensureMut.isPending
+    ) {
       ensureMut.mutate(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row.status, snapQuery.data]);
+  }, [canManageSnapshot, row.status, snapQuery.data]);
 
   const revokeMut = useMutation({
     mutationFn: (snapshotId: string) => revokeChecklistSnapshot({ data: { snapshotId } }),
@@ -123,6 +130,12 @@ export function DocumentActions({
         cto_porta: row.cto_porta,
         data_atendimento: row.data_atendimento,
         hora_atendimento: row.hora_atendimento,
+        equipment_tag_code: row.equipment_tag_code,
+        troca_realizada: row.troca_realizada,
+        modelo_ont_retirada: row.modelo_ont_retirada,
+        serial_ont_retirada: row.serial_ont_retirada,
+        modelo_ont_instalada: row.modelo_ont_instalada,
+        serial_ont_instalada: row.serial_ont_instalada,
       },
       dados: row.dados as never,
       tecnico: { full_name: tecnicoNome, assinatura },

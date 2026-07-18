@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
-export type ManagedUserRole = "admin" | "tecnico";
+export type ManagedUserRole = "admin" | "supervisor" | "visualizador" | "tecnico";
 
 export interface AdminUserRecord {
   id: string;
@@ -116,7 +116,8 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       if (!input.userId) throw new Error("Usuário inválido.");
       if (!/^\S+@\S+\.\S+$/.test(input.email.trim())) throw new Error("Informe um e-mail válido.");
       if (input.fullName.trim().length < 2) throw new Error("Informe o nome completo.");
-      if (!["admin", "tecnico"].includes(input.role)) throw new Error("Perfil de acesso inválido.");
+      if (!["admin", "supervisor", "visualizador", "tecnico"].includes(input.role))
+        throw new Error("Perfil de acesso inválido.");
       return {
         ...input,
         email: input.email.trim().toLowerCase(),

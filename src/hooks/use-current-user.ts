@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "tecnico";
+export type AppRole = "admin" | "supervisor" | "visualizador" | "tecnico";
 
 export interface CurrentUser {
   id: string;
@@ -14,6 +14,12 @@ export interface CurrentUser {
   assinatura: string | null;
   roles: AppRole[];
   isAdmin: boolean;
+  isSupervisor: boolean;
+  isViewer: boolean;
+  canViewDashboard: boolean;
+  canViewAllChecklists: boolean;
+  canViewEquipment: boolean;
+  canCreateChecklist: boolean;
 }
 
 export function useCurrentUser() {
@@ -28,6 +34,9 @@ export function useCurrentUser() {
       ]);
       const roleList = (roles ?? []).map((r) => r.role as AppRole);
       const p = profile as (typeof profile & { assinatura?: string | null }) | null;
+      const isAdmin = roleList.includes("admin");
+      const isSupervisor = roleList.includes("supervisor");
+      const isViewer = roleList.includes("visualizador");
       return {
         id: auth.user.id,
         email: p?.email ?? auth.user.email ?? "",
@@ -38,7 +47,13 @@ export function useCurrentUser() {
         active: p?.active ?? true,
         assinatura: p?.assinatura ?? null,
         roles: roleList,
-        isAdmin: roleList.includes("admin"),
+        isAdmin,
+        isSupervisor,
+        isViewer,
+        canViewDashboard: isAdmin || isSupervisor || isViewer,
+        canViewAllChecklists: isAdmin || isSupervisor || isViewer,
+        canViewEquipment: isAdmin || isSupervisor || isViewer,
+        canCreateChecklist: isAdmin || roleList.includes("tecnico"),
       };
     },
     staleTime: 60_000,

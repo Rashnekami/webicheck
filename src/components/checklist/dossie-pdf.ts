@@ -61,6 +61,7 @@ async function makeCoverPage(
     `Cliente: ${row.cliente ?? "-"}`,
     `OS: ${row.os ?? "-"}`,
     `Cidade: ${row.cidade ?? "-"}`,
+    `Etiqueta da ONT retirada: ${row.equipment_tag_code ?? "-"}`,
     `Data do atendimento: ${row.data_atendimento ?? "-"} ${row.hora_atendimento ?? ""}`.trim(),
     ``,
     `Peças anexadas:`,

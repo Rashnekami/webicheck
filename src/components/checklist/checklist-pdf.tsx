@@ -459,7 +459,19 @@ function ChecklistDocument({
           <Text>{d.relato || "—"}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>9. Registro da autorização do NOC</Text>
+        <Text style={styles.sectionTitle}>9. Equipamento e conclusão da troca</Text>
+        <View style={styles.sectionBox}>
+          <View style={styles.grid2}>
+            <Field label="Troca realizada" value={row.troca_realizada ? "Sim" : "Não"} />
+            <Field label="Etiqueta da ONT retirada" value={row.equipment_tag_code} />
+            <Field label="Modelo retirado" value={row.modelo_ont_retirada || row.modelo} />
+            <Field label="Serial retirado" value={row.serial_ont_retirada || row.serial} />
+            <Field label="Modelo instalado" value={row.modelo_ont_instalada} />
+            <Field label="Serial instalado" value={row.serial_ont_instalada} />
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>10. Registro da autorização do NOC</Text>
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
             <Field label="Troca autorizada" value={yesNo(d.noc.autorizada)} />

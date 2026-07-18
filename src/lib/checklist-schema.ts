@@ -236,6 +236,8 @@ export interface ChecklistRow {
   revision_number: number;
   is_current: boolean;
   finalizado_em: string | null;
+  /** Código da etiqueta da ONT retirada, por exemplo TE000001. */
+  equipment_tag_code: string | null;
   created_at: string;
   updated_at: string;
   // Novos campos para diferenciar validação de troca efetivamente realizada

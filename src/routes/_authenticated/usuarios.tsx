@@ -26,6 +26,13 @@ import {
 } from "@/lib/admin-users.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
+const ROLE_LABEL: Record<ManagedUserRole, string> = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  visualizador: "Visualizador / NOC",
+  tecnico: "Técnico",
+};
+
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
     meta: [{ title: "Usuários — Webifibra" }, { name: "robots", content: "noindex" }],
@@ -210,6 +217,9 @@ function UsersPage() {
                         <ShieldCheck className="mr-1 h-3 w-3" /> Admin
                       </Badge>
                     )}
+                    {user.role !== "admin" && (
+                      <Badge variant="outline">{ROLE_LABEL[user.role]}</Badge>
+                    )}
                     <Badge
                       variant={user.active ? "default" : "secondary"}
                       className={user.active ? "bg-emerald-500/15 text-emerald-700" : undefined}
@@ -328,8 +338,14 @@ function UsersPage() {
                   }
                 >
                   <option value="tecnico">Técnico</option>
+                  <option value="visualizador">Visualizador / NOC — somente leitura</option>
+                  <option value="supervisor">Supervisor — fiscalização</option>
                   <option value="admin">Administrador</option>
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  Visualizadores e supervisores acessam dashboard, equipamentos e checklists sem
+                  alterar os registros.
+                </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="user-active">Situação do acesso</Label>
