@@ -491,6 +491,20 @@ export type Database = {
           revision_number: number
         }[]
       }
+      create_snapshot_version: {
+        Args: {
+          _checklist_id: string
+          _created_by: string
+          _document_hash: string
+          _finalized_at: string
+          _public_token: string
+          _snapshot_data: Json
+        }
+        Returns: {
+          id: string
+          version: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
