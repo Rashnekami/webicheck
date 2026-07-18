@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 
 export type ManagedUserRole = "admin" | "tecnico";
 
@@ -19,12 +21,7 @@ export interface AdminUserRecord {
 }
 
 async function ensureAdmin(
-  supabase: {
-    rpc: (
-      name: "has_role",
-      args: { _user_id: string; _role: "admin" },
-    ) => PromiseLike<{ data: boolean | null; error: { message: string } | null }>;
-  },
+  supabase: SupabaseClient<Database>,
   userId: string,
 ) {
   const { data: isAdmin, error } = await supabase.rpc("has_role", {
