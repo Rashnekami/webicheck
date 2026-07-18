@@ -97,8 +97,28 @@ function ChecklistDetail() {
     queryFn: () => listFotos(id),
     enabled: query.data?.tipo === "validacao_ont",
   });
-  const tecnicoNome = user?.full_name || user?.email || "";
-  const tecnicoAssinatura = user?.assinatura ?? null;
+  const ownerId = query.data?.tecnico_id;
+  const ownerQuery = useQuery({
+    queryKey: ["profile-owner", ownerId],
+    enabled: !!ownerId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, email, assinatura")
+        .eq("id", ownerId!)
+        .maybeSingle();
+      return data as { full_name: string | null; email: string | null; assinatura: string | null } | null;
+    },
+  });
+  const isOwner = !!user && !!ownerId && user.id === ownerId;
+  const tecnicoNome = isOwner
+    ? (user?.full_name || user?.email || "")
+    : (ownerQuery.data?.full_name || ownerQuery.data?.email || "");
+  const tecnicoAssinatura = isOwner
+    ? (user?.assinatura ?? null)
+    : (ownerQuery.data?.assinatura ?? null);
 
   const [header, setHeader] = useState<HeaderPatch>({});
   const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
