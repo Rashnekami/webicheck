@@ -36,6 +36,12 @@ import {
   type ServiceStage,
 } from "@/lib/webi-diagnostic.functions";
 
+type RevisionStage =
+  | "pre_change"
+  | "post_ont_change"
+  | "noc_retest"
+  | "additional_test";
+
 const STAGE_LABELS: Record<ServiceStage, string> = {
   initial: "Atendimento inicial",
   pre_change: "Pré-troca",
@@ -43,6 +49,7 @@ const STAGE_LABELS: Record<ServiceStage, string> = {
   noc_retest: "Reteste NOC",
   additional_test: "Teste adicional",
 };
+
 
 interface Props {
   row: ChecklistRow & {
