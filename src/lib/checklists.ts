@@ -22,15 +22,61 @@ function checklistDataAsJson(data: ChecklistData | InstalacaoData): Json {
   return data as unknown as Json;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeChecklistData(saved: Record<string, unknown>): ChecklistData {
+  const base = emptyChecklistData();
+  return {
+    ...base,
+    ...saved,
+    sintoma: { ...base.sintoma, ...(isRecord(saved.sintoma) ? saved.sintoma : {}) },
+    validacao_fisica: {
+      ...base.validacao_fisica,
+      ...(isRecord(saved.validacao_fisica) ? saved.validacao_fisica : {}),
+    },
+    teste_cabeado: {
+      ...base.teste_cabeado,
+      ...(isRecord(saved.teste_cabeado) ? saved.teste_cabeado : {}),
+    },
+    teste_wifi: {
+      ...base.teste_wifi,
+      ...(isRecord(saved.teste_wifi) ? saved.teste_wifi : {}),
+    },
+    evidencias_marcadas: {
+      ...base.evidencias_marcadas,
+      ...(isRecord(saved.evidencias_marcadas) ? saved.evidencias_marcadas : {}),
+    },
+    resultado_final: {
+      ...base.resultado_final,
+      ...(isRecord(saved.resultado_final) ? saved.resultado_final : {}),
+    },
+    noc: { ...base.noc, ...(isRecord(saved.noc) ? saved.noc : {}) },
+  } as ChecklistData;
+}
+
+function mergeInstalacaoData(saved: Record<string, unknown>): InstalacaoData {
+  const base = emptyInstalacaoData();
+  return {
+    ...base,
+    ...saved,
+    itens: { ...base.itens, ...(isRecord(saved.itens) ? saved.itens : {}) },
+    velocidade: {
+      ...base.velocidade,
+      ...(isRecord(saved.velocidade) ? saved.velocidade : {}),
+    },
+  } as InstalacaoData;
+}
+
 function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
-  const base = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
   const savedData =
     row.dados && typeof row.dados === "object" && !Array.isArray(row.dados) ? row.dados : {};
   return {
     ...row,
     tipo,
-    dados: { ...base, ...savedData },
+    dados: tipo === "instalacao" ? mergeInstalacaoData(savedData) : mergeChecklistData(savedData),
   } as unknown as ChecklistRow;
 }
 

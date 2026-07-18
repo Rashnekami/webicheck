@@ -1,12 +1,5 @@
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  Image,
-  StyleSheet,
-  pdf,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, pdf } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import type { ChecklistData, ChecklistRow, FotoRow } from "@/lib/checklist-schema";
 import { FOTO_CATEGORIAS } from "@/lib/checklist-schema";
 import { signedFotoUrl } from "@/lib/checklists";
@@ -98,6 +91,14 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
+  },
+  subsectionLabel: {
+    marginTop: 5,
+    marginBottom: 2,
+    fontSize: 7.5,
+    fontWeight: 700,
+    color: BRAND_DARK,
+    letterSpacing: 0.5,
   },
   grid2: { flexDirection: "row", flexWrap: "wrap" },
   cell: {
@@ -192,26 +193,25 @@ const styles = StyleSheet.create({
   },
   numberLabel: { fontSize: 8, color: MUTED, letterSpacing: 0.6 },
   numberValue: { fontSize: 13, fontWeight: 700, color: BRAND_DARK, letterSpacing: 1 },
-  photoGrid: { flexDirection: "row", flexWrap: "wrap" },
   photoItem: {
-    width: "48%",
-    marginRight: "2%",
-    marginBottom: 8,
+    width: "100%",
+    flex: 1,
     borderWidth: 1,
     borderColor: BORDER,
-    padding: 4,
-    borderRadius: 3,
+    padding: 8,
+    borderRadius: 5,
     backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  photoImg: { width: "100%", height: 180, objectFit: "cover", borderRadius: 2 },
-  photoLabel: { fontSize: 8, marginTop: 3, color: MUTED, textAlign: "center" },
+  photoImg: { width: "100%", height: 610, objectFit: "contain", borderRadius: 2 },
+  photoLabel: { fontSize: 9, marginTop: 6, color: MUTED, textAlign: "center" },
+  qrImage: { width: 56, height: 56, marginLeft: 8 },
 });
 
 const Chk = ({ v, label }: { v: boolean; label: string }) => (
   <View style={styles.checkboxRow}>
-    <View style={styles.checkboxOuter}>
-      {v ? <View style={styles.checkboxInner} /> : null}
-    </View>
+    <View style={styles.checkboxOuter}>{v ? <View style={styles.checkboxInner} /> : null}</View>
     <Text style={styles.checkboxLabel}>{label}</Text>
   </View>
 );
@@ -253,6 +253,7 @@ type Params = {
   fotos: FotoRow[];
   tecnicoNome: string;
   assinatura?: string | null;
+  publicUrl?: string | null;
 };
 
 function ChecklistDocument({
@@ -261,7 +262,8 @@ function ChecklistDocument({
   tecnicoNome,
   assinatura,
   logoUri,
-}: Params & { logoUri: string }) {
+  qrUri,
+}: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as ChecklistData;
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
@@ -274,9 +276,7 @@ function ChecklistDocument({
             {logoUri ? <Image src={logoUri} style={styles.headerLogo} /> : null}
           </View>
           <View style={styles.headerTextBox}>
-            <Text style={styles.headerTitle}>
-              CHECKLIST TÉCNICO DE VALIDAÇÃO DE ONT
-            </Text>
+            <Text style={styles.headerTitle}>CHECKLIST TÉCNICO DE VALIDAÇÃO DE ONT</Text>
             <Text style={styles.headerSub}>Uso exclusivo do técnico de campo · Webifibra</Text>
             <Text style={styles.headerBadge}>DOCUMENTO OFICIAL</Text>
           </View>
@@ -287,18 +287,22 @@ function ChecklistDocument({
             <Text style={styles.numberLabel}>NÚMERO DO CHECKLIST</Text>
             <Text style={styles.numberValue}>{numero}</Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.numberLabel}>CÓDIGO DE VALIDAÇÃO</Text>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: INK }}>
-              {row.codigo_validacao || "—"}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.numberLabel}>CÓDIGO DE VALIDAÇÃO</Text>
+              <Text style={{ fontSize: 9, fontWeight: 700, color: INK }}>
+                {row.codigo_validacao || "—"}
+              </Text>
+              {qrUri ? <Text style={styles.numberLabel}>VALIDAR ONLINE</Text> : null}
+            </View>
+            {qrUri ? <Image src={qrUri} style={styles.qrImage} /> : null}
           </View>
         </View>
 
         <View style={styles.warn}>
           <Text>
-            IMPORTANTE: preencher antes de solicitar a troca e não restaurar a
-            ONT antes de enviar as evidências ao NOC.
+            IMPORTANTE: preencher antes de solicitar a troca e não restaurar a ONT antes de enviar
+            as evidências ao NOC.
           </Text>
         </View>
 
@@ -329,6 +333,8 @@ function ChecklistDocument({
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
             <Chk v={d.sintoma.ont_nao_liga} label="ONT não liga" />
+            <Chk v={d.sintoma.ont_queimada} label="ONT/ONU queimada" />
+            <Chk v={d.sintoma.ont_danificada_cliente} label="ONT/ONU danificada pelo cliente" />
             <Chk v={d.sintoma.ont_reinicia} label="ONT reinicia/desliga" />
             <Chk v={d.sintoma.perde_internet} label="Perde internet/provisionamento" />
             <Chk v={d.sintoma.internet_cai_pon_acesa} label="Internet cai com PON acesa" />
@@ -362,33 +368,61 @@ function ChecklistDocument({
 
         <Text style={styles.sectionTitle}>4. Teste cabeado</Text>
         <View style={styles.sectionBox}>
-          <View style={styles.grid2}>
-            <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
-            <Chk v={d.teste_cabeado.ping} label="Ping testado" />
-            <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
-            <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
-          </View>
-          <View style={styles.grid2}>
-            <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
-            <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
-            <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
-          </View>
-          <View style={styles.grid2}>
-            <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
-            <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
-            <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
-            <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
-            <Chk v={d.teste_cabeado.nao_testado} label="Não foi possível testar" />
-          </View>
+          <Field
+            label="Aplica-se ao atendimento"
+            value={yesNo(d.teste_cabeado.aplicabilidade)}
+            w="100%"
+          />
+          {d.teste_cabeado.aplicabilidade === "nao" ? (
+            <Text style={{ color: MUTED, marginTop: 3 }}>
+              Não se aplica — atendimento realizado sem equipamento para teste cabeado.
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
+              <View style={styles.grid2}>
+                <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
+                <Chk v={d.teste_cabeado.ping} label="Ping testado" />
+                <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
+                <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
+              </View>
+              <View style={styles.grid2}>
+                <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
+                <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
+                <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
+              </View>
+              <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
+              <View style={styles.grid2}>
+                <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
+                <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
+                <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
+                <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
+                <Chk
+                  v={d.teste_cabeado.nao_testado}
+                  label="Aplicável, mas não foi possível testar"
+                />
+              </View>
+            </>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>5. Teste Wi-Fi</Text>
         <View style={styles.sectionBox}>
+          <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
           <View style={styles.grid2}>
             <Chk v={d.teste_wifi.rede_24} label="Rede 2,4 GHz testada" />
             <Chk v={d.teste_wifi.rede_5} label="Rede 5 GHz testada" />
             <Chk v={d.teste_wifi.mais_aparelhos} label="Testado em mais de um aparelho" />
             <Chk v={d.teste_wifi.cabo_funcionando} label="Cabo permanece funcionando" />
+          </View>
+          <Text style={styles.subsectionLabel}>VELOCIDADE MEDIDA NO WI-FI</Text>
+          <View style={styles.grid2}>
+            <Field label="Download (Mbps)" value={d.teste_wifi.download} w="33.33%" />
+            <Field label="Upload (Mbps)" value={d.teste_wifi.upload} w="33.33%" />
+            <Field label="Ping (ms)" value={d.teste_wifi.ping_ms} w="33.33%" />
+          </View>
+          <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
+          <View style={styles.grid2}>
             <Chk v={d.teste_wifi.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
             <Chk v={d.teste_wifi.ambas_desaparecem} label="Ambas as redes desaparecem" />
             <Chk v={d.teste_wifi.sem_internet} label="Wi-Fi visível sem internet" />
@@ -441,9 +475,7 @@ function ChecklistDocument({
             {assinatura ? (
               <Image src={assinatura} style={styles.signImage} />
             ) : (
-              <Text style={{ color: MUTED, fontSize: 8 }}>
-                (assinatura não cadastrada)
-              </Text>
+              <Text style={{ color: MUTED, fontSize: 8 }}>(assinatura não cadastrada)</Text>
             )}
             <View style={styles.signLine}>
               <Text style={styles.signName}>{tecnicoNome || "—"}</Text>
@@ -456,54 +488,43 @@ function ChecklistDocument({
           <Text>Webifibra · {numero}</Text>
           <Text>
             Finalizado:{" "}
-            {row.finalizado_em
-              ? new Date(row.finalizado_em).toLocaleString("pt-BR")
-              : "rascunho"}
+            {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "rascunho"}
           </Text>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
+          <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>
 
-      {fotos.length > 0 && (
-        <Page size="A4" style={styles.page}>
+      {fotos.map((f, index) => (
+        <Page key={f.id} size="A4" style={styles.page}>
           <View style={styles.header}>
             <View style={styles.headerLogoBox}>
               {logoUri ? <Image src={logoUri} style={styles.headerLogo} /> : null}
             </View>
             <View style={styles.headerTextBox}>
               <Text style={styles.headerTitle}>EVIDÊNCIAS FOTOGRÁFICAS</Text>
-              <Text style={styles.headerSub}>Anexo do checklist {numero}</Text>
+              <Text style={styles.headerSub}>
+                Anexo {index + 1} de {fotos.length} · checklist {numero}
+              </Text>
             </View>
           </View>
-          <View style={styles.photoGrid}>
-            {fotos.map((f) => (
-              <View key={f.id} style={styles.photoItem} wrap={false}>
-                {(f as FotoRow & { _uri?: string })._uri ? (
-                  <Image
-                    src={(f as FotoRow & { _uri: string })._uri}
-                    style={styles.photoImg}
-                  />
-                ) : null}
-                <Text style={styles.photoLabel}>
-                  {FOTO_CATEGORIAS.find((c) => c.value === f.categoria)?.label}
-                </Text>
-              </View>
-            ))}
+          <View style={styles.photoItem} wrap={false}>
+            {(f as FotoRow & { _uri?: string })._uri ? (
+              <Image src={(f as FotoRow & { _uri: string })._uri} style={styles.photoImg} />
+            ) : (
+              <Text style={{ color: MUTED }}>Imagem indisponível</Text>
+            )}
+            <Text style={styles.photoLabel}>
+              {FOTO_CATEGORIAS.find((c) => c.value === f.categoria)?.label}
+            </Text>
           </View>
           <View style={styles.footer} fixed>
             <Text>Webifibra · {numero}</Text>
             <Text
-              render={({ pageNumber, totalPages }) =>
-                `Página ${pageNumber} de ${totalPages}`
-              }
+              render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
             />
           </View>
         </Page>
-      )}
+      ))}
     </Document>
   );
 }
@@ -513,8 +534,9 @@ export async function buildChecklistPdfBlob({
   fotos,
   tecnicoNome,
   assinatura,
+  publicUrl,
 }: Params): Promise<Blob> {
-  const [logoUri, fotosComUri] = await Promise.all([
+  const [logoUri, fotosComUri, qrUri] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
     Promise.all(
       fotos.map(async (f) => {
@@ -527,6 +549,13 @@ export async function buildChecklistPdfBlob({
         }
       }),
     ),
+    publicUrl
+      ? QRCode.toDataURL(publicUrl, {
+          margin: 1,
+          width: 320,
+          errorCorrectionLevel: "M",
+        }).catch(() => "")
+      : Promise.resolve(""),
   ]);
 
   return await pdf(
@@ -536,6 +565,8 @@ export async function buildChecklistPdfBlob({
       tecnicoNome={tecnicoNome}
       assinatura={assinatura ?? null}
       logoUri={logoUri}
+      qrUri={qrUri}
+      publicUrl={publicUrl}
     />,
   ).toBlob();
 }
@@ -554,4 +585,3 @@ export async function generateChecklistPdf(params: Params) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
-

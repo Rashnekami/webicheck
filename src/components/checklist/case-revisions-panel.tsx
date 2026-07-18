@@ -35,6 +35,10 @@ import {
   listDiagnosticReports,
   type ServiceStage,
 } from "@/lib/webi-diagnostic.functions";
+import {
+  ensureChecklistSnapshot,
+  getChecklistSnapshotSummary,
+} from "@/lib/public-checklist.functions";
 
 type RevisionStage = "pre_change" | "post_ont_change" | "noc_retest" | "additional_test";
 
@@ -105,10 +109,27 @@ export function CaseRevisionsPanel({
   });
 
   const [busy, setBusy] = useState<"none" | "checklist" | "revision" | "dossie">("none");
+
+  async function resolveValidationUrl(): Promise<string | null> {
+    const current = await getChecklistSnapshotSummary({ data: { checklistId: row.id } });
+    if (current && current.public_status !== "active") return null;
+    const snapshot =
+      current ??
+      (await ensureChecklistSnapshot({ data: { checklistId: row.id, forceNew: false } }));
+    return `${window.location.origin}/validar/${snapshot.public_token}`;
+  }
+
   async function handleChecklistOnly() {
     try {
       setBusy("checklist");
-      await downloadChecklistOnly({ row, fotos, tecnicoNome, assinatura: tecnicoAssinatura });
+      const publicUrl = await resolveValidationUrl();
+      await downloadChecklistOnly({
+        row,
+        fotos,
+        tecnicoNome,
+        assinatura: tecnicoAssinatura,
+        publicUrl,
+      });
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar o PDF do checklist.");
@@ -119,12 +140,14 @@ export function CaseRevisionsPanel({
   async function handleRevisionPdf() {
     try {
       setBusy("revision");
+      const publicUrl = await resolveValidationUrl();
       await generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
         assinatura: tecnicoAssinatura,
         diagnostics: diagsQ.data ?? [],
+        publicUrl,
         scope: "revision",
       });
     } catch (e) {
@@ -137,12 +160,14 @@ export function CaseRevisionsPanel({
   async function handleDossie() {
     try {
       setBusy("dossie");
+      const publicUrl = await resolveValidationUrl();
       await generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
         assinatura: tecnicoAssinatura,
         diagnostics: diagsQ.data ?? [],
+        publicUrl,
         scope: "case",
       });
     } catch (e) {

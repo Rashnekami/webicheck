@@ -1,12 +1,5 @@
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  Image,
-  StyleSheet,
-  pdf,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, pdf } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 
@@ -74,6 +67,7 @@ const styles = StyleSheet.create({
   },
   numberLabel: { fontSize: 8, color: MUTED, letterSpacing: 0.6 },
   numberValue: { fontSize: 13, fontWeight: 700, color: BRAND_DARK, letterSpacing: 1 },
+  qrImage: { width: 56, height: 56, marginLeft: 8 },
   sectionTitle: {
     backgroundColor: BRAND,
     color: "white",
@@ -181,9 +175,7 @@ const styles = StyleSheet.create({
 
 const Chk = ({ v, label }: { v: boolean; label: string }) => (
   <View style={styles.checkboxRow}>
-    <View style={styles.checkboxOuter}>
-      {v ? <View style={styles.checkboxInner} /> : null}
-    </View>
+    <View style={styles.checkboxOuter}>{v ? <View style={styles.checkboxInner} /> : null}</View>
     <Text style={styles.checkboxLabel}>{label}</Text>
   </View>
 );
@@ -218,6 +210,7 @@ type Params = {
   row: ChecklistRow;
   tecnicoNome: string;
   assinatura?: string | null;
+  publicUrl?: string | null;
 };
 
 function InstalacaoDocument({
@@ -225,7 +218,8 @@ function InstalacaoDocument({
   tecnicoNome,
   assinatura,
   logoUri,
-}: Params & { logoUri: string }) {
+  qrUri,
+}: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as InstalacaoData;
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
@@ -251,11 +245,15 @@ function InstalacaoDocument({
             <Text style={styles.numberLabel}>NÚMERO DO CHECKLIST</Text>
             <Text style={styles.numberValue}>{numero}</Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.numberLabel}>CÓDIGO DE VALIDAÇÃO</Text>
-            <Text style={{ fontSize: 9, fontWeight: 700, color: INK }}>
-              {row.codigo_validacao || "—"}
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={styles.numberLabel}>CÓDIGO DE VALIDAÇÃO</Text>
+              <Text style={{ fontSize: 9, fontWeight: 700, color: INK }}>
+                {row.codigo_validacao || "—"}
+              </Text>
+              {qrUri ? <Text style={styles.numberLabel}>VALIDAR ONLINE</Text> : null}
+            </View>
+            {qrUri ? <Image src={qrUri} style={styles.qrImage} /> : null}
           </View>
         </View>
 
@@ -281,9 +279,7 @@ function InstalacaoDocument({
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          2. Validação técnica e orientação ao cliente
-        </Text>
+        <Text style={styles.sectionTitle}>2. Validação técnica e orientação ao cliente</Text>
         <View style={styles.sectionBox}>
           <Chk
             v={d.itens.velocidade_ok}
@@ -313,10 +309,7 @@ function InstalacaoDocument({
             v={d.itens.downdetector}
             label="Apresentado o site Downdetector ao cliente e orientado a verificar possíveis quedas globais de aplicativos antes de acionar o suporte."
           />
-          <Chk
-            v={d.itens.duvidas_sanadas}
-            label="Dúvidas finais do cliente sanadas no local."
-          />
+          <Chk v={d.itens.duvidas_sanadas} label="Dúvidas finais do cliente sanadas no local." />
         </View>
 
         <Text style={styles.sectionTitle}>3. Medições do teste de velocidade</Text>
@@ -335,8 +328,8 @@ function InstalacaoDocument({
 
         <View style={styles.declaracao}>
           <Text>
-            Declaro que os testes foram realizados, as orientações acima foram
-            repassadas e o cliente acompanhou a conclusão do serviço.
+            Declaro que os testes foram realizados, as orientações acima foram repassadas e o
+            cliente acompanhou a conclusão do serviço.
           </Text>
         </View>
 
@@ -345,9 +338,7 @@ function InstalacaoDocument({
             {assinatura ? (
               <Image src={assinatura} style={styles.signImage} />
             ) : (
-              <Text style={{ color: MUTED, fontSize: 8 }}>
-                (assinatura não cadastrada)
-              </Text>
+              <Text style={{ color: MUTED, fontSize: 8 }}>(assinatura não cadastrada)</Text>
             )}
             <View style={styles.signLine}>
               <Text style={styles.signName}>{tecnicoNome || "—"}</Text>
@@ -358,9 +349,7 @@ function InstalacaoDocument({
             {d.assinatura_cliente ? (
               <Image src={d.assinatura_cliente} style={styles.signImage} />
             ) : (
-              <Text style={{ color: MUTED, fontSize: 8 }}>
-                (cliente não assinou)
-              </Text>
+              <Text style={{ color: MUTED, fontSize: 8 }}>(cliente não assinou)</Text>
             )}
             <View style={styles.signLine}>
               <Text style={styles.signName}>{row.cliente || "—"}</Text>
@@ -373,15 +362,9 @@ function InstalacaoDocument({
           <Text>Webifibra · {numero}</Text>
           <Text>
             Finalizado:{" "}
-            {row.finalizado_em
-              ? new Date(row.finalizado_em).toLocaleString("pt-BR")
-              : "rascunho"}
+            {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "rascunho"}
           </Text>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
+          <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>
     </Document>
@@ -392,14 +375,26 @@ export async function buildInstalacaoPdfBlob({
   row,
   tecnicoNome,
   assinatura,
+  publicUrl,
 }: Params): Promise<Blob> {
-  const logoUri = await toDataUri(logoAsset.url).catch(() => "");
+  const [logoUri, qrUri] = await Promise.all([
+    toDataUri(logoAsset.url).catch(() => ""),
+    publicUrl
+      ? QRCode.toDataURL(publicUrl, {
+          margin: 1,
+          width: 320,
+          errorCorrectionLevel: "M",
+        }).catch(() => "")
+      : Promise.resolve(""),
+  ]);
   return await pdf(
     <InstalacaoDocument
       row={row}
       tecnicoNome={tecnicoNome}
       assinatura={assinatura ?? null}
       logoUri={logoUri}
+      qrUri={qrUri}
+      publicUrl={publicUrl}
     />,
   ).toBlob();
 }
@@ -418,4 +413,3 @@ export async function generateInstalacaoPdf(params: Params) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
-

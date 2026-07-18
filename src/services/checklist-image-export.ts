@@ -1,5 +1,14 @@
 import { toPng } from "html-to-image";
 
+async function waitForValidationQr(root: HTMLElement) {
+  const deadline = Date.now() + 6000;
+  while (Date.now() < deadline) {
+    const status = root.querySelector<HTMLElement>("[data-validation-qr]")?.dataset.validationQr;
+    if (!status || status === "ready" || status === "unavailable") return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 async function waitForImages(root: HTMLElement) {
   const imgs = Array.from(root.querySelectorAll("img"));
   await Promise.all(
@@ -23,10 +32,8 @@ async function waitForImages(root: HTMLElement) {
   }
 }
 
-export async function exportNodeAsPng(
-  node: HTMLElement,
-  filename: string,
-): Promise<Blob> {
+export async function exportNodeAsPng(node: HTMLElement, filename: string): Promise<Blob> {
+  await waitForValidationQr(node);
   await waitForImages(node);
   // pixelRatio 2 para nitidez em telas móveis
   const dataUrl = await toPng(node, {
@@ -48,12 +55,13 @@ export async function exportNodeAsPng(
   return blob;
 }
 
-export function buildImageFilename(opts: {
-  os?: string | null;
-  numero?: string | null;
-}): string {
+export function buildImageFilename(opts: { os?: string | null; numero?: string | null }): string {
   const safe = (s?: string | null) =>
-    (s ?? "").toString().trim().replace(/[^\w-]+/g, "-").slice(0, 40);
+    (s ?? "")
+      .toString()
+      .trim()
+      .replace(/[^\w-]+/g, "-")
+      .slice(0, 40);
   const os = safe(opts.os);
   const num = safe(opts.numero);
   if (os) return `checklist-webifibra-OS-${os}.png`;

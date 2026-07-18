@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  Camera,
   CheckCircle2,
   FileText,
+  Images,
   Loader2,
   Save,
   Trash2,
-  Upload,
 } from "lucide-react";
 
 import { WebifibraLogo } from "@/components/webifibra-logo";
@@ -17,7 +18,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -40,8 +47,6 @@ import {
   uploadFoto,
 } from "@/lib/checklists";
 import {
-  emptyChecklistData,
-  emptyInstalacaoData,
   FOTO_CATEGORIAS,
   TIPO_LABEL,
   type ChecklistData,
@@ -53,6 +58,10 @@ import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
+import {
+  ensureChecklistSnapshot,
+  getChecklistSnapshotSummary,
+} from "@/lib/public-checklist.functions";
 
 export const Route = createFileRoute("/_authenticated/checklists/$id")({
   head: () => ({
@@ -109,13 +118,17 @@ function ChecklistDetail() {
         .select("full_name, email, assinatura")
         .eq("id", ownerId!)
         .maybeSingle();
-      return data as { full_name: string | null; email: string | null; assinatura: string | null } | null;
+      return data as {
+        full_name: string | null;
+        email: string | null;
+        assinatura: string | null;
+      } | null;
     },
   });
   const isOwner = !!user && !!ownerId && user.id === ownerId;
   const tecnicoNome = isOwner
-    ? (user?.full_name || user?.email || "")
-    : (ownerQuery.data?.full_name || ownerQuery.data?.email || "");
+    ? user?.full_name || user?.email || ""
+    : ownerQuery.data?.full_name || ownerQuery.data?.email || "";
   const tecnicoAssinatura = isOwner
     ? (user?.assinatura ?? null)
     : (ownerQuery.data?.assinatura ?? null);
@@ -151,9 +164,7 @@ function ChecklistDetail() {
       modelo_ont_instalada: row.modelo_ont_instalada,
       serial_ont_instalada: row.serial_ont_instalada,
     });
-    const base =
-      row.tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
-    setData({ ...(base as any), ...(row.dados as any) });
+    setData(row.dados);
     setDirty(false);
   }, [row?.id, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -203,6 +214,9 @@ function ChecklistDetail() {
       const d = data as ChecklistData;
       if (!header.modelo?.trim()) errs.push("Modelo da ONT");
       if (!header.serial?.trim()) errs.push("Serial da ONT");
+      if (!d.teste_cabeado.aplicabilidade) {
+        errs.push("Aplicabilidade do teste cabeado");
+      }
       if (!d.relato?.trim()) errs.push("Relato do técnico");
     } else {
       const d = data as InstalacaoData;
@@ -212,16 +226,26 @@ function ChecklistDetail() {
     return errs;
   }, [header, data, tipo]);
 
-  async function handlePdf() {
+  async function resolveValidationUrl(): Promise<string | null> {
+    const current = await getChecklistSnapshotSummary({ data: { checklistId: id } });
+    if (current && current.public_status !== "active") return null;
+    const snapshot =
+      current ?? (await ensureChecklistSnapshot({ data: { checklistId: id, forceNew: false } }));
+    return `${window.location.origin}/validar/${snapshot.public_token}`;
+  }
+
+  async function handlePdf(publicUrlHint?: string | null) {
     if (!row) return;
     try {
       setPdfBusy(true);
+      const publicUrl = publicUrlHint || (await resolveValidationUrl());
       const merged = { ...row, ...header, dados: data } as ChecklistRow;
       if (tipo === "instalacao") {
         await generateInstalacaoPdf({
           row: merged,
           tecnicoNome,
           assinatura: tecnicoAssinatura,
+          publicUrl,
         });
       } else {
         await generateChecklistPdf({
@@ -229,6 +253,7 @@ function ChecklistDetail() {
           fotos: fotosQuery.data ?? [],
           tecnicoNome,
           assinatura: tecnicoAssinatura,
+          publicUrl,
         });
       }
     } catch (e) {
@@ -371,7 +396,6 @@ function ChecklistDetail() {
               tecnicoAssinatura={tecnicoAssinatura}
             />
 
-
             <Card>
               <CardContent className="space-y-1 p-4 text-sm">
                 <p>
@@ -380,9 +404,7 @@ function ChecklistDetail() {
                 </p>
                 <p>
                   <span className="text-muted-foreground">Finalizado em:</span>{" "}
-                  {row.finalizado_em
-                    ? new Date(row.finalizado_em).toLocaleString("pt-BR")
-                    : "—"}
+                  {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "—"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Registro imutável para fins de fiscalização.
@@ -400,7 +422,7 @@ function ChecklistDetail() {
           </Button>
           <div className="flex items-center gap-2">
             {row.status === "finalizado" && (
-              <Button onClick={handlePdf} disabled={pdfBusy}>
+              <Button onClick={() => handlePdf()} disabled={pdfBusy}>
                 {pdfBusy ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 ) : (
@@ -437,9 +459,8 @@ function ChecklistDetail() {
           <DialogHeader>
             <DialogTitle>Finalizar checklist?</DialogTitle>
             <DialogDescription>
-              Após finalizar, o checklist não poderá mais ser editado nem
-              apagado — nem por administradores. Ele fica disponível para
-              fiscalização e para gerar o PDF.
+              Após finalizar, o checklist não poderá mais ser editado nem apagado — nem por
+              administradores. Ele fica disponível para fiscalização e para gerar o PDF.
             </DialogDescription>
           </DialogHeader>
           {missing.length > 0 ? (
@@ -464,9 +485,7 @@ function ChecklistDetail() {
               onClick={() => finalize.mutate()}
               disabled={missing.length > 0 || finalize.isPending}
             >
-              {finalize.isPending && (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              )}
+              {finalize.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Confirmar finalização
             </Button>
           </DialogFooter>
@@ -491,11 +510,11 @@ function FotosSection({
 }) {
   const qc = useQueryClient();
   const [cat, setCat] = useState<FotoRow["categoria"]>("etiqueta");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const up = useMutation({
-    mutationFn: async (file: File) =>
-      uploadFoto({ checklistId, tecnicoId, categoria: cat, file }),
+    mutationFn: async (file: File) => uploadFoto({ checklistId, tecnicoId, categoria: cat, file }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] });
       toast.success("Foto anexada.");
@@ -505,9 +524,13 @@ function FotosSection({
 
   const del = useMutation({
     mutationFn: (f: FotoRow) => deleteFoto(f),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] }),
   });
+
+  function handleSelectedFile(file: File | undefined, input: HTMLInputElement) {
+    if (file) up.mutate(file);
+    input.value = "";
+  }
 
   return (
     <Card>
@@ -537,45 +560,50 @@ function FotosSection({
               </Select>
             </div>
             <input
-              ref={inputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) up.mutate(file);
-                if (inputRef.current) inputRef.current.value = "";
-              }}
+              onChange={(e) => handleSelectedFile(e.target.files?.[0], e.currentTarget)}
+            />
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleSelectedFile(e.target.files?.[0], e.currentTarget)}
             />
             <Button
               type="button"
-              onClick={() => inputRef.current?.click()}
+              onClick={() => cameraInputRef.current?.click()}
               disabled={up.isPending}
             >
               {up.isPending ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
-                <Upload className="mr-1.5 h-4 w-4" />
+                <Camera className="mr-1.5 h-4 w-4" />
               )}
-              Anexar foto
+              Tirar foto
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={up.isPending}
+            >
+              <Images className="mr-1.5 h-4 w-4" />
+              Galeria
             </Button>
           </div>
         )}
 
         {fotos.length === 0 ? (
-          <p className="py-4 text-center text-xs text-muted-foreground">
-            Nenhuma foto anexada.
-          </p>
+          <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma foto anexada.</p>
         ) : (
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {fotos.map((f) => (
-              <FotoTile
-                key={f.id}
-                foto={f}
-                canDelete={canDelete}
-                onDelete={() => del.mutate(f)}
-              />
+              <FotoTile key={f.id} foto={f} canDelete={canDelete} onDelete={() => del.mutate(f)} />
             ))}
           </ul>
         )}
@@ -609,7 +637,7 @@ function FotoTile({
   return (
     <li className="group relative overflow-hidden rounded-md border">
       {url ? (
-        <img src={url} alt={label} className="h-32 w-full object-cover" />
+        <img src={url} alt={label} className="h-32 w-full bg-muted object-contain" />
       ) : (
         <div className="flex h-32 w-full items-center justify-center bg-muted">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -631,6 +659,3 @@ function FotoTile({
     </li>
   );
 }
-
-// suppress unused var warning for emptyInstalacaoData retained import
-void emptyInstalacaoData;
