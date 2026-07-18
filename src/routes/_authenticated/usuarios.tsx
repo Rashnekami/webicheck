@@ -2,15 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Loader2,
-  Pencil,
-  Search,
-  ShieldCheck,
-  UserCog,
-  UserX,
-} from "lucide-react";
+import { ArrowLeft, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,10 +27,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
-    meta: [
-      { title: "Usuários — Webifibra" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Usuários — Webifibra" }, { name: "robots", content: "noindex" }],
   }),
   component: UsersPage,
 });
@@ -66,8 +55,7 @@ function toDraft(user: AdminUserRecord): UserDraft {
 }
 
 function UsersPage() {
-  const { data: currentUser, isLoading: loadingCurrentUser } =
-    useCurrentUser();
+  const { data: currentUser, isLoading: loadingCurrentUser } = useCurrentUser();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<AdminUserRecord | null>(null);
@@ -80,13 +68,7 @@ function UsersPage() {
   });
 
   const updateUser = useMutation({
-    mutationFn: async ({
-      user,
-      values,
-    }: {
-      user: AdminUserRecord;
-      values: UserDraft;
-    }) =>
+    mutationFn: async ({ user, values }: { user: AdminUserRecord; values: UserDraft }) =>
       updateAdminUser({
         data: {
           userId: user.id,
@@ -113,12 +95,9 @@ function UsersPage() {
     const term = search.trim().toLocaleLowerCase("pt-BR");
     if (!term) return usersQuery.data ?? [];
     return (usersQuery.data ?? []).filter((user) =>
-      [
-        user.full_name,
-        user.email,
-        user.matricula ?? "",
-        user.city ?? "",
-      ].some((value) => value.toLocaleLowerCase("pt-BR").includes(term)),
+      [user.full_name, user.email, user.matricula ?? "", user.city ?? ""].some((value) =>
+        value.toLocaleLowerCase("pt-BR").includes(term),
+      ),
     );
   }, [search, usersQuery.data]);
 
@@ -168,8 +147,7 @@ function UsersPage() {
     );
   }
 
-  const activeCount =
-    usersQuery.data?.filter((user) => user.active).length ?? 0;
+  const activeCount = usersQuery.data?.filter((user) => user.active).length ?? 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
@@ -189,12 +167,8 @@ function UsersPage() {
           </p>
         </div>
         <div className="flex gap-2 text-sm">
-          <Badge variant="secondary">
-            {usersQuery.data?.length ?? 0} cadastrados
-          </Badge>
-          <Badge className="bg-emerald-500/15 text-emerald-700">
-            {activeCount} ativos
-          </Badge>
+          <Badge variant="secondary">{usersQuery.data?.length ?? 0} cadastrados</Badge>
+          <Badge className="bg-emerald-500/15 text-emerald-700">{activeCount} ativos</Badge>
         </div>
       </div>
 
@@ -217,8 +191,7 @@ function UsersPage() {
       {usersQuery.isError && (
         <Card className="border-destructive/40">
           <CardContent className="p-4 text-sm text-destructive">
-            Não foi possível carregar os usuários:{" "}
-            {(usersQuery.error as Error).message}
+            Não foi possível carregar os usuários: {(usersQuery.error as Error).message}
           </CardContent>
         </Card>
       )}
@@ -238,27 +211,18 @@ function UsersPage() {
                     )}
                     <Badge
                       variant={user.active ? "default" : "secondary"}
-                      className={
-                        user.active
-                          ? "bg-emerald-500/15 text-emerald-700"
-                          : undefined
-                      }
+                      className={user.active ? "bg-emerald-500/15 text-emerald-700" : undefined}
                     >
                       {user.active ? "Ativo" : "Inativo"}
                     </Badge>
                   </div>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {user.email}
-                  </p>
+                  <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                 </div>
                 <div className="space-y-0.5 text-xs text-muted-foreground">
                   {user.matricula && <p>Matrícula: {user.matricula}</p>}
                   {user.city && <p>Cidade: {user.city}</p>}
                   {user.phone && <p>Telefone: {user.phone}</p>}
-                  <p>
-                    Cadastro:{" "}
-                    {new Date(user.created_at).toLocaleDateString("pt-BR")}
-                  </p>
+                  <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
                   {!user.has_profile && (
                     <p className="font-medium text-amber-700">
                       Perfil incompleto — revise antes de ativar.
@@ -266,11 +230,7 @@ function UsersPage() {
                   )}
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openEditor(user)}
-              >
+              <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
                 <Pencil className="mr-1.5 h-4 w-4" /> Editar
               </Button>
             </CardContent>
@@ -279,9 +239,7 @@ function UsersPage() {
       </div>
 
       {!usersQuery.isLoading && filteredUsers.length === 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Nenhum usuário encontrado.
-        </p>
+        <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
       )}
 
       <Dialog
@@ -308,9 +266,7 @@ function UsersPage() {
                 <Input
                   id="user-name"
                   value={draft.fullName}
-                  onChange={(event) =>
-                    setDraft({ ...draft, fullName: event.target.value })
-                  }
+                  onChange={(event) => setDraft({ ...draft, fullName: event.target.value })}
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
@@ -319,9 +275,7 @@ function UsersPage() {
                   id="user-email"
                   type="email"
                   value={draft.email}
-                  onChange={(event) =>
-                    setDraft({ ...draft, email: event.target.value })
-                  }
+                  onChange={(event) => setDraft({ ...draft, email: event.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -329,9 +283,7 @@ function UsersPage() {
                 <Input
                   id="user-phone"
                   value={draft.phone}
-                  onChange={(event) =>
-                    setDraft({ ...draft, phone: event.target.value })
-                  }
+                  onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -339,9 +291,7 @@ function UsersPage() {
                 <Input
                   id="user-registration"
                   value={draft.matricula}
-                  onChange={(event) =>
-                    setDraft({ ...draft, matricula: event.target.value })
-                  }
+                  onChange={(event) => setDraft({ ...draft, matricula: event.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -349,9 +299,7 @@ function UsersPage() {
                 <Input
                   id="user-city"
                   value={draft.city}
-                  onChange={(event) =>
-                    setDraft({ ...draft, city: event.target.value })
-                  }
+                  onChange={(event) => setDraft({ ...draft, city: event.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
@@ -389,8 +337,7 @@ function UsersPage() {
                 </select>
                 {!draft.active && (
                   <p className="text-xs text-amber-700">
-                    O login será bloqueado e as chaves de integração ativas
-                    serão revogadas.
+                    O login será bloqueado e as chaves de integração ativas serão revogadas.
                   </p>
                 )}
               </div>
@@ -410,15 +357,9 @@ function UsersPage() {
             </Button>
             <Button
               onClick={save}
-              disabled={
-                updateUser.isPending ||
-                !draft?.email.trim() ||
-                !draft?.fullName.trim()
-              }
+              disabled={updateUser.isPending || !draft?.email.trim() || !draft?.fullName.trim()}
             >
-              {updateUser.isPending && (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              )}
+              {updateUser.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Salvar alterações
             </Button>
           </DialogFooter>
