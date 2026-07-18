@@ -263,7 +263,9 @@ function ChecklistDocument({
   logoUri,
 }: Params & { logoUri: string }) {
   const d = row.dados as ChecklistData;
-  const numero = row.numero_publico || "— pendente —";
+  const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
+  const revSuffix = rev > 1 ? `-R${rev}` : "";
+  const numero = (row.numero_publico || "— pendente —") + revSuffix;
   return (
     <Document>
       <Page size="A4" style={styles.page}>
