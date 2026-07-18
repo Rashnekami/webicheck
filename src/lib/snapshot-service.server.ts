@@ -33,9 +33,7 @@ export interface RegenerateResult {
 export async function regenerateChecklistSnapshot(
   requestedChecklistId: string,
 ): Promise<RegenerateResult | null> {
-  const { supabaseAdmin } = await import(
-    "@/integrations/supabase/client.server"
-  );
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const { data: requested, error: requestedError } = await supabaseAdmin
     .from("checklists")
@@ -66,20 +64,17 @@ export async function regenerateChecklistSnapshot(
     .maybeSingle();
   if (profileError) throw new Error(profileError.message);
 
-  const { data: diagnosticRows, error: diagnosticsError } =
-    await supabaseAdmin
-      .from("checklist_diagnostic_reports")
-      .select(
-        "id, diagnostic_session_id, test_stage, report_sequence, sha256, size_bytes, agent_version, generated_at, created_at, original_filename, status",
-      )
-      .eq("case_id", checklist.case_id)
-      .eq("status", "active")
-      .order("created_at", { ascending: true });
+  const { data: diagnosticRows, error: diagnosticsError } = await supabaseAdmin
+    .from("checklist_diagnostic_reports")
+    .select(
+      "id, diagnostic_session_id, test_stage, report_sequence, sha256, size_bytes, agent_version, generated_at, created_at, original_filename, status",
+    )
+    .eq("case_id", checklist.case_id)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
   if (diagnosticsError) throw new Error(diagnosticsError.message);
 
-  const diagnostics: DiagnosticSnapshotSummary[] = (
-    diagnosticRows ?? []
-  ).map((row) => ({
+  const diagnostics: DiagnosticSnapshotSummary[] = (diagnosticRows ?? []).map((row) => ({
     report_id: row.id,
     session_id: row.diagnostic_session_id,
     test_stage: row.test_stage,
@@ -95,13 +90,8 @@ export async function regenerateChecklistSnapshot(
   }));
 
   const revisionNumber = checklist.revision_number ?? 1;
-  const base =
-    checklist.numero_publico || checklist.codigo_validacao || "";
-  const checklistCode = base
-    ? revisionNumber > 1
-      ? `${base}-R${revisionNumber}`
-      : base
-    : null;
+  const base = checklist.numero_publico || checklist.codigo_validacao || "";
+  const checklistCode = base ? (revisionNumber > 1 ? `${base}-R${revisionNumber}` : base) : null;
 
   const payload = {
     tipo: checklist.tipo ?? "validacao_ont",
@@ -122,8 +112,7 @@ export async function regenerateChecklistSnapshot(
       modelo_ont_instalada: checklist.modelo_ont_instalada,
       serial_ont_instalada: checklist.serial_ont_instalada,
     },
-    dados:
-      (checklist.dados as unknown as { [key: string]: JsonValue }) ?? {},
+    dados: (checklist.dados as unknown as { [key: string]: JsonValue }) ?? {},
     tecnico: {
       full_name: technician?.full_name ?? "",
       assinatura: technician?.assinatura ?? null,
@@ -140,18 +129,14 @@ export async function regenerateChecklistSnapshot(
   const documentHash = await computeDocumentHash(payload);
   const publicToken = generatePublicToken(32);
 
-  const { data: rpcRows, error: rpcError } = await supabaseAdmin.rpc(
-    "create_snapshot_version",
-    {
-      _checklist_id: checklist.id,
-      _snapshot_data: payload as never,
-      _document_hash: documentHash,
-      _public_token: publicToken,
-      _finalized_at:
-        checklist.finalizado_em ?? new Date().toISOString(),
-      _created_by: checklist.tecnico_id,
-    },
-  );
+  const { data: rpcRows, error: rpcError } = await supabaseAdmin.rpc("create_snapshot_version", {
+    _checklist_id: checklist.id,
+    _snapshot_data: payload as never,
+    _document_hash: documentHash,
+    _public_token: publicToken,
+    _finalized_at: checklist.finalizado_em ?? new Date().toISOString(),
+    _created_by: checklist.tecnico_id,
+  });
   if (rpcError) throw new Error(rpcError.message);
 
   const first = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
