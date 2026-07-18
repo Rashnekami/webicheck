@@ -1,18 +1,18 @@
-// Server-only helper para regenerar snapshots do checklist quando ocorrem
-// mudanças na cadeia de diagnósticos (upload novo ou revogação).
-// Cria uma nova versão em `checklist_document_snapshots`, marca a anterior
-// como `replaced` e inclui um resumo dos diagnósticos ativos no payload.
+// Helper exclusivamente server-side para versionar o documento público.
+// Sempre publica a revisão finalizada canônica do atendimento e inclui todos
+// os diagnósticos ativos do caso, com hash SHA-256 completo.
 
 import { computeDocumentHash, generatePublicToken } from "@/lib/document-hash";
 
 type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | { [k: string]: JsonValue } | JsonValue[];
+type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
 
 export interface DiagnosticSnapshotSummary {
   report_id: string;
   session_id: string;
   test_stage: string;
   report_sequence: number;
+  sha256: string;
   sha256_short: string;
   size_bytes: number;
   agent_version: string | null;
@@ -27,72 +27,76 @@ export interface RegenerateResult {
   version: number;
   public_token: string;
   document_hash: string;
+  checklist_id: string;
 }
 
-/**
- * Regenera o snapshot público do checklist informado.
- * - Marca o snapshot ativo anterior como `replaced` e liga `replaced_by_snapshot_id`.
- * - Cria uma nova versão contendo o resumo de todos os diagnósticos ativos.
- */
 export async function regenerateChecklistSnapshot(
-  checklistId: string,
+  requestedChecklistId: string,
 ): Promise<RegenerateResult | null> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { supabaseAdmin } = await import(
+    "@/integrations/supabase/client.server"
+  );
 
-  const { data: chk } = await supabaseAdmin
+  const { data: requested, error: requestedError } = await supabaseAdmin
+    .from("checklists")
+    .select("case_id")
+    .eq("id", requestedChecklistId)
+    .maybeSingle();
+  if (requestedError) throw new Error(requestedError.message);
+  if (!requested) return null;
+
+  // Uma revisão corrente pode estar em rascunho. Nesse intervalo o documento
+  // público permanece baseado na revisão finalizada mais recente, sem anexar
+  // dados de rascunho ou regenerar uma versão histórica antiga.
+  const { data: finalizedRows, error: checklistError } = await supabaseAdmin
     .from("checklists")
     .select("*")
-    .eq("id", checklistId)
-    .maybeSingle();
-  if (!chk || chk.status !== "finalizado") return null;
+    .eq("case_id", requested.case_id)
+    .eq("status", "finalizado")
+    .order("revision_number", { ascending: false })
+    .limit(1);
+  if (checklistError) throw new Error(checklistError.message);
+  const checklist = finalizedRows?.[0];
+  if (!checklist) return null;
 
-  const { data: prof } = await supabaseAdmin
+  const { data: technician, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("full_name, assinatura")
-    .eq("id", chk.tecnico_id)
+    .eq("id", checklist.tecnico_id)
     .maybeSingle();
+  if (profileError) throw new Error(profileError.message);
 
-  const { data: diags } = await supabaseAdmin
-    .from("checklist_diagnostic_reports")
-    .select(
-      "id, diagnostic_session_id, test_stage, report_sequence, sha256, size_bytes, agent_version, generated_at, created_at, original_filename, status",
-    )
-    .eq("case_id", (chk as unknown as { case_id: string }).case_id)
-    .eq("status", "active")
-    .order("created_at", { ascending: true });
+  const { data: diagnosticRows, error: diagnosticsError } =
+    await supabaseAdmin
+      .from("checklist_diagnostic_reports")
+      .select(
+        "id, diagnostic_session_id, test_stage, report_sequence, sha256, size_bytes, agent_version, generated_at, created_at, original_filename, status",
+      )
+      .eq("case_id", checklist.case_id)
+      .eq("status", "active")
+      .order("created_at", { ascending: true });
+  if (diagnosticsError) throw new Error(diagnosticsError.message);
 
-  const diagnostics: DiagnosticSnapshotSummary[] = (diags ?? []).map((d) => {
-    const row = d as unknown as {
-      id: string;
-      diagnostic_session_id: string;
-      test_stage: string;
-      report_sequence: number;
-      sha256: string;
-      size_bytes: number;
-      agent_version: string | null;
-      generated_at: string | null;
-      created_at: string;
-      original_filename: string;
-      status: string;
-    };
-    return {
-      report_id: row.id,
-      session_id: row.diagnostic_session_id,
-      test_stage: row.test_stage,
-      report_sequence: row.report_sequence,
-      sha256_short: row.sha256.slice(0, 12),
-      size_bytes: row.size_bytes,
-      agent_version: row.agent_version,
-      generated_at: row.generated_at,
-      created_at: row.created_at,
-      original_filename: row.original_filename,
-      status: row.status,
-    };
-  });
+  const diagnostics: DiagnosticSnapshotSummary[] = (
+    diagnosticRows ?? []
+  ).map((row) => ({
+    report_id: row.id,
+    session_id: row.diagnostic_session_id,
+    test_stage: row.test_stage,
+    report_sequence: row.report_sequence,
+    sha256: row.sha256,
+    sha256_short: row.sha256.slice(0, 12),
+    size_bytes: row.size_bytes,
+    agent_version: row.agent_version,
+    generated_at: row.generated_at,
+    created_at: row.created_at,
+    original_filename: row.original_filename,
+    status: row.status,
+  }));
 
-  const revisionNumber =
-    (chk as unknown as { revision_number?: number }).revision_number ?? 1;
-  const base = chk.numero_publico || chk.codigo_validacao || "";
+  const revisionNumber = checklist.revision_number ?? 1;
+  const base =
+    checklist.numero_publico || checklist.codigo_validacao || "";
   const checklistCode = base
     ? revisionNumber > 1
       ? `${base}-R${revisionNumber}`
@@ -100,63 +104,64 @@ export async function regenerateChecklistSnapshot(
     : null;
 
   const payload = {
-    tipo: (chk.tipo as string) ?? "validacao_ont",
+    tipo: checklist.tipo ?? "validacao_ont",
     header: {
-      os: chk.os,
-      cliente: chk.cliente,
-      cidade: chk.cidade,
-      endereco: chk.endereco,
-      plano: chk.plano,
-      modelo: chk.modelo,
-      serial: chk.serial,
-      cto_porta: chk.cto_porta,
-      data_atendimento: chk.data_atendimento,
-      hora_atendimento: chk.hora_atendimento,
-      troca_realizada: chk.troca_realizada,
-      modelo_ont_retirada: chk.modelo_ont_retirada,
-      serial_ont_retirada: chk.serial_ont_retirada,
-      modelo_ont_instalada: chk.modelo_ont_instalada,
-      serial_ont_instalada: chk.serial_ont_instalada,
+      os: checklist.os,
+      cliente: checklist.cliente,
+      cidade: checklist.cidade,
+      endereco: checklist.endereco,
+      plano: checklist.plano,
+      modelo: checklist.modelo,
+      serial: checklist.serial,
+      cto_porta: checklist.cto_porta,
+      data_atendimento: checklist.data_atendimento,
+      hora_atendimento: checklist.hora_atendimento,
+      troca_realizada: checklist.troca_realizada,
+      modelo_ont_retirada: checklist.modelo_ont_retirada,
+      serial_ont_retirada: checklist.serial_ont_retirada,
+      modelo_ont_instalada: checklist.modelo_ont_instalada,
+      serial_ont_instalada: checklist.serial_ont_instalada,
     },
-    dados: (chk.dados as unknown as { [k: string]: JsonValue }) ?? {},
+    dados:
+      (checklist.dados as unknown as { [key: string]: JsonValue }) ?? {},
     tecnico: {
-      full_name: (prof?.full_name as string | undefined) ?? "",
-      assinatura: (prof?.assinatura as string | null | undefined) ?? null,
+      full_name: technician?.full_name ?? "",
+      assinatura: technician?.assinatura ?? null,
     },
-    numero_publico: chk.numero_publico,
-    codigo_validacao: chk.codigo_validacao,
-    finalizado_em: chk.finalizado_em,
-    created_at: new Date().toISOString(),
+    numero_publico: checklist.numero_publico,
+    codigo_validacao: checklist.codigo_validacao,
+    finalizado_em: checklist.finalizado_em,
+    snapshot_created_at: new Date().toISOString(),
     revision_number: revisionNumber,
     checklist_code: checklistCode,
     diagnostics,
   } as unknown as Record<string, JsonValue>;
 
-  const document_hash = await computeDocumentHash(payload);
-  const public_token = generatePublicToken(32);
+  const documentHash = await computeDocumentHash(payload);
+  const publicToken = generatePublicToken(32);
 
-  // Alocação de versão + substituição da anterior é feita atomicamente
-  // pela RPC create_snapshot_version (advisory lock por checklist).
-  const { data: rpcRow, error: rpcErr } = await supabaseAdmin.rpc(
+  const { data: rpcRows, error: rpcError } = await supabaseAdmin.rpc(
     "create_snapshot_version",
     {
-      _checklist_id: checklistId,
+      _checklist_id: checklist.id,
       _snapshot_data: payload as never,
-      _document_hash: document_hash,
-      _public_token: public_token,
+      _document_hash: documentHash,
+      _public_token: publicToken,
       _finalized_at:
-        (chk as unknown as { finalizado_em: string | null }).finalizado_em ??
-        new Date().toISOString(),
-      _created_by: (chk as unknown as { tecnico_id: string }).tecnico_id,
+        checklist.finalizado_em ?? new Date().toISOString(),
+      _created_by: checklist.tecnico_id,
     },
   );
-  if (rpcErr || !rpcRow) return null;
-  const first = Array.isArray(rpcRow) ? rpcRow[0] : rpcRow;
-  if (!first) return null;
+  if (rpcError) throw new Error(rpcError.message);
+
+  const first = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+  if (!first) throw new Error("snapshot_rpc_returned_no_row");
+
   return {
     id: first.id as string,
     version: first.version as number,
-    public_token,
-    document_hash,
+    public_token: publicToken,
+    document_hash: documentHash,
+    checklist_id: checklist.id,
   };
 }
