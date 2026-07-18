@@ -123,12 +123,18 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
         const tokenHash = await sha256HexStr(key);
         const { data: token } = await supabaseAdmin
           .from("webi_integration_tokens")
-          .select("id, user_id, active, expires_at")
+          .select("id, user_id, active, expires_at, scopes")
           .eq("token_hash", tokenHash)
           .maybeSingle();
         if (!token || !token.active) return json({ error: "invalid_token" }, 401);
         if (token.expires_at && new Date(token.expires_at) < new Date())
           return json({ error: "expired_token" }, 401);
+        const scopes = (token.scopes ?? []) as string[];
+        if (!scopes.includes("diagnostic:upload"))
+          return json(
+            { error: "insufficient_scope", required: "diagnostic:upload" },
+            403,
+          );
 
         if (!checkRate(token.id))
           return json({ error: "rate_limited" }, 429);
