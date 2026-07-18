@@ -224,16 +224,22 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       );
     if (profileError) throw new Error(profileError.message);
 
+    // Primeiro garante o novo papel e só depois remove os demais. Assim,
+    // uma falha intermediária nunca deixa o usuário sem papel algum.
+    const { error: upsertRoleError } = await supabaseAdmin
+      .from("user_roles")
+      .upsert(
+        { user_id: data.userId, role: data.role },
+        { onConflict: "user_id,role" },
+      );
+    if (upsertRoleError) throw new Error(upsertRoleError.message);
+
     const { error: deleteRolesError } = await supabaseAdmin
       .from("user_roles")
       .delete()
-      .eq("user_id", data.userId);
+      .eq("user_id", data.userId)
+      .neq("role", data.role);
     if (deleteRolesError) throw new Error(deleteRolesError.message);
-
-    const { error: insertRoleError } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: data.userId, role: data.role });
-    if (insertRoleError) throw new Error(insertRoleError.message);
 
     if (!data.active) {
       const { error: tokenError } = await supabaseAdmin
