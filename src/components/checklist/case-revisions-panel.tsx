@@ -85,7 +85,7 @@ export function CaseRevisionsPanel({
   const [revOpen, setRevOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
-  const [stage, setStage] = useState<ServiceStage>("post_ont_change");
+  const [stage, setStage] = useState<RevisionStage>("post_ont_change");
 
   const createRev = useMutation({
     mutationFn: () =>
