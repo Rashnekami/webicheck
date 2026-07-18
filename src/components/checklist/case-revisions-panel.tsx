@@ -188,25 +188,53 @@ export function CaseRevisionsPanel({
                 {STAGE_LABELS[row.service_stage ?? "initial"]}
               </p>
             </div>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleDossie}
-                disabled={dossieBusy || !isFinalizado}
-                title={
-                  isFinalizado
-                    ? "Baixar dossiê consolidado (checklist + diagnósticos)"
-                    : "Disponível após finalizar o checklist"
-                }
-              >
-                {dossieBusy ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <FileArchive className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Dossiê PDF
-              </Button>
+            <div className="flex flex-wrap gap-1">
+              {isFinalizado && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleChecklistOnly}
+                    disabled={busy !== "none"}
+                    title="Baixar somente o checklist desta versão"
+                  >
+                    {busy === "checklist" ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Checklist
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRevisionPdf}
+                    disabled={busy !== "none"}
+                    title="Checklist + diagnósticos desta versão"
+                  >
+                    {busy === "revision" ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Files className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Versão completa
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDossie}
+                    disabled={busy !== "none"}
+                    title="Dossiê completo do atendimento (todas as revisões e diagnósticos)"
+                  >
+                    {busy === "dossie" ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileArchive className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Dossiê completo
+                  </Button>
+                </>
+              )}
               {isFinalizado && row.is_current !== false && (
                 <Button size="sm" onClick={() => setRevOpen(true)}>
                   <FilePlus2 className="mr-1.5 h-4 w-4" /> Criar revisão
