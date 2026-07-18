@@ -116,7 +116,7 @@ export const createChecklistRevision = createServerFn({ method: "POST" })
         _parent_id: data.checklistId,
         _reason: data.reason.trim(),
         _stage: data.stage,
-        _notes: data.notes?.trim() || null,
+        _notes: data.notes?.trim() || undefined,
       },
     );
     if (error) {
