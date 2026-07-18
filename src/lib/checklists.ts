@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database, Json } from "@/integrations/supabase/types";
 import {
   emptyChecklistData,
   emptyInstalacaoData,
@@ -9,37 +10,59 @@ import {
   type TipoChecklist,
 } from "./checklist-schema";
 
-function normalizeRow(row: any): ChecklistRow {
+export type ChecklistListRow = ChecklistRow & {
+  tecnico_nome: string;
+};
+
+type ChecklistDbRow = Database["public"]["Tables"]["checklists"]["Row"];
+type ChecklistDbInsert = Database["public"]["Tables"]["checklists"]["Insert"];
+type ChecklistDbUpdate = Database["public"]["Tables"]["checklists"]["Update"];
+
+function checklistDataAsJson(data: ChecklistData | InstalacaoData): Json {
+  return data as unknown as Json;
+}
+
+function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
-  const base =
-    tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const base = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const savedData =
+    row.dados && typeof row.dados === "object" && !Array.isArray(row.dados) ? row.dados : {};
   return {
     ...row,
     tipo,
-    dados: { ...(base as any), ...(row.dados ?? {}) },
-  } as ChecklistRow;
+    dados: { ...base, ...savedData },
+  } as unknown as ChecklistRow;
 }
 
 export async function listChecklists(opts: {
   scope: "mine" | "all";
   userId: string;
-}): Promise<ChecklistRow[]> {
-  let q = supabase
-    .from("checklists")
-    .select("*")
-    .order("created_at", { ascending: false });
+}): Promise<ChecklistListRow[]> {
+  let q = supabase.from("checklists").select("*").order("created_at", { ascending: false });
   if (opts.scope === "mine") q = q.eq("tecnico_id", opts.userId);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []).map(normalizeRow);
+  const rows = (data ?? []).map(normalizeRow);
+  const technicianIds = [...new Set(rows.map((row) => row.tecnico_id))];
+  if (technicianIds.length === 0) return [];
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", technicianIds);
+  if (profilesError) throw profilesError;
+
+  const technicianNameById = new Map(
+    (profiles ?? []).map((profile) => [profile.id, profile.full_name.trim()]),
+  );
+  return rows.map((row) => ({
+    ...row,
+    tecnico_nome: technicianNameById.get(row.tecnico_id) || "Técnico não identificado",
+  }));
 }
 
 export async function getChecklist(id: string): Promise<ChecklistRow> {
-  const { data, error } = await supabase
-    .from("checklists")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await supabase.from("checklists").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Checklist não encontrado.");
   return normalizeRow(data);
@@ -49,18 +72,14 @@ export async function createDraft(
   userId: string,
   tipo: TipoChecklist = "validacao_ont",
 ): Promise<string> {
-  const dados =
-    tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
-  const { data, error } = await supabase
-    .from("checklists")
-    .insert({
-      tecnico_id: userId,
-      status: "rascunho",
-      tipo,
-      dados: dados as any,
-    } as any)
-    .select("id")
-    .single();
+  const dados = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const draft: ChecklistDbInsert = {
+    tecnico_id: userId,
+    status: "rascunho",
+    tipo,
+    dados: checklistDataAsJson(dados),
+  };
+  const { data, error } = await supabase.from("checklists").insert(draft).select("id").single();
   if (error) throw error;
   return data.id;
 }
@@ -88,17 +107,19 @@ export async function updateChecklist(
     >
   > & { dados?: ChecklistData | InstalacaoData },
 ): Promise<void> {
-  const { error } = await supabase
-    .from("checklists")
-    .update(patch as any)
-    .eq("id", id);
+  const { dados, ...fields } = patch;
+  const databasePatch: ChecklistDbUpdate = {
+    ...fields,
+    ...(dados ? { dados: checklistDataAsJson(dados) } : {}),
+  };
+  const { error } = await supabase.from("checklists").update(databasePatch).eq("id", id);
   if (error) throw error;
 }
 
 export async function finalizeChecklist(id: string): Promise<ChecklistRow> {
   const { data, error } = await supabase
     .from("checklists")
-    .update({ status: "finalizado" } as any)
+    .update({ status: "finalizado" })
     .eq("id", id)
     .select("*")
     .single();
@@ -129,12 +150,10 @@ export async function uploadFoto(params: {
 }): Promise<FotoRow> {
   const ext = params.file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `${params.tecnicoId}/${params.checklistId}/${crypto.randomUUID()}.${ext}`;
-  const { error: upErr } = await supabase.storage
-    .from("evidencias")
-    .upload(path, params.file, {
-      contentType: params.file.type || "image/jpeg",
-      upsert: false,
-    });
+  const { error: upErr } = await supabase.storage.from("evidencias").upload(path, params.file, {
+    contentType: params.file.type || "image/jpeg",
+    upsert: false,
+  });
   if (upErr) throw upErr;
 
   const { data, error } = await supabase
@@ -153,17 +172,11 @@ export async function uploadFoto(params: {
 
 export async function deleteFoto(foto: FotoRow): Promise<void> {
   await supabase.storage.from("evidencias").remove([foto.storage_path]);
-  const { error } = await supabase
-    .from("checklist_fotos")
-    .delete()
-    .eq("id", foto.id);
+  const { error } = await supabase.from("checklist_fotos").delete().eq("id", foto.id);
   if (error) throw error;
 }
 
-export async function signedFotoUrl(
-  path: string,
-  expiresIn = 3600,
-): Promise<string> {
+export async function signedFotoUrl(path: string, expiresIn = 3600): Promise<string> {
   const { data, error } = await supabase.storage
     .from("evidencias")
     .createSignedUrl(path, expiresIn);

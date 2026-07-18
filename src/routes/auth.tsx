@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
+import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -44,6 +45,7 @@ const loginSchema = z.object({
 });
 const signupSchema = z.object({
   full_name: z.string().trim().min(2, { message: "Informe seu nome completo" }).max(120),
+  city: z.string().refine(isKnownProfileCity, { message: "Selecione sua cidade" }),
   email: emailSchema,
   password: passwordSchema,
 });
@@ -62,13 +64,17 @@ function AuthPage() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active")
+        .select("active, city")
         .eq("id", data.session.user.id)
         .maybeSingle();
       if (!profile?.active) {
         await supabase.auth.signOut();
         toast.error("Seu acesso está inativo. Procure um administrador.");
         setChecking(false);
+        return;
+      }
+      if (!profile.city?.trim()) {
+        navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
       navigate({ to: "/painel", replace: true });
@@ -166,12 +172,17 @@ function LoginForm() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active")
+      .select("active, city")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
       await supabase.auth.signOut();
       toast.error("Seu acesso está inativo. Procure um administrador.");
+      return;
+    }
+
+    if (!profile.city?.trim()) {
+      navigate({ to: "/completar-cadastro", replace: true });
       return;
     }
 
@@ -219,7 +230,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
   const [signatureError, setSignatureError] = useState<string | null>(null);
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { full_name: "", email: "", password: "" },
+    defaultValues: { full_name: "", city: "", email: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof signupSchema>) {
@@ -233,7 +244,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
       password: values.password,
       options: {
         emailRedirectTo: window.location.origin,
-        data: { full_name: values.full_name },
+        data: { full_name: values.full_name, city: values.city },
       },
     });
     if (error) {
@@ -249,7 +260,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
     if (data.session && data.user) {
       await supabase
         .from("profiles")
-        .update({ assinatura: signature } as never)
+        .update({ assinatura: signature, city: values.city } as never)
         .eq("id", data.user.id);
     } else {
       try {
@@ -287,6 +298,24 @@ function SignupForm({ onDone }: { onDone: () => void }) {
         />
         {form.formState.errors.email && (
           <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="su-city">Cidade onde você atende</Label>
+        <select
+          id="su-city"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          {...form.register("city")}
+        >
+          <option value="">Selecione sua cidade</option>
+          {PROFILE_CITIES.map((city) => (
+            <option key={city} value={city}>
+              {city}
+            </option>
+          ))}
+        </select>
+        {form.formState.errors.city && (
+          <p className="text-xs text-destructive">{form.formState.errors.city.message}</p>
         )}
       </div>
       <div className="space-y-1.5">

@@ -10,25 +10,17 @@ import {
   Wifi,
   Wrench,
   BarChart3,
+  UserRound,
 } from "lucide-react";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
-import {
-  createDraft,
-  deleteChecklist,
-  listChecklists,
-} from "@/lib/checklists";
+import { createDraft, deleteChecklist, listChecklists } from "@/lib/checklists";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -84,11 +76,19 @@ function ChecklistsList() {
 
   const items = (query.data ?? []).filter((c) => {
     // Esconde revisões antigas (is_current=false) da listagem principal.
-    if ((c as any).is_current === false) return false;
+    if (c.is_current === false) return false;
     if (tab !== "todos" && c.status !== tab) return false;
     if (!q.trim()) return true;
     const needle = q.toLowerCase();
-    return [c.os, c.cliente, c.cidade, c.serial, c.codigo_validacao, c.numero_publico]
+    return [
+      c.tecnico_nome,
+      c.os,
+      c.cliente,
+      c.cidade,
+      c.serial,
+      c.codigo_validacao,
+      c.numero_publico,
+    ]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
   });
@@ -107,9 +107,7 @@ function ChecklistsList() {
             </Link>
             <WebifibraLogo size={40} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">
-                Webifibra
-              </p>
+              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
               <h1 className="text-lg font-semibold">
                 {user?.isAdmin ? "Todos os checklists" : "Meus checklists"}
               </h1>
@@ -143,11 +141,7 @@ function ChecklistsList() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <Button
-            size="lg"
-            onClick={() => setPickerOpen(true)}
-            className="whitespace-nowrap"
-          >
+          <Button size="lg" onClick={() => setPickerOpen(true)} className="whitespace-nowrap">
             <Plus className="mr-1.5 h-4 w-4" /> Novo checklist
           </Button>
         </div>
@@ -160,16 +154,12 @@ function ChecklistsList() {
           </TabsList>
           <TabsContent value={tab} className="pt-3">
             {query.isLoading ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Carregando...
-              </p>
+              <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
             ) : items.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
                   <ClipboardList className="h-10 w-10 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum checklist por aqui ainda.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Nenhum checklist por aqui ainda.</p>
                   <Button onClick={() => setPickerOpen(true)}>
                     <Plus className="mr-1.5 h-4 w-4" /> Criar o primeiro
                   </Button>
@@ -181,15 +171,13 @@ function ChecklistsList() {
                   <li key={c.id}>
                     <Card className="transition hover:border-primary/40">
                       <CardContent className="flex items-start justify-between gap-3 p-4">
-                        <Link
-                          to="/checklists/$id"
-                          params={{ id: c.id }}
-                          className="flex-1"
-                        >
+                        <Link to="/checklists/$id" params={{ id: c.id }} className="flex-1">
+                          <p className="mb-1 flex items-center gap-1 text-xs font-medium text-primary">
+                            <UserRound className="h-3.5 w-3.5" />
+                            Técnico: {c.tecnico_nome}
+                          </p>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold">
-                              {c.cliente || "Sem cliente"}
-                            </span>
+                            <span className="font-semibold">{c.cliente || "Sem cliente"}</span>
                             <Badge
                               variant="outline"
                               className={
@@ -223,11 +211,9 @@ function ChecklistsList() {
                               ? formatChecklistCode({
                                   numero_publico: c.numero_publico,
                                   codigo_validacao: c.codigo_validacao,
-                                  revision_number: (c as any).revision_number,
+                                  revision_number: c.revision_number,
                                 }) || ""
-                              : `Atualizado em ${new Date(
-                                  c.updated_at,
-                                ).toLocaleString("pt-BR")}`}
+                              : `Atualizado em ${new Date(c.updated_at).toLocaleString("pt-BR")}`}
                           </p>
                         </Link>
                         <div className="flex flex-col items-end gap-1.5">
@@ -268,8 +254,8 @@ function ChecklistsList() {
           <DialogHeader>
             <DialogTitle>Qual checklist você quer preencher?</DialogTitle>
             <DialogDescription>
-              Escolha o tipo de atendimento. Cada modelo tem seus próprios
-              campos e gera um PDF específico.
+              Escolha o tipo de atendimento. Cada modelo tem seus próprios campos e gera um PDF
+              específico.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -284,8 +270,7 @@ function ChecklistsList() {
               </div>
               <h3 className="font-semibold">Validação de ONT</h3>
               <p className="text-xs text-muted-foreground">
-                Justificar troca de equipamento com evidências, testes e
-                autorização do NOC.
+                Justificar troca de equipamento com evidências, testes e autorização do NOC.
               </p>
             </button>
             <button
@@ -299,8 +284,8 @@ function ChecklistsList() {
               </div>
               <h3 className="font-semibold">Instalação</h3>
               <p className="text-xs text-muted-foreground">
-                Validação técnica e orientação ao cliente ao fim da instalação,
-                com assinatura do cliente.
+                Validação técnica e orientação ao cliente ao fim da instalação, com assinatura do
+                cliente.
               </p>
             </button>
           </div>

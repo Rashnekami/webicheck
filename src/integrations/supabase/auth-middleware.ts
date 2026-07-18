@@ -96,12 +96,16 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("active")
+      .select("active, city")
       .eq("id", data.claims.sub)
       .maybeSingle();
 
     if (profileError || !profile?.active) {
       throw new Error("Unauthorized: Account inactive");
+    }
+
+    if (!profile.city?.trim()) {
+      throw new Error("Unauthorized: Profile city required");
     }
 
     return next({

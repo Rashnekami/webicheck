@@ -221,6 +221,8 @@ export interface ChecklistRow {
   dados: ChecklistData | InstalacaoData;
   codigo_validacao: string | null;
   numero_publico: string | null;
+  revision_number: number;
+  is_current: boolean;
   finalizado_em: string | null;
   created_at: string;
   updated_at: string;
@@ -236,13 +238,7 @@ export interface FotoRow {
   id: string;
   checklist_id: string;
   tecnico_id: string;
-  categoria:
-    | "etiqueta"
-    | "leds"
-    | "fonte"
-    | "teste_cabeado"
-    | "teste_wifi"
-    | "outro";
+  categoria: "etiqueta" | "leds" | "fonte" | "teste_cabeado" | "teste_wifi" | "outro";
   storage_path: string;
   legenda: string | null;
   created_at: string;

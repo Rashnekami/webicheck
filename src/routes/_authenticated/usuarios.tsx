@@ -24,6 +24,7 @@ import {
   listAdminUsers,
   updateAdminUser,
 } from "@/lib/admin-users.functions";
+import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -296,11 +297,22 @@ function UsersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="user-city">Cidade</Label>
-                <Input
+                <select
                   id="user-city"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={draft.city}
                   onChange={(event) => setDraft({ ...draft, city: event.target.value })}
-                />
+                >
+                  <option value="">Selecione a cidade</option>
+                  {draft.city && !isKnownProfileCity(draft.city) && (
+                    <option value={draft.city}>{draft.city} (cadastro antigo)</option>
+                  )}
+                  {PROFILE_CITIES.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="user-role">Perfil</Label>

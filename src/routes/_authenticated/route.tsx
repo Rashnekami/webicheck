@@ -12,12 +12,15 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active")
+      .select("active, city")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
+    }
+    if (!profile.city?.trim()) {
+      throw redirect({ to: "/completar-cadastro" });
     }
     return { user: data.user };
   },
@@ -36,12 +39,16 @@ function AuthenticatedLayout() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active")
+        .select("active, city")
         .eq("id", data.user.id)
         .maybeSingle();
       if (!profile?.active) {
         await supabase.auth.signOut();
         navigate({ to: "/auth", replace: true });
+        return;
+      }
+      if (!profile.city?.trim()) {
+        navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
       setReady(true);
