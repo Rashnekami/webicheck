@@ -32,10 +32,7 @@ import { InstallButton } from "@/components/pwa/install-button";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
-    meta: [
-      { title: "Painel — Webifibra" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Painel — Webifibra" }, { name: "robots", content: "noindex" }],
   }),
   component: Painel,
 });
@@ -107,9 +104,7 @@ function Painel() {
           <div className="flex items-center gap-3">
             <WebifibraLogo size={44} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">
-                Webifibra
-              </p>
+              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
               <h1 className="text-lg font-semibold">Checklist Técnico</h1>
             </div>
           </div>
@@ -144,9 +139,7 @@ function Painel() {
                 <HardHat className="mr-1 h-3.5 w-3.5" /> Técnico de campo
               </Badge>
             )}
-            {!user.active && (
-              <Badge variant="destructive">Usuário bloqueado</Badge>
-            )}
+            {!user.active && <Badge variant="destructive">Usuário bloqueado</Badge>}
           </div>
         </section>
 
@@ -184,8 +177,7 @@ function Painel() {
                   <div className="space-y-1">
                     <h3 className="font-semibold text-foreground">Dashboard</h3>
                     <p className="text-sm text-muted-foreground">
-                      Gráficos de trocas, técnicos, cidades e analistas — com
-                      exportação em CSV.
+                      Gráficos de trocas, técnicos, cidades e analistas — com exportação em CSV.
                     </p>
                   </div>
                 </div>
@@ -226,8 +218,7 @@ function Painel() {
                 <div className="space-y-1">
                   <h3 className="font-semibold text-foreground">Integrações</h3>
                   <p className="text-sm text-muted-foreground">
-                    Chaves para o Webi Diagnostic Agent enviar os PDFs
-                    diretamente para o checklist.
+                    Chaves para o Webi Diagnostic Agent enviar os PDFs diretamente para o checklist.
                   </p>
                 </div>
               </div>
@@ -299,9 +290,7 @@ function Painel() {
               </div>
               <div>
                 <dt className="text-muted-foreground">Status</dt>
-                <dd className="font-medium">
-                  {user.active ? "Ativo" : "Bloqueado"}
-                </dd>
+                <dd className="font-medium">{user.active ? "Ativo" : "Bloqueado"}</dd>
               </div>
             </dl>
           </CardContent>
