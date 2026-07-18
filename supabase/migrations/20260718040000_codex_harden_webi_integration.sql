@@ -7,6 +7,13 @@ ALTER TABLE public.checklist_document_snapshots
 ALTER TABLE public.checklist_diagnostic_reports
   DROP CONSTRAINT IF EXISTS uq_diagnostic_case_session;
 
+-- Reafirma as duas garantias com nomes estáveis, mesmo se uma instalação não
+-- possuir as constraints equivalentes do schema inicial.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_snapshot_checklist_version_idx
+  ON public.checklist_document_snapshots (checklist_id, version);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_diagnostic_case_session_idx
+  ON public.checklist_diagnostic_reports (case_id, diagnostic_session_id);
+
 -- Mantém no máximo um snapshot público ativo por checklist.
 WITH ranked AS (
   SELECT id,
