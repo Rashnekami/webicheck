@@ -135,48 +135,28 @@ export async function regenerateChecklistSnapshot(
   const document_hash = await computeDocumentHash(payload);
   const public_token = generatePublicToken(32);
 
-  const { data: last } = await supabaseAdmin
-    .from("checklist_document_snapshots")
-    .select("id, version")
-    .eq("checklist_id", checklistId)
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (last) {
-    await supabaseAdmin
-      .from("checklist_document_snapshots")
-      .update({ public_status: "replaced" })
-      .eq("id", last.id)
-      .eq("public_status", "active");
-  }
-
-  const nextVersion = (last?.version ?? 0) + 1;
-
-  const { data: inserted, error: insErr } = await supabaseAdmin
-    .from("checklist_document_snapshots")
-    .insert({
-      checklist_id: checklistId,
-      version: nextVersion,
-      public_token,
-      public_status: "active",
-      snapshot_data: payload as never,
-      document_hash,
-      finalized_at:
+  // Alocação de versão + substituição da anterior é feita atomicamente
+  // pela RPC create_snapshot_version (advisory lock por checklist).
+  const { data: rpcRow, error: rpcErr } = await supabaseAdmin.rpc(
+    "create_snapshot_version",
+    {
+      _checklist_id: checklistId,
+      _snapshot_data: payload as never,
+      _document_hash: document_hash,
+      _public_token: public_token,
+      _finalized_at:
         (chk as unknown as { finalizado_em: string | null }).finalizado_em ??
         new Date().toISOString(),
-      created_by: (chk as unknown as { tecnico_id: string }).tecnico_id,
-    })
-    .select("id")
-    .single();
-  if (insErr) return null;
-
-  if (last) {
-    await supabaseAdmin
-      .from("checklist_document_snapshots")
-      .update({ replaced_by_snapshot_id: inserted.id })
-      .eq("id", last.id);
-  }
-
-  return { id: inserted.id, version: nextVersion, public_token, document_hash };
+      _created_by: (chk as unknown as { tecnico_id: string }).tecnico_id,
+    },
+  );
+  if (rpcErr || !rpcRow) return null;
+  const first = Array.isArray(rpcRow) ? rpcRow[0] : rpcRow;
+  if (!first) return null;
+  return {
+    id: first.id as string,
+    version: first.version as number,
+    public_token,
+    document_hash,
+  };
 }
