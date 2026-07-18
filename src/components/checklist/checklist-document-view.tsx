@@ -348,7 +348,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
             justifyContent: "space-between",
           }}
         >
-          <span>Webifibra · {payload.numero_publico || "—"}</span>
+          <span>Webifibra · {payload.checklist_code || payload.numero_publico || "—"}</span>
           <span>Finalizado: {fmtDateTime(payload.finalizado_em)}</span>
         </div>
       </div>
