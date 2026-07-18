@@ -258,7 +258,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
                 letterSpacing: 1,
               }}
             >
-              {payload.numero_publico || "—"}
+              {payload.checklist_code || payload.numero_publico || "—"}
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
