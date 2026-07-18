@@ -139,8 +139,12 @@ export async function generateDossiePdf({
   tecnicoNome,
   assinatura,
   diagnostics,
+  scope = "case",
+  filenamePrefix,
 }: Params) {
-  const activeDiags = diagnostics.filter((d) => d.status === "active");
+  const activeDiags = diagnostics
+    .filter((d) => d.status === "active")
+    .filter((d) => (scope === "revision" ? d.checklist_id === row.id : true));
 
   const checklistBlob =
     row.tipo === "instalacao"
@@ -151,7 +155,13 @@ export async function generateDossiePdf({
   await makeCoverPage(merged, { row, diagCount: activeDiags.length });
 
   // Checklist
-  await makeSectionPage(merged, "Checklist Técnico", "Versão atual do atendimento");
+  await makeSectionPage(
+    merged,
+    "Checklist Técnico",
+    scope === "revision"
+      ? `Somente esta versão (R${(row as unknown as { revision_number?: number }).revision_number ?? 1})`
+      : "Versão atual do atendimento",
+  );
   const checklistBytes = await checklistBlob.arrayBuffer();
   const checklistDoc = await PDFDocument.load(checklistBytes);
   const cPages = await merged.copyPages(checklistDoc, checklistDoc.getPageIndices());
@@ -178,7 +188,10 @@ export async function generateDossiePdf({
 
   const bytes = await merged.save();
   const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-  const nome = `dossie-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}.pdf`;
+  const prefix = filenamePrefix ?? (scope === "revision" ? "versao" : "dossie");
+  const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
+  const revSuffix = rev > 1 ? `-R${rev}` : "";
+  const nome = `${prefix}-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}${revSuffix}.pdf`;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -188,3 +201,28 @@ export async function generateDossiePdf({
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
+
+/** Baixa apenas o PDF do checklist desta versão, sem fotos extras nem diagnósticos. */
+export async function downloadChecklistOnly({
+  row,
+  fotos,
+  tecnicoNome,
+  assinatura,
+}: Omit<Params, "diagnostics" | "scope" | "filenamePrefix">) {
+  const blob =
+    row.tipo === "instalacao"
+      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura })
+      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura });
+  const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
+  const revSuffix = rev > 1 ? `-R${rev}` : "";
+  const nome = `checklist-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}${revSuffix}.pdf`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
