@@ -20,10 +20,7 @@ export interface AdminUserRecord {
   has_profile: boolean;
 }
 
-async function ensureAdmin(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-) {
+async function ensureAdmin(supabase: SupabaseClient<Database>, userId: string) {
   const { data: isAdmin, error } = await supabase.rpc("has_role", {
     _user_id: userId,
     _role: "admin",
@@ -36,9 +33,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminUserRecord[]> => {
     await ensureAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const authUsers: Array<{
       id: string;
@@ -67,14 +62,9 @@ export const listAdminUsers = createServerFn({ method: "GET" })
       await Promise.all([
         supabaseAdmin
           .from("profiles")
-          .select(
-            "id, email, full_name, phone, matricula, city, active, created_at",
-          )
+          .select("id, email, full_name, phone, matricula, city, active, created_at")
           .in("id", ids),
-        supabaseAdmin
-          .from("user_roles")
-          .select("user_id, role")
-          .in("user_id", ids),
+        supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
       ]);
 
     if (profileError) throw new Error(profileError.message);
@@ -95,9 +85,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
           id: authUser.id,
           email: profile?.email || authUser.email || "",
           full_name:
-            profile?.full_name ||
-            authUser.user_metadata?.full_name ||
-            "Usuário sem perfil",
+            profile?.full_name || authUser.user_metadata?.full_name || "Usuário sem perfil",
           phone: profile?.phone ?? null,
           matricula: profile?.matricula ?? null,
           city: profile?.city ?? null,
@@ -126,12 +114,9 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       role: ManagedUserRole;
     }) => {
       if (!input.userId) throw new Error("Usuário inválido.");
-      if (!/^\S+@\S+\.\S+$/.test(input.email.trim()))
-        throw new Error("Informe um e-mail válido.");
-      if (input.fullName.trim().length < 2)
-        throw new Error("Informe o nome completo.");
-      if (!["admin", "tecnico"].includes(input.role))
-        throw new Error("Perfil de acesso inválido.");
+      if (!/^\S+@\S+\.\S+$/.test(input.email.trim())) throw new Error("Informe um e-mail válido.");
+      if (input.fullName.trim().length < 2) throw new Error("Informe o nome completo.");
+      if (!["admin", "tecnico"].includes(input.role)) throw new Error("Perfil de acesso inválido.");
       return {
         ...input,
         email: input.email.trim().toLowerCase(),
@@ -150,33 +135,22 @@ export const updateAdminUser = createServerFn({ method: "POST" })
     if (data.userId === context.userId && data.role !== "admin")
       throw new Error("Você não pode remover seu próprio perfil de administrador.");
 
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const [{ data: targetRoles, error: targetRoleError }, { data: targetProfile, error: targetProfileError }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", data.userId),
-        supabaseAdmin
-          .from("profiles")
-          .select("active")
-          .eq("id", data.userId)
-          .maybeSingle(),
-      ]);
+    const [
+      { data: targetRoles, error: targetRoleError },
+      { data: targetProfile, error: targetProfileError },
+    ] = await Promise.all([
+      supabaseAdmin.from("user_roles").select("role").eq("user_id", data.userId),
+      supabaseAdmin.from("profiles").select("active").eq("id", data.userId).maybeSingle(),
+    ]);
 
     if (targetRoleError) throw new Error(targetRoleError.message);
     if (targetProfileError) throw new Error(targetProfileError.message);
 
-    const targetIsAdmin = (targetRoles ?? []).some(
-      (row) => row.role === "admin",
-    );
+    const targetIsAdmin = (targetRoles ?? []).some((row) => row.role === "admin");
     const removesActiveAdmin =
-      targetIsAdmin &&
-      targetProfile?.active !== false &&
-      (!data.active || data.role !== "admin");
+      targetIsAdmin && targetProfile?.active !== false && (!data.active || data.role !== "admin");
 
     if (removesActiveAdmin) {
       const { data: adminRoles, error: adminRoleError } = await supabaseAdmin
@@ -192,43 +166,36 @@ export const updateAdminUser = createServerFn({ method: "POST" })
         .in("id", adminIds)
         .eq("active", true);
       if (activeAdminError) throw new Error(activeAdminError.message);
-      if ((count ?? 0) <= 1)
-        throw new Error("O último administrador ativo não pode ser removido.");
+      if ((count ?? 0) <= 1) throw new Error("O último administrador ativo não pode ser removido.");
     }
 
-    const { error: authError } =
-      await supabaseAdmin.auth.admin.updateUserById(data.userId, {
-        email: data.email,
-        user_metadata: { full_name: data.fullName },
-        ban_duration: data.active ? "none" : "876000h",
-      });
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      email: data.email,
+      user_metadata: { full_name: data.fullName },
+      ban_duration: data.active ? "none" : "876000h",
+    });
     if (authError) throw new Error(authError.message);
 
-    const { error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .upsert(
-        {
-          id: data.userId,
-          email: data.email,
-          full_name: data.fullName,
-          phone: data.phone,
-          matricula: data.matricula,
-          city: data.city,
-          active: data.active,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      );
+    const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
+      {
+        id: data.userId,
+        email: data.email,
+        full_name: data.fullName,
+        phone: data.phone,
+        matricula: data.matricula,
+        city: data.city,
+        active: data.active,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
     if (profileError) throw new Error(profileError.message);
 
     // Primeiro garante o novo papel e só depois remove os demais. Assim,
     // uma falha intermediária nunca deixa o usuário sem papel algum.
     const { error: upsertRoleError } = await supabaseAdmin
       .from("user_roles")
-      .upsert(
-        { user_id: data.userId, role: data.role },
-        { onConflict: "user_id,role" },
-      );
+      .upsert({ user_id: data.userId, role: data.role }, { onConflict: "user_id,role" });
     if (upsertRoleError) throw new Error(upsertRoleError.message);
 
     const { error: deleteRolesError } = await supabaseAdmin
