@@ -21,6 +21,12 @@ interface Params {
   tecnicoNome: string;
   assinatura: string | null;
   diagnostics: DiagnosticReportRow[];
+  /**
+   * "case" (default): inclui todos os diagnósticos ativos do atendimento.
+   * "revision": inclui apenas os diagnósticos vinculados a este checklist.
+   */
+  scope?: "case" | "revision";
+  filenamePrefix?: string;
 }
 
 async function makeCoverPage(
