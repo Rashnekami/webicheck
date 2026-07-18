@@ -15,6 +15,15 @@ export const Route = createFileRoute("/_authenticated")({
     if (typeof window === "undefined") return;
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("active")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (!profile?.active) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
     return { user: data.user };
   },
   component: AuthenticatedLayout,
@@ -25,9 +34,22 @@ function AuthenticatedLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) navigate({ to: "/auth", replace: true });
-      else setReady(true);
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (error || !data.user) {
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if (!profile?.active) {
+        await supabase.auth.signOut();
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      setReady(true);
     });
   }, [navigate]);
 
