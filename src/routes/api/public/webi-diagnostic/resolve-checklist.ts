@@ -5,13 +5,13 @@ import {
 } from "@/lib/checklist-code";
 
 async function sha256Hex(input: string): Promise<string> {
-  const buf = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", buf);
-  const bytes = new Uint8Array(digest);
-  let out = "";
-  for (let i = 0; i < bytes.length; i++)
-    out += bytes[i].toString(16).padStart(2, "0");
-  return out;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(input),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function json(body: unknown, status = 200) {
@@ -24,9 +24,13 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function fmtCode(numero_publico: string | null, revision: number): string {
-  if (!numero_publico) return "";
-  return revision > 1 ? `${numero_publico}-R${revision}` : numero_publico;
+function fmtCode(numeroPublico: string | null, revision: number): string {
+  if (!numeroPublico) return "";
+  return revision > 1 ? `${numeroPublico}-R${revision}` : numeroPublico;
+}
+
+function normalizedIdentifier(raw: string) {
+  return parseChecklistCode(raw).base;
 }
 
 export const Route = createFileRoute(
@@ -54,7 +58,7 @@ export const Route = createFileRoute(
           codigo_validacao?: string;
         };
         try {
-          body = (await request.json()) as never;
+          body = (await request.json()) as typeof body;
         } catch {
           return json({ ok: false, error: "invalid_json" }, 400);
         }
@@ -68,97 +72,127 @@ export const Route = createFileRoute(
           .select("id, user_id, active, expires_at, scopes")
           .eq("token_hash", tokenHash)
           .maybeSingle();
+
         if (!token || !token.active)
           return json({ ok: false, error: "invalid_token" }, 401);
         if (token.expires_at && new Date(token.expires_at) < new Date())
           return json({ ok: false, error: "expired_token" }, 401);
+
+        const { data: tokenOwner } = await supabaseAdmin
+          .from("profiles")
+          .select("active")
+          .eq("id", token.user_id)
+          .maybeSingle();
+        if (!tokenOwner?.active)
+          return json({ ok: false, error: "inactive_account" }, 403);
+
         const scopes = (token.scopes ?? []) as string[];
-        if (!scopes.includes("diagnostic:resolve"))
-          return json({ ok: false, error: "insufficient_scope", required: "diagnostic:resolve" }, 403);
-
-        // Only checklist_code / numero_publico / codigo_validacao are accepted
-        // as external identifiers. case_id is an internal ID and must not be
-        // resolvable from outside the platform.
-        let requestedRev: number | null = null;
-        let lookupNumero: string | null = null;
-        let lookupCodigo: string | null = null;
-
-        if (body.checklist_code) {
-          const p = parseChecklistCode(body.checklist_code);
-          if (!p.base)
-            return json({ ok: false, error: "invalid_checklist_code" }, 400);
-          requestedRev = p.revision;
-          if (p.kind === "codigo_validacao") lookupCodigo = p.base;
-          else lookupNumero = p.base;
-        } else if (body.numero_publico) lookupNumero = body.numero_publico.trim();
-        else if (body.codigo_validacao)
-          lookupCodigo = body.codigo_validacao.trim();
-        else return json({ ok: false, error: "missing_identifier" }, 400);
-
-        // Locate the specific checklist row (may be an older revision).
-        let baseQuery = supabaseAdmin
-          .from("checklists")
-          .select(
-            "id, case_id, revision_number, is_current, superseded_by_checklist_id, status, os, cliente, cidade, numero_publico, codigo_validacao, service_stage, revision_reason, tecnico_id",
-          )
-          .eq("status", "finalizado")
-          .limit(1);
-
-        if (lookupCodigo) {
-          baseQuery = baseQuery.eq("codigo_validacao", lookupCodigo);
-        } else if (lookupNumero) {
-          baseQuery = baseQuery.eq("numero_publico", lookupNumero);
-          if (requestedRev != null) baseQuery = baseQuery.eq("revision_number", requestedRev);
-          else baseQuery = baseQuery.eq("revision_number", 1);
+        if (!scopes.includes("diagnostic:resolve")) {
+          return json(
+            {
+              ok: false,
+              error: "insufficient_scope",
+              required: "diagnostic:resolve",
+            },
+            403,
+          );
         }
 
-        const { data: rows, error } = await baseQuery;
-        if (error) return json({ ok: false, error: "db_error" }, 500);
-        const row = rows?.[0];
-        if (!row) return json({ ok: false, error: "not_found" }, 404);
+        await supabaseAdmin
+          .from("webi_integration_tokens")
+          .update({ last_used_at: new Date().toISOString() })
+          .eq("id", token.id);
 
-        // Ownership check: token owner must be the checklist technician, or admin.
-        if (row.tecnico_id !== token.user_id) {
+        let requestedRevision: number | null = null;
+        let lookupNumero: string | null = null;
+        let lookupValidacao: string | null = null;
+
+        if (body.checklist_code) {
+          const parsed = parseChecklistCode(body.checklist_code);
+          if (!parsed.base)
+            return json(
+              { ok: false, error: "invalid_checklist_code" },
+              400,
+            );
+          requestedRevision = parsed.revision;
+          if (parsed.kind === "codigo_validacao")
+            lookupValidacao = parsed.base;
+          else lookupNumero = parsed.base;
+        } else if (body.numero_publico) {
+          lookupNumero = normalizedIdentifier(body.numero_publico);
+        } else if (body.codigo_validacao) {
+          const parsed = parseChecklistCode(body.codigo_validacao);
+          lookupValidacao = parsed.base;
+          requestedRevision = parsed.revision;
+        } else {
+          return json({ ok: false, error: "missing_identifier" }, 400);
+        }
+
+        if (!lookupNumero && !lookupValidacao)
+          return json({ ok: false, error: "invalid_identifier" }, 400);
+
+        let query = supabaseAdmin
+          .from("checklists")
+          .select(
+            "id, case_id, revision_number, is_current, status, os, cliente, cidade, numero_publico, codigo_validacao, service_stage, revision_reason, tecnico_id",
+          )
+          .eq("status", "finalizado")
+          .order("revision_number", { ascending: false })
+          .limit(1);
+
+        if (lookupValidacao) {
+          query = query.eq("codigo_validacao", lookupValidacao);
+          if (requestedRevision !== null)
+            query = query.eq("revision_number", requestedRevision);
+        } else {
+          query = query.eq("numero_publico", lookupNumero as string);
+          query = query.eq("revision_number", requestedRevision ?? 1);
+        }
+
+        const { data: rows, error } = await query;
+        if (error) return json({ ok: false, error: "db_error" }, 500);
+        const checklist = rows?.[0];
+        if (!checklist)
+          return json({ ok: false, error: "not_found" }, 404);
+
+        if (checklist.tecnico_id !== token.user_id) {
           const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
             _user_id: token.user_id,
             _role: "admin",
           });
-          if (!isAdmin) return json({ ok: false, error: "forbidden" }, 403);
+          if (!isAdmin)
+            return json({ ok: false, error: "forbidden" }, 403);
         }
 
-        // Fetch current revision of the case
-        const { data: currRows } = await supabaseAdmin
+        // A versão corrente pode estar em rascunho. Filtrar por "finalizado"
+        // aqui faria a versão antiga parecer atual e permitiria upload incorreto.
+        const { data: current } = await supabaseAdmin
           .from("checklists")
           .select(
-            "id, revision_number, numero_publico, service_stage, tecnico_id",
+            "id, revision_number, numero_publico, service_stage, status",
           )
-          .eq("case_id", row.case_id)
+          .eq("case_id", checklist.case_id)
           .eq("is_current", true)
-          .eq("status", "finalizado")
-          .limit(1);
-        const current = currRows?.[0];
+          .maybeSingle();
 
-        const isSuperseded = !!current && current.id !== row.id;
-
-        const latestCode = current
-          ? fmtCode(current.numero_publico, current.revision_number)
-          : null;
-
-        if (isSuperseded) {
-          // Signal upload should target the latest revision. Do NOT leak
-          // client/OS/city/technician for the superseded row.
+        if (!checklist.is_current || (current && current.id !== checklist.id)) {
           return json(
             {
               ok: false,
               code: "CHECKLIST_SUPERSEDED",
               message: "Existe uma versão mais recente deste checklist.",
-              latest_checklist_code: latestCode,
+              latest_checklist_code: current
+                ? fmtCode(current.numero_publico, current.revision_number)
+                : null,
+              latest_status: current?.status ?? null,
               checklist: {
-                id: row.id,
-                number: fmtCode(row.numero_publico, row.revision_number),
-                validation_code: row.codigo_validacao,
-                status: row.status,
-                revision_number: row.revision_number,
+                number: fmtCode(
+                  checklist.numero_publico,
+                  checklist.revision_number,
+                ),
+                validation_code: checklist.codigo_validacao,
+                status: checklist.status,
+                revision_number: checklist.revision_number,
                 is_current: false,
               },
             },
@@ -166,43 +200,41 @@ export const Route = createFileRoute(
           );
         }
 
-        // Technician profile for the returned revision
-        const { data: tecProfile } = await supabaseAdmin
+        const { data: technician } = await supabaseAdmin
           .from("profiles")
           .select("full_name")
-          .eq("id", row.tecnico_id)
+          .eq("id", checklist.tecnico_id)
           .maybeSingle();
 
-        // Count of active diagnostics linked to the case
-        const { count: diagCount } = await supabaseAdmin
+        const { count: diagnosticCount } = await supabaseAdmin
           .from("checklist_diagnostic_reports")
           .select("*", { count: "exact", head: true })
-          .eq("case_id", row.case_id)
+          .eq("case_id", checklist.case_id)
           .eq("status", "active");
 
         const defaultTestStage =
-          SERVICE_TO_TEST_STAGE[
-            (current?.service_stage ?? row.service_stage ?? "initial") as string
-          ] ?? "before_change";
+          SERVICE_TO_TEST_STAGE[checklist.service_stage ?? "initial"] ??
+          "before_change";
 
         return json({
           ok: true,
           checklist: {
-            id: row.id,
-            case_id: row.case_id,
-            number: fmtCode(row.numero_publico, row.revision_number),
-            validation_code: row.codigo_validacao,
-            status: row.status,
-            client: row.cliente,
-            service_order: row.os,
-            city: row.cidade,
-            technician: tecProfile?.full_name ?? null,
-            revision_number: row.revision_number,
-            revision_reason: row.revision_reason,
-            service_stage: row.service_stage,
+            number: fmtCode(
+              checklist.numero_publico,
+              checklist.revision_number,
+            ),
+            validation_code: checklist.codigo_validacao,
+            status: checklist.status,
+            client: checklist.cliente,
+            service_order: checklist.os,
+            city: checklist.cidade,
+            technician: technician?.full_name ?? null,
+            revision_number: checklist.revision_number,
+            revision_reason: checklist.revision_reason,
+            service_stage: checklist.service_stage,
             is_current: true,
             default_test_stage: defaultTestStage,
-            diagnostic_count: diagCount ?? 0,
+            diagnostic_count: diagnosticCount ?? 0,
           },
         });
       },
