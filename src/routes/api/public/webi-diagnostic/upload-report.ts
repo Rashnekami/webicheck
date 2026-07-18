@@ -1,15 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  parseChecklistCode,
-  SERVICE_TO_TEST_STAGE,
-} from "@/lib/checklist-code";
+import { parseChecklistCode, SERVICE_TO_TEST_STAGE } from "@/lib/checklist-code";
 
 const MAX_BYTES = 20 * 1024 * 1024;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
-const ISO_DATE_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const ALLOWED_STAGES = new Set([
   "before_change",
   "after_ont_change",
@@ -64,9 +59,7 @@ function isValidIsoDate(value: string): boolean {
   return ISO_DATE_PATTERN.test(value) && !Number.isNaN(Date.parse(value));
 }
 
-export const Route = createFileRoute(
-  "/api/public/webi-diagnostic/upload-report",
-)({
+export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report")({
   server: {
     handlers: {
       OPTIONS: async () =>
@@ -75,8 +68,7 @@ export const Route = createFileRoute(
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers":
-              "Content-Type, X-Webi-Integration-Key",
+            "Access-Control-Allow-Headers": "Content-Type, X-Webi-Integration-Key",
           },
         }),
       POST: async ({ request }) => {
@@ -85,10 +77,7 @@ export const Route = createFileRoute(
 
         const contentType = request.headers.get("content-type") ?? "";
         if (!contentType.startsWith("multipart/form-data")) {
-          return json(
-            { ok: false, error: "expected_multipart_form_data" },
-            415,
-          );
+          return json({ ok: false, error: "expected_multipart_form_data" }, 415);
         }
 
         let form: FormData;
@@ -100,12 +89,8 @@ export const Route = createFileRoute(
 
         // checklist_id é propositalmente ignorado: IDs internos não fazem parte
         // do contrato público. O Agent deve sempre enviar checklist_code.
-        const checklistCodeRaw = String(
-          form.get("checklist_code") ?? "",
-        ).trim();
-        const sessionId = String(
-          form.get("diagnostic_session_id") ?? "",
-        ).trim();
+        const checklistCodeRaw = String(form.get("checklist_code") ?? "").trim();
+        const sessionId = String(form.get("diagnostic_session_id") ?? "").trim();
         const stage = String(form.get("test_stage") ?? "").trim();
         const primaryHash = String(form.get("pdf_sha256") ?? "")
           .trim()
@@ -114,48 +99,33 @@ export const Route = createFileRoute(
           .trim()
           .toLowerCase();
         const claimedHash = primaryHash || legacyHash;
-        const agentVersion =
-          String(form.get("agent_version") ?? "").trim() || null;
-        const generatedAt =
-          String(form.get("generated_at") ?? "").trim() || null;
+        const agentVersion = String(form.get("agent_version") ?? "").trim() || null;
+        const generatedAt = String(form.get("generated_at") ?? "").trim() || null;
         const fileEntry = form.get("file");
 
-        if (!checklistCodeRaw)
-          return json({ ok: false, error: "missing_checklist_code" }, 400);
+        if (!checklistCodeRaw) return json({ ok: false, error: "missing_checklist_code" }, 400);
         if (!UUID_PATTERN.test(sessionId)) {
-          return json(
-            { ok: false, error: "invalid_diagnostic_session_id" },
-            400,
-          );
+          return json({ ok: false, error: "invalid_diagnostic_session_id" }, 400);
         }
         if (!ALLOWED_STAGES.has(stage))
           return json({ ok: false, error: "invalid_test_stage" }, 400);
-        if (!claimedHash)
-          return json({ ok: false, error: "missing_pdf_sha256" }, 400);
+        if (!claimedHash) return json({ ok: false, error: "missing_pdf_sha256" }, 400);
         if (!SHA256_PATTERN.test(claimedHash))
           return json({ ok: false, error: "invalid_pdf_sha256" }, 400);
         if (generatedAt && !isValidIsoDate(generatedAt))
           return json({ ok: false, error: "invalid_generated_at" }, 400);
-        if (!(fileEntry instanceof File))
-          return json({ ok: false, error: "missing_file" }, 400);
+        if (!(fileEntry instanceof File)) return json({ ok: false, error: "missing_file" }, 400);
         if (!/\.pdf$/i.test(fileEntry.name))
           return json({ ok: false, error: "invalid_file_extension" }, 415);
         if (fileEntry.type !== "application/pdf")
           return json({ ok: false, error: "unsupported_media_type" }, 415);
         if (fileEntry.size > MAX_BYTES)
-          return json(
-            { ok: false, error: "file_too_large", max_bytes: MAX_BYTES },
-            413,
-          );
-        if (fileEntry.size < 8)
-          return json({ ok: false, error: "file_too_small" }, 400);
+          return json({ ok: false, error: "file_too_large", max_bytes: MAX_BYTES }, 413);
+        if (fileEntry.size < 8) return json({ ok: false, error: "file_too_small" }, 400);
 
         const buffer = await fileEntry.arrayBuffer();
-        const magic = String.fromCharCode(
-          ...new Uint8Array(buffer.slice(0, 5)),
-        );
-        if (magic !== "%PDF-")
-          return json({ ok: false, error: "not_a_pdf" }, 415);
+        const magic = String.fromCharCode(...new Uint8Array(buffer.slice(0, 5)));
+        if (magic !== "%PDF-") return json({ ok: false, error: "not_a_pdf" }, 415);
 
         const realHash = await sha256HexOf(buffer);
         if (claimedHash !== realHash) {
@@ -170,9 +140,7 @@ export const Route = createFileRoute(
           );
         }
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const tokenHash = await sha256HexString(key);
         const { data: token } = await supabaseAdmin
           .from("webi_integration_tokens")
@@ -180,8 +148,7 @@ export const Route = createFileRoute(
           .eq("token_hash", tokenHash)
           .maybeSingle();
 
-        if (!token || !token.active)
-          return json({ ok: false, error: "invalid_token" }, 401);
+        if (!token || !token.active) return json({ ok: false, error: "invalid_token" }, 401);
         if (token.expires_at && new Date(token.expires_at) < new Date())
           return json({ ok: false, error: "expired_token" }, 401);
 
@@ -190,8 +157,7 @@ export const Route = createFileRoute(
           .select("active")
           .eq("id", token.user_id)
           .maybeSingle();
-        if (!tokenOwner?.active)
-          return json({ ok: false, error: "inactive_account" }, 403);
+        if (!tokenOwner?.active) return json({ ok: false, error: "inactive_account" }, 403);
 
         const scopes = (token.scopes ?? []) as string[];
         if (!scopes.includes("diagnostic:upload")) {
@@ -214,19 +180,14 @@ export const Route = createFileRoute(
             _window_seconds: 60,
           },
         );
-        if (rateError)
-          return json({ ok: false, error: "rate_limit_unavailable" }, 503);
-        if (!allowed)
-          return json({ ok: false, error: "rate_limited" }, 429);
+        if (rateError) return json({ ok: false, error: "rate_limit_unavailable" }, 503);
+        if (!allowed) return json({ ok: false, error: "rate_limited" }, 429);
 
         const parsed = parseChecklistCode(checklistCodeRaw);
-        if (!parsed.base)
-          return json({ ok: false, error: "invalid_checklist_code" }, 400);
+        if (!parsed.base) return json({ ok: false, error: "invalid_checklist_code" }, 400);
 
         const lookupColumn =
-          parsed.kind === "codigo_validacao"
-            ? "codigo_validacao"
-            : "numero_publico";
+          parsed.kind === "codigo_validacao" ? "codigo_validacao" : "numero_publico";
         let checklistQuery = supabaseAdmin
           .from("checklists")
           .select(
@@ -237,26 +198,18 @@ export const Route = createFileRoute(
         // Um código-base sem -Rn representa R1; nunca redirecionamos um upload
         // silenciosamente para outra revisão.
         if (lookupColumn === "numero_publico") {
-          checklistQuery = checklistQuery.eq(
-            "revision_number",
-            parsed.revision ?? 1,
-          );
+          checklistQuery = checklistQuery.eq("revision_number", parsed.revision ?? 1);
         } else if (parsed.revision !== null) {
-          checklistQuery = checklistQuery.eq(
-            "revision_number",
-            parsed.revision,
-          );
+          checklistQuery = checklistQuery.eq("revision_number", parsed.revision);
         }
 
         const { data: checklistData } = await checklistQuery
           .order("revision_number", { ascending: false })
           .limit(1)
           .maybeSingle();
-        const checklist =
-          (checklistData as unknown as ChecklistRow | null) ?? null;
+        const checklist = (checklistData as unknown as ChecklistRow | null) ?? null;
 
-        if (!checklist)
-          return json({ ok: false, error: "checklist_not_found" }, 404);
+        if (!checklist) return json({ ok: false, error: "checklist_not_found" }, 404);
 
         const { data: current } = await supabaseAdmin
           .from("checklists")
@@ -265,10 +218,7 @@ export const Route = createFileRoute(
           .eq("is_current", true)
           .maybeSingle();
 
-        if (
-          !checklist.is_current ||
-          (current && current.id !== checklist.id)
-        ) {
+        if (!checklist.is_current || (current && current.id !== checklist.id)) {
           return json(
             {
               ok: false,
@@ -283,22 +233,17 @@ export const Route = createFileRoute(
           );
         }
         if (checklist.status !== "finalizado")
-          return json(
-            { ok: false, error: "checklist_not_finalized" },
-            409,
-          );
+          return json({ ok: false, error: "checklist_not_finalized" }, 409);
 
         if (checklist.tecnico_id !== token.user_id) {
           const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
             _user_id: token.user_id,
             _role: "admin",
           });
-          if (!isAdmin)
-            return json({ ok: false, error: "forbidden" }, 403);
+          if (!isAdmin) return json({ ok: false, error: "forbidden" }, 403);
         }
 
-        const expectedStage =
-          SERVICE_TO_TEST_STAGE[checklist.service_stage] ?? null;
+        const expectedStage = SERVICE_TO_TEST_STAGE[checklist.service_stage] ?? null;
         if (!expectedStage || stage !== expectedStage) {
           return json(
             {
@@ -313,8 +258,7 @@ export const Route = createFileRoute(
 
         const reportId = crypto.randomUUID();
         const safeName = sanitizeFilename(fileEntry.name);
-        const storagePath =
-          `${checklist.case_id}/${checklist.id}/${reportId}.pdf`;
+        const storagePath = `${checklist.case_id}/${checklist.id}/${reportId}.pdf`;
 
         const { error: uploadError } = await supabaseAdmin.storage
           .from("webi-diagnostic-reports")
@@ -333,8 +277,9 @@ export const Route = createFileRoute(
           );
         }
 
-        const { data: linkedRows, error: linkError } =
-          await supabaseAdmin.rpc("link_diagnostic_report", {
+        const { data: linkedRows, error: linkError } = await supabaseAdmin.rpc(
+          "link_diagnostic_report",
+          {
             _id: reportId,
             _checklist_id: checklist.id,
             _case_id: checklist.case_id,
@@ -352,17 +297,13 @@ export const Route = createFileRoute(
               contract_version: "1.0",
               used_legacy_sha256_field: !primaryHash && !!legacyHash,
             },
-          });
+          },
+        );
 
         if (linkError || !linkedRows) {
-          await supabaseAdmin.storage
-            .from("webi-diagnostic-reports")
-            .remove([storagePath]);
+          await supabaseAdmin.storage.from("webi-diagnostic-reports").remove([storagePath]);
           if (linkError?.code === "23505") {
-            return json(
-              { ok: false, error: "duplicate_session" },
-              409,
-            );
+            return json({ ok: false, error: "duplicate_session" }, 409);
           }
           return json(
             {
@@ -374,13 +315,9 @@ export const Route = createFileRoute(
           );
         }
 
-        const linked = Array.isArray(linkedRows)
-          ? linkedRows[0]
-          : linkedRows;
+        const linked = Array.isArray(linkedRows) ? linkedRows[0] : linkedRows;
         if (!linked) {
-          await supabaseAdmin.storage
-            .from("webi-diagnostic-reports")
-            .remove([storagePath]);
+          await supabaseAdmin.storage.from("webi-diagnostic-reports").remove([storagePath]);
           return json({ ok: false, error: "db_error" }, 500);
         }
 
@@ -393,17 +330,13 @@ export const Route = createFileRoute(
         let snapshotId: string | null = null;
         let snapshotError: string | null = null;
         try {
-          const { regenerateChecklistSnapshot } = await import(
-            "@/lib/snapshot-service.server"
-          );
+          const { regenerateChecklistSnapshot } = await import("@/lib/snapshot-service.server");
           const snapshot = await regenerateChecklistSnapshot(checklist.id);
-          if (!snapshot)
-            throw new Error("snapshot_not_created");
+          if (!snapshot) throw new Error("snapshot_not_created");
           snapshotStatus = "ready";
           snapshotId = snapshot.id;
         } catch (error) {
-          snapshotError =
-            error instanceof Error ? error.message : "unknown_snapshot_error";
+          snapshotError = error instanceof Error ? error.message : "unknown_snapshot_error";
           console.error("snapshot_regenerate_failed", error);
         }
 
@@ -425,10 +358,7 @@ export const Route = createFileRoute(
             ok: snapshotStatus === "ready",
             accepted: true,
             snapshot_status: snapshotStatus,
-            warning:
-              snapshotStatus === "pending"
-                ? "report_stored_snapshot_pending"
-                : undefined,
+            warning: snapshotStatus === "pending" ? "report_stored_snapshot_pending" : undefined,
             report: {
               id: linked.id,
               diagnostic_session_id: sessionId,
@@ -442,10 +372,7 @@ export const Route = createFileRoute(
               generated_at: generatedAt,
             },
             checklist: {
-              checklist_code: fmtCode(
-                checklist.numero_publico,
-                checklist.revision_number,
-              ),
+              checklist_code: fmtCode(checklist.numero_publico, checklist.revision_number),
               revision_number: checklist.revision_number,
               service_stage: checklist.service_stage,
             },
