@@ -268,7 +268,7 @@ export function CaseRevisionsPanel({
           <div className="space-y-3">
             <div>
               <Label>Etapa do atendimento</Label>
-              <Select value={stage} onValueChange={(v) => setStage(v as ServiceStage)}>
+              <Select value={stage} onValueChange={(v) => setStage(v as RevisionStage)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
