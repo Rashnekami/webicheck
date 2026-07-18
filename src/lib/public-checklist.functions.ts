@@ -17,6 +17,8 @@ export interface SnapshotPayload {
   codigo_validacao: string | null;
   finalizado_em: string | null;
   created_at: string;
+  revision_number?: number | null;
+  checklist_code?: string | null;
 }
 
 export interface PublicSnapshotView {
@@ -142,6 +144,12 @@ export const ensureChecklistSnapshot = createServerFn({ method: "POST" })
       codigo_validacao: chk.codigo_validacao,
       finalizado_em: chk.finalizado_em,
       created_at: new Date().toISOString(),
+      revision_number: (chk as unknown as { revision_number?: number }).revision_number ?? 1,
+      checklist_code: (() => {
+        const base = chk.numero_publico || chk.codigo_validacao || "";
+        const rev = (chk as unknown as { revision_number?: number }).revision_number ?? 1;
+        return base ? (rev > 1 ? `${base}-R${rev}` : base) : null;
+      })(),
     };
 
     const document_hash = await computeDocumentHash(payload);

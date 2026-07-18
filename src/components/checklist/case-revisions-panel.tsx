@@ -2,14 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Download, FileArchive, FilePlus2, Loader2, RefreshCw, ShieldOff } from "lucide-react";
+import { FileArchive, FileDown, FilePlus2, Files, Loader2 } from "lucide-react";
 import type { FotoRow } from "@/lib/checklist-schema";
-import { generateDossiePdf } from "@/components/checklist/dossie-pdf";
-
+import { downloadChecklistOnly, generateDossiePdf } from "@/components/checklist/dossie-pdf";
+import { DiagnosticsSection } from "@/components/checklist/diagnostics-section";
+import { CaseTimeline } from "@/components/checklist/case-timeline";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,10 +32,7 @@ import {
 import type { ChecklistRow } from "@/lib/checklist-schema";
 import {
   createChecklistRevision,
-  getDiagnosticDownloadUrl,
-  listCaseTimeline,
   listDiagnosticReports,
-  revokeDiagnosticReport,
   type ServiceStage,
 } from "@/lib/webi-diagnostic.functions";
 
@@ -45,13 +42,6 @@ const STAGE_LABELS: Record<ServiceStage, string> = {
   post_ont_change: "Pós-troca da ONT",
   noc_retest: "Reteste NOC",
   additional_test: "Teste adicional",
-};
-
-const TEST_STAGE_LABEL: Record<string, string> = {
-  before_change: "Antes da troca",
-  after_ont_change: "Depois da troca",
-  noc_retest: "Reteste NOC",
-  additional_test: "Adicional",
 };
 
 interface Props {
@@ -69,8 +59,13 @@ interface Props {
   tecnicoAssinatura?: string | null;
 }
 
-export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "", tecnicoAssinatura = null }: Props) {
-
+export function CaseRevisionsPanel({
+  row,
+  isAdmin,
+  fotos = [],
+  tecnicoNome = "",
+  tecnicoAssinatura = null,
+}: Props) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const caseId = row.case_id ?? row.id;
@@ -78,10 +73,6 @@ export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "",
   const diagsQ = useQuery({
     queryKey: ["case-diagnostics", caseId],
     queryFn: () => listDiagnosticReports({ data: { caseId } }),
-  });
-  const timelineQ = useQuery({
-    queryKey: ["case-timeline", caseId],
-    queryFn: () => listCaseTimeline({ data: { caseId } }),
   });
 
   const [revOpen, setRevOpen] = useState(false);
@@ -111,42 +102,56 @@ export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "",
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const openDiag = useMutation({
-    mutationFn: (id: string) => getDiagnosticDownloadUrl({ data: { reportId: id } }),
-    onSuccess: (r) => window.open(r.url, "_blank", "noopener"),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const revokeDiag = useMutation({
-    mutationFn: (id: string) => revokeDiagnosticReport({ data: { reportId: id } }),
-    onSuccess: () => {
-      toast.success("Diagnóstico revogado.");
-      qc.invalidateQueries({ queryKey: ["case-diagnostics", caseId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const [dossieBusy, setDossieBusy] = useState(false);
-  async function handleDossie() {
+  const [busy, setBusy] = useState<"none" | "checklist" | "revision" | "dossie">("none");
+  async function handleChecklistOnly() {
     try {
-      setDossieBusy(true);
+      setBusy("checklist");
+      await downloadChecklistOnly({ row, fotos, tecnicoNome, assinatura: tecnicoAssinatura });
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o PDF do checklist.");
+    } finally {
+      setBusy("none");
+    }
+  }
+  async function handleRevisionPdf() {
+    try {
+      setBusy("revision");
       await generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
         assinatura: tecnicoAssinatura,
         diagnostics: diagsQ.data ?? [],
+        scope: "revision",
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível gerar o PDF desta versão.");
+    } finally {
+      setBusy("none");
+    }
+  }
+  async function handleDossie() {
+    try {
+      setBusy("dossie");
+      await generateDossiePdf({
+        row,
+        fotos,
+        tecnicoNome,
+        assinatura: tecnicoAssinatura,
+        diagnostics: diagsQ.data ?? [],
+        scope: "case",
       });
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar o dossiê.");
     } finally {
-      setDossieBusy(false);
+      setBusy("none");
     }
   }
 
   const isFinalizado = row.status === "finalizado";
-
 
   return (
     <div className="space-y-4">
@@ -183,118 +188,66 @@ export function CaseRevisionsPanel({ row, isAdmin, fotos = [], tecnicoNome = "",
                 {STAGE_LABELS[row.service_stage ?? "initial"]}
               </p>
             </div>
-            {isFinalizado && row.is_current !== false && (
-              <Button size="sm" onClick={() => setRevOpen(true)}>
-                <FilePlus2 className="mr-1.5 h-4 w-4" /> Criar revisão
-              </Button>
-            )}
-          </div>
-
-          {timelineQ.data && timelineQ.data.length > 0 && (
-            <ol className="space-y-1 text-xs">
-              {timelineQ.data.map((t) => (
-                <li key={`${t.kind}-${t.id}`} className="flex gap-2">
-                  <span className="w-20 shrink-0 text-muted-foreground">
-                    {new Date(t.at).toLocaleDateString("pt-BR")}
-                  </span>
-                  <span className="flex-1">
-                    {t.kind === "revision" ? "🗂️" : "📄"} {t.label}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-3 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-base font-semibold">Diagnósticos Webi Diagnostic</h3>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleDossie}
-                disabled={dossieBusy || !isFinalizado}
-                title={isFinalizado ? "Baixar dossiê consolidado (checklist + diagnósticos)" : "Disponível após finalizar o checklist"}
-              >
-                {dossieBusy ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <FileArchive className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Dossiê PDF
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  qc.invalidateQueries({ queryKey: ["case-diagnostics", caseId] })
-                }
-              >
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
-              </Button>
-            </div>
-          </div>
-
-          {diagsQ.isLoading && (
-            <p className="text-sm text-muted-foreground">Carregando…</p>
-          )}
-          {diagsQ.data?.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Nenhum diagnóstico anexado. Use o Webi Diagnostic Agent para enviar
-              o PDF automaticamente.
-            </p>
-          )}
-          <div className="divide-y">
-            {diagsQ.data?.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-3 py-2">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {d.original_filename}
-                    </span>
-                    <Badge variant="secondary">
-                      {TEST_STAGE_LABEL[d.test_stage] ?? d.test_stage} #{d.report_sequence}
-                    </Badge>
-                    {d.status !== "active" && (
-                      <Badge className="bg-amber-500/15 text-amber-800">
-                        {d.status}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    {new Date(d.created_at).toLocaleString("pt-BR")} ·{" "}
-                    {(d.size_bytes / 1024).toFixed(0)} KB · SHA {d.sha256.slice(0, 8)}
-                    {d.agent_version && ` · Agent ${d.agent_version}`}
-                  </p>
-                </div>
-                <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
+              {isFinalizado && (
+                <>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => openDiag.mutate(d.id)}
-                    disabled={openDiag.isPending}
+                    onClick={handleChecklistOnly}
+                    disabled={busy !== "none"}
+                    title="Baixar somente o checklist desta versão"
                   >
-                    <Download className="mr-1.5 h-4 w-4" /> Baixar
+                    {busy === "checklist" ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Checklist
                   </Button>
-                  {isAdmin && d.status === "active" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => revokeDiag.mutate(d.id)}
-                      disabled={revokeDiag.isPending}
-                    >
-                      <ShieldOff className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRevisionPdf}
+                    disabled={busy !== "none"}
+                    title="Checklist + diagnósticos desta versão"
+                  >
+                    {busy === "revision" ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Files className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Versão completa
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDossie}
+                    disabled={busy !== "none"}
+                    title="Dossiê completo do atendimento (todas as revisões e diagnósticos)"
+                  >
+                    {busy === "dossie" ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <FileArchive className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Dossiê completo
+                  </Button>
+                </>
+              )}
+              {isFinalizado && row.is_current !== false && (
+                <Button size="sm" onClick={() => setRevOpen(true)}>
+                  <FilePlus2 className="mr-1.5 h-4 w-4" /> Criar revisão
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      <CaseTimeline caseId={caseId} />
+
+      <DiagnosticsSection caseId={caseId} isAdmin={isAdmin} />
 
       <Dialog open={revOpen} onOpenChange={setRevOpen}>
         <DialogContent>
