@@ -250,15 +250,27 @@ export const revokeDiagnosticReport = createServerFn({ method: "POST" })
       _role: "admin",
     });
     if (!isAdmin) throw new Error("Somente administradores.");
-    const { error } = await supabase
+    const { data: rep, error } = await supabase
       .from("checklist_diagnostic_reports")
       .update({
         status: "revoked",
         revoked_at: new Date().toISOString(),
         revoked_by: userId,
       })
-      .eq("id", data.reportId);
+      .eq("id", data.reportId)
+      .select("checklist_id")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (rep?.checklist_id) {
+      try {
+        const { regenerateChecklistSnapshot } = await import(
+          "@/lib/snapshot-service.server"
+        );
+        await regenerateChecklistSnapshot(rep.checklist_id);
+      } catch (e) {
+        console.warn("snapshot_regenerate_failed", e);
+      }
+    }
     return { ok: true };
   });
 
