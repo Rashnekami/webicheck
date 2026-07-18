@@ -1,7 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { LogOut, ShieldCheck, HardHat, ClipboardList, ArrowRight, PenLine, BarChart3 } from "lucide-react";
+import {
+  LogOut,
+  ShieldCheck,
+  HardHat,
+  ClipboardList,
+  ArrowRight,
+  PenLine,
+  BarChart3,
+  UsersRound,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
@@ -177,6 +186,27 @@ function Painel() {
                     <p className="text-sm text-muted-foreground">
                       Gráficos de trocas, técnicos, cidades e analistas — com
                       exportação em CSV.
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {user.isAdmin && (
+          <Link to="/usuarios" className="block">
+            <Card className="transition hover:border-primary/50 hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                    <UsersRound className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-foreground">Usuários</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Consulte cadastros, edite perfis e ative ou inative acessos.
                     </p>
                   </div>
                 </div>
