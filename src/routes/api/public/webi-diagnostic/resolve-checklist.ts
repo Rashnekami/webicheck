@@ -1,14 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  parseChecklistCode,
-  SERVICE_TO_TEST_STAGE,
-} from "@/lib/checklist-code";
+import { parseChecklistCode, SERVICE_TO_TEST_STAGE } from "@/lib/checklist-code";
 
 async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -33,9 +27,7 @@ function normalizedIdentifier(raw: string) {
   return parseChecklistCode(raw).base;
 }
 
-export const Route = createFileRoute(
-  "/api/public/webi-diagnostic/resolve-checklist",
-)({
+export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checklist")({
   server: {
     handlers: {
       OPTIONS: async () =>
@@ -44,8 +36,7 @@ export const Route = createFileRoute(
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers":
-              "Content-Type, X-Webi-Integration-Key",
+            "Access-Control-Allow-Headers": "Content-Type, X-Webi-Integration-Key",
           },
         }),
       POST: async ({ request }) => {
@@ -63,9 +54,7 @@ export const Route = createFileRoute(
           return json({ ok: false, error: "invalid_json" }, 400);
         }
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const tokenHash = await sha256Hex(key);
         const { data: token } = await supabaseAdmin
           .from("webi_integration_tokens")
@@ -73,8 +62,7 @@ export const Route = createFileRoute(
           .eq("token_hash", tokenHash)
           .maybeSingle();
 
-        if (!token || !token.active)
-          return json({ ok: false, error: "invalid_token" }, 401);
+        if (!token || !token.active) return json({ ok: false, error: "invalid_token" }, 401);
         if (token.expires_at && new Date(token.expires_at) < new Date())
           return json({ ok: false, error: "expired_token" }, 401);
 
@@ -83,8 +71,7 @@ export const Route = createFileRoute(
           .select("active")
           .eq("id", token.user_id)
           .maybeSingle();
-        if (!tokenOwner?.active)
-          return json({ ok: false, error: "inactive_account" }, 403);
+        if (!tokenOwner?.active) return json({ ok: false, error: "inactive_account" }, 403);
 
         const scopes = (token.scopes ?? []) as string[];
         if (!scopes.includes("diagnostic:resolve")) {
@@ -109,14 +96,9 @@ export const Route = createFileRoute(
 
         if (body.checklist_code) {
           const parsed = parseChecklistCode(body.checklist_code);
-          if (!parsed.base)
-            return json(
-              { ok: false, error: "invalid_checklist_code" },
-              400,
-            );
+          if (!parsed.base) return json({ ok: false, error: "invalid_checklist_code" }, 400);
           requestedRevision = parsed.revision;
-          if (parsed.kind === "codigo_validacao")
-            lookupValidacao = parsed.base;
+          if (parsed.kind === "codigo_validacao") lookupValidacao = parsed.base;
           else lookupNumero = parsed.base;
         } else if (body.numero_publico) {
           lookupNumero = normalizedIdentifier(body.numero_publico);
@@ -142,8 +124,7 @@ export const Route = createFileRoute(
 
         if (lookupValidacao) {
           query = query.eq("codigo_validacao", lookupValidacao);
-          if (requestedRevision !== null)
-            query = query.eq("revision_number", requestedRevision);
+          if (requestedRevision !== null) query = query.eq("revision_number", requestedRevision);
         } else {
           query = query.eq("numero_publico", lookupNumero as string);
           query = query.eq("revision_number", requestedRevision ?? 1);
@@ -152,25 +133,21 @@ export const Route = createFileRoute(
         const { data: rows, error } = await query;
         if (error) return json({ ok: false, error: "db_error" }, 500);
         const checklist = rows?.[0];
-        if (!checklist)
-          return json({ ok: false, error: "not_found" }, 404);
+        if (!checklist) return json({ ok: false, error: "not_found" }, 404);
 
         if (checklist.tecnico_id !== token.user_id) {
           const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
             _user_id: token.user_id,
             _role: "admin",
           });
-          if (!isAdmin)
-            return json({ ok: false, error: "forbidden" }, 403);
+          if (!isAdmin) return json({ ok: false, error: "forbidden" }, 403);
         }
 
         // A versão corrente pode estar em rascunho. Filtrar por "finalizado"
         // aqui faria a versão antiga parecer atual e permitiria upload incorreto.
         const { data: current } = await supabaseAdmin
           .from("checklists")
-          .select(
-            "id, revision_number, numero_publico, service_stage, status",
-          )
+          .select("id, revision_number, numero_publico, service_stage, status")
           .eq("case_id", checklist.case_id)
           .eq("is_current", true)
           .maybeSingle();
@@ -186,10 +163,7 @@ export const Route = createFileRoute(
                 : null,
               latest_status: current?.status ?? null,
               checklist: {
-                number: fmtCode(
-                  checklist.numero_publico,
-                  checklist.revision_number,
-                ),
+                number: fmtCode(checklist.numero_publico, checklist.revision_number),
                 validation_code: checklist.codigo_validacao,
                 status: checklist.status,
                 revision_number: checklist.revision_number,
@@ -213,16 +187,12 @@ export const Route = createFileRoute(
           .eq("status", "active");
 
         const defaultTestStage =
-          SERVICE_TO_TEST_STAGE[checklist.service_stage ?? "initial"] ??
-          "before_change";
+          SERVICE_TO_TEST_STAGE[checklist.service_stage ?? "initial"] ?? "before_change";
 
         return json({
           ok: true,
           checklist: {
-            number: fmtCode(
-              checklist.numero_publico,
-              checklist.revision_number,
-            ),
+            number: fmtCode(checklist.numero_publico, checklist.revision_number),
             validation_code: checklist.codigo_validacao,
             status: checklist.status,
             client: checklist.cliente,
