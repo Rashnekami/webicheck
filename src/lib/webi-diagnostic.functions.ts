@@ -6,17 +6,9 @@ type JsonVal = JsonPrim | { [k: string]: JsonVal } | JsonVal[];
 
 // ---------------- Tipos ----------------
 export type ServiceStage =
-  | "initial"
-  | "pre_change"
-  | "post_ont_change"
-  | "noc_retest"
-  | "additional_test";
+  "initial" | "pre_change" | "post_ont_change" | "noc_retest" | "additional_test";
 
-export type TestStage =
-  | "before_change"
-  | "after_ont_change"
-  | "noc_retest"
-  | "additional_test";
+export type TestStage = "before_change" | "after_ont_change" | "noc_retest" | "additional_test";
 
 export interface DiagnosticReportRow {
   id: string;
@@ -51,13 +43,11 @@ export interface IntegrationTokenRow {
 
 // ---------------- Utilidades ----------------
 async function sha256Hex(input: string | ArrayBuffer): Promise<string> {
-  const buf =
-    typeof input === "string" ? new TextEncoder().encode(input) : input;
+  const buf = typeof input === "string" ? new TextEncoder().encode(input) : input;
   const digest = await crypto.subtle.digest("SHA-256", buf);
   const bytes = new Uint8Array(digest);
   let out = "";
-  for (let i = 0; i < bytes.length; i++)
-    out += bytes[i].toString(16).padStart(2, "0");
+  for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
   return out;
 }
 
@@ -67,13 +57,8 @@ function randomTokenValue(prefix = "wdk_"): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   const b64 =
-    typeof btoa !== "undefined"
-      ? btoa(bin)
-      : Buffer.from(bin, "binary").toString("base64");
-  return (
-    prefix +
-    b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "")
-  );
+    typeof btoa !== "undefined" ? btoa(bin) : Buffer.from(bin, "binary").toString("base64");
+  return prefix + b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 // ---------------- Revisão de checklist ----------------
@@ -90,15 +75,9 @@ type RevisionStage = (typeof REVISION_ONLY_STAGES)[number];
 export const createChecklistRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (d: {
-      checklistId: string;
-      reason: string;
-      stage: RevisionStage;
-      notes?: string | null;
-    }) => {
+    (d: { checklistId: string; reason: string; stage: RevisionStage; notes?: string | null }) => {
       if (!d.checklistId) throw new Error("checklistId obrigatório.");
-      if (!d.reason || d.reason.trim().length < 3)
-        throw new Error("Informe o motivo da revisão.");
+      if (!d.reason || d.reason.trim().length < 3) throw new Error("Informe o motivo da revisão.");
       if (!REVISION_ONLY_STAGES.includes(d.stage))
         throw new Error(
           "Etapa inválida para revisão. Use pré-troca, pós-troca, reteste NOC ou teste adicional.",
@@ -110,19 +89,15 @@ export const createChecklistRevision = createServerFn({ method: "POST" })
     const { supabase } = context;
     // Toda a lógica (propriedade, próximo número, unset is_current, insert shell,
     // superseded_by do pai) é executada atomicamente pela RPC transacional.
-    const { data: row, error } = await supabase.rpc(
-      "create_checklist_revision",
-      {
-        _parent_id: data.checklistId,
-        _reason: data.reason.trim(),
-        _stage: data.stage,
-        _notes: data.notes?.trim() || undefined,
-      },
-    );
+    const { data: row, error } = await supabase.rpc("create_checklist_revision", {
+      _parent_id: data.checklistId,
+      _reason: data.reason.trim(),
+      _stage: data.stage,
+      _notes: data.notes?.trim() || undefined,
+    });
     if (error) {
       const msg = error.message || "";
-      if (msg.includes("forbidden"))
-        throw new Error("Sem permissão para revisar este checklist.");
+      if (msg.includes("forbidden")) throw new Error("Sem permissão para revisar este checklist.");
       if (msg.includes("parent_not_current"))
         throw new Error(
           "Esta versão não é mais a atual. Atualize a página antes de criar outra revisão.",
@@ -131,12 +106,9 @@ export const createChecklistRevision = createServerFn({ method: "POST" })
         throw new Error("Só é possível revisar checklists finalizados.");
       if (msg.includes("invalid_stage_for_revision"))
         throw new Error("Etapa inválida para revisão.");
-      if (msg.includes("checklist_not_found"))
-        throw new Error("Checklist não encontrado.");
+      if (msg.includes("checklist_not_found")) throw new Error("Checklist não encontrado.");
       if (msg.includes("uq_checklists_case_revision"))
-        throw new Error(
-          "Já existe uma revisão em andamento para este atendimento.",
-        );
+        throw new Error("Já existe uma revisão em andamento para este atendimento.");
       throw new Error(msg);
     }
     const first = Array.isArray(row) ? row[0] : row;
@@ -146,7 +118,6 @@ export const createChecklistRevision = createServerFn({ method: "POST" })
       revision_number: first.revision_number as number,
     };
   });
-
 
 // ---------------- Diagnósticos ----------------
 export const listDiagnosticReports = createServerFn({ method: "POST" })
@@ -180,9 +151,7 @@ export const getDiagnosticDownloadUrl = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!row) throw new Error("Diagnóstico não encontrado.");
 
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: signed, error: sErr } = await supabaseAdmin.storage
       .from("webi-diagnostic-reports")
       .createSignedUrl(row.storage_path, 300);
@@ -214,9 +183,7 @@ export const revokeDiagnosticReport = createServerFn({ method: "POST" })
     let snapshotStatus: "ready" | "pending" = "ready";
     if (rep?.checklist_id) {
       try {
-        const { regenerateChecklistSnapshot } = await import(
-          "@/lib/snapshot-service.server"
-        );
+        const { regenerateChecklistSnapshot } = await import("@/lib/snapshot-service.server");
         const snapshot = await regenerateChecklistSnapshot(rep.checklist_id);
         if (!snapshot) throw new Error("snapshot_not_created");
       } catch (error) {
@@ -309,9 +276,7 @@ export const createIntegrationToken = createServerFn({ method: "POST" })
     const token_hash = await sha256Hex(value);
     const token_prefix = value.slice(0, 10);
 
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: inserted, error } = await supabaseAdmin
       .from("webi_integration_tokens")
       .insert({
