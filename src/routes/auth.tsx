@@ -395,7 +395,7 @@ function GoogleButton({ className }: { className?: string }) {
   async function onClick() {
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/auth`,
+      redirect_uri: window.location.origin,
     });
     if (result.error) {
       setLoading(false);
