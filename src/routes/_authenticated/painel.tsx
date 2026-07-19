@@ -10,6 +10,8 @@ import {
   PenLine,
   BarChart3,
   UsersRound,
+  Megaphone,
+  Building2,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentUser, updateAssinatura } from "@/hooks/use-current-user";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SignaturePad } from "@/components/signature-pad";
 import {
   Dialog,
@@ -29,6 +31,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { InstallButton } from "@/components/pwa/install-button";
+import { listAnnouncements } from "@/lib/provider-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -36,6 +39,36 @@ export const Route = createFileRoute("/_authenticated/painel")({
   }),
   component: Painel,
 });
+
+function ActiveAnnouncements() {
+  const query = useQuery({ queryKey: ["announcements"], queryFn: () => listAnnouncements() });
+  const notices = (query.data ?? []).filter((item) => item.active).slice(0, 3);
+  if (notices.length === 0) return null;
+  return (
+    <section className="space-y-2" aria-label="Informativos ativos">
+      {notices.map((notice) => (
+        <Card
+          key={notice.id}
+          className={
+            notice.severity === "critical"
+              ? "border-destructive/50"
+              : notice.severity === "warning"
+                ? "border-amber-400/60"
+                : "border-primary/30"
+          }
+        >
+          <CardContent className="flex items-start gap-3 p-4">
+            <Megaphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div>
+              <p className="font-semibold">{notice.title}</p>
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">{notice.message}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+}
 
 function Painel() {
   const { data: user, isLoading } = useCurrentUser();
@@ -143,6 +176,8 @@ function Painel() {
           </div>
         </section>
 
+        <ActiveAnnouncements />
+
         <Link to="/checklists" className="block">
           <Card className="transition hover:border-primary/50 hover:shadow-md">
             <CardContent className="flex items-center justify-between gap-3 p-5">
@@ -178,6 +213,46 @@ function Painel() {
                     <h3 className="font-semibold text-foreground">Dashboard</h3>
                     <p className="text-sm text-muted-foreground">
                       Gráficos de trocas, técnicos, cidades e analistas — com exportação em CSV.
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        <Link to="/informativos" className="block">
+          <Card className="transition hover:border-primary/50 hover:shadow-md">
+            <CardContent className="flex items-center justify-between gap-3 p-5">
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-primary/10 p-2 text-primary">
+                  <Megaphone className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold">Informativos</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Plantões e comunicados operacionais da equipe.
+                  </p>
+                </div>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </Link>
+
+        {user.isAdmin && (
+          <Link to="/provedor" className="block">
+            <Card className="transition hover:border-primary/50 hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Provedor e dispositivos</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Situação comercial e computadores autorizados.
                     </p>
                   </div>
                 </div>
