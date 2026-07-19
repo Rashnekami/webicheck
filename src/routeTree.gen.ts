@@ -10,22 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
+import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
+import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
 import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
+import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
+import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
+import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
 
 const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
   id: '/completar-cadastro',
   path: '/completar-cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutorizarAgentRoute = AutorizarAgentRouteImport.update({
+  id: '/autorizar-agent',
+  path: '/autorizar-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -52,6 +63,11 @@ const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
+  id: '/provedor',
+  path: '/provedor',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -61,6 +77,12 @@ const AuthenticatedIntegracoesRoute =
   AuthenticatedIntegracoesRouteImport.update({
     id: '/integracoes',
     path: '/integracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInformativosRoute =
+  AuthenticatedInformativosRouteImport.update({
+    id: '/informativos',
+    path: '/informativos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -92,32 +114,62 @@ const ApiPublicWebiDiagnosticResolveChecklistRoute =
     path: '/api/public/webi-diagnostic/resolve-checklist',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWebiDiagnosticMyChecklistsRoute =
+  ApiPublicWebiDiagnosticMyChecklistsRouteImport.update({
+    id: '/api/public/webi-diagnostic/my-checklists',
+    path: '/api/public/webi-diagnostic/my-checklists',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticDeviceTokenRoute =
+  ApiPublicWebiDiagnosticDeviceTokenRouteImport.update({
+    id: '/api/public/webi-diagnostic/device-token',
+    path: '/api/public/webi-diagnostic/device-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticDeviceStartRoute =
+  ApiPublicWebiDiagnosticDeviceStartRouteImport.update({
+    id: '/api/public/webi-diagnostic/device-start',
+    path: '/api/public/webi-diagnostic/device-start',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
+  '/provedor': typeof AuthenticatedProvedorRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
+  '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
+  '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
   '/api/public/webi-diagnostic/resolve-checklist': typeof ApiPublicWebiDiagnosticResolveChecklistRoute
   '/api/public/webi-diagnostic/upload-report': typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
+  '/provedor': typeof AuthenticatedProvedorRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
+  '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
+  '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
   '/api/public/webi-diagnostic/resolve-checklist': typeof ApiPublicWebiDiagnosticResolveChecklistRoute
   '/api/public/webi-diagnostic/upload-report': typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
@@ -126,14 +178,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
+  '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
+  '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
+  '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
   '/api/public/webi-diagnostic/resolve-checklist': typeof ApiPublicWebiDiagnosticResolveChecklistRoute
   '/api/public/webi-diagnostic/upload-report': typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
@@ -142,28 +200,40 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/autorizar-agent'
     | '/completar-cadastro'
     | '/dashboard'
+    | '/informativos'
     | '/integracoes'
     | '/painel'
+    | '/provedor'
     | '/usuarios'
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists/'
+    | '/api/public/webi-diagnostic/device-start'
+    | '/api/public/webi-diagnostic/device-token'
+    | '/api/public/webi-diagnostic/my-checklists'
     | '/api/public/webi-diagnostic/resolve-checklist'
     | '/api/public/webi-diagnostic/upload-report'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/autorizar-agent'
     | '/completar-cadastro'
     | '/dashboard'
+    | '/informativos'
     | '/integracoes'
     | '/painel'
+    | '/provedor'
     | '/usuarios'
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists'
+    | '/api/public/webi-diagnostic/device-start'
+    | '/api/public/webi-diagnostic/device-token'
+    | '/api/public/webi-diagnostic/my-checklists'
     | '/api/public/webi-diagnostic/resolve-checklist'
     | '/api/public/webi-diagnostic/upload-report'
   id:
@@ -171,14 +241,20 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/autorizar-agent'
     | '/completar-cadastro'
     | '/_authenticated/dashboard'
+    | '/_authenticated/informativos'
     | '/_authenticated/integracoes'
     | '/_authenticated/painel'
+    | '/_authenticated/provedor'
     | '/_authenticated/usuarios'
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/checklists/'
+    | '/api/public/webi-diagnostic/device-start'
+    | '/api/public/webi-diagnostic/device-token'
+    | '/api/public/webi-diagnostic/my-checklists'
     | '/api/public/webi-diagnostic/resolve-checklist'
     | '/api/public/webi-diagnostic/upload-report'
   fileRoutesById: FileRoutesById
@@ -187,8 +263,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  AutorizarAgentRoute: typeof AutorizarAgentRoute
   CompletarCadastroRoute: typeof CompletarCadastroRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
+  ApiPublicWebiDiagnosticDeviceStartRoute: typeof ApiPublicWebiDiagnosticDeviceStartRoute
+  ApiPublicWebiDiagnosticDeviceTokenRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRoute
+  ApiPublicWebiDiagnosticMyChecklistsRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRoute
   ApiPublicWebiDiagnosticResolveChecklistRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRoute
   ApiPublicWebiDiagnosticUploadReportRoute: typeof ApiPublicWebiDiagnosticUploadReportRoute
 }
@@ -200,6 +280,13 @@ declare module '@tanstack/react-router' {
       path: '/completar-cadastro'
       fullPath: '/completar-cadastro'
       preLoaderRoute: typeof CompletarCadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/autorizar-agent': {
+      id: '/autorizar-agent'
+      path: '/autorizar-agent'
+      fullPath: '/autorizar-agent'
+      preLoaderRoute: typeof AutorizarAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -237,6 +324,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/provedor': {
+      id: '/_authenticated/provedor'
+      path: '/provedor'
+      fullPath: '/provedor'
+      preLoaderRoute: typeof AuthenticatedProvedorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/painel': {
       id: '/_authenticated/painel'
       path: '/painel'
@@ -249,6 +343,13 @@ declare module '@tanstack/react-router' {
       path: '/integracoes'
       fullPath: '/integracoes'
       preLoaderRoute: typeof AuthenticatedIntegracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/informativos': {
+      id: '/_authenticated/informativos'
+      path: '/informativos'
+      fullPath: '/informativos'
+      preLoaderRoute: typeof AuthenticatedInformativosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -286,13 +387,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/webi-diagnostic/my-checklists': {
+      id: '/api/public/webi-diagnostic/my-checklists'
+      path: '/api/public/webi-diagnostic/my-checklists'
+      fullPath: '/api/public/webi-diagnostic/my-checklists'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/device-token': {
+      id: '/api/public/webi-diagnostic/device-token'
+      path: '/api/public/webi-diagnostic/device-token'
+      fullPath: '/api/public/webi-diagnostic/device-token'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/device-start': {
+      id: '/api/public/webi-diagnostic/device-start'
+      path: '/api/public/webi-diagnostic/device-start'
+      fullPath: '/api/public/webi-diagnostic/device-start'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
+  AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
@@ -300,8 +424,10 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
+  AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
@@ -314,8 +440,15 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  AutorizarAgentRoute: AutorizarAgentRoute,
   CompletarCadastroRoute: CompletarCadastroRoute,
   ValidarTokenRoute: ValidarTokenRoute,
+  ApiPublicWebiDiagnosticDeviceStartRoute:
+    ApiPublicWebiDiagnosticDeviceStartRoute,
+  ApiPublicWebiDiagnosticDeviceTokenRoute:
+    ApiPublicWebiDiagnosticDeviceTokenRoute,
+  ApiPublicWebiDiagnosticMyChecklistsRoute:
+    ApiPublicWebiDiagnosticMyChecklistsRoute,
   ApiPublicWebiDiagnosticResolveChecklistRoute:
     ApiPublicWebiDiagnosticResolveChecklistRoute,
   ApiPublicWebiDiagnosticUploadReportRoute:
