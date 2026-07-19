@@ -693,6 +693,35 @@ export type Database = {
         }
         Relationships: []
       }
+      webi_api_rate_limits: {
+        Row: {
+          action: string
+          request_count: number
+          token_id: string
+          window_started_at: string
+        }
+        Insert: {
+          action: string
+          request_count?: number
+          token_id: string
+          window_started_at: string
+        }
+        Update: {
+          action?: string
+          request_count?: number
+          token_id?: string
+          window_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webi_api_rate_limits_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "webi_integration_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webi_integration_tokens: {
         Row: {
           active: boolean
@@ -771,6 +800,15 @@ export type Database = {
           token_id: string
         }[]
       }
+      consume_webi_rate_limit: {
+        Args: {
+          _action: string
+          _limit?: number
+          _token_id: string
+          _window_seconds?: number
+        }
+        Returns: boolean
+      }
       create_checklist_revision: {
         Args: {
           _notes?: string
@@ -804,6 +842,28 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      link_diagnostic_report: {
+        Args: {
+          _agent_version: string
+          _case_id: string
+          _checklist_id: string
+          _diagnostic_session_id: string
+          _generated_at: string
+          _id: string
+          _metadata?: Json
+          _original_filename: string
+          _sha256: string
+          _size_bytes: number
+          _storage_path: string
+          _test_stage: string
+          _uploaded_by: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          report_sequence: number
+        }[]
       }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
     }
