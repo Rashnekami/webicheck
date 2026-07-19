@@ -259,6 +259,7 @@ export type Database = {
           os: string | null;
           parent_checklist_id: string | null;
           plano: string | null;
+          provider_id: string;
           revised_at: string | null;
           revised_by: string | null;
           revision_notes: string | null;
@@ -296,6 +297,7 @@ export type Database = {
           os?: string | null;
           parent_checklist_id?: string | null;
           plano?: string | null;
+          provider_id?: string;
           revised_at?: string | null;
           revised_by?: string | null;
           revision_notes?: string | null;
@@ -333,6 +335,7 @@ export type Database = {
           os?: string | null;
           parent_checklist_id?: string | null;
           plano?: string | null;
+          provider_id?: string;
           revised_at?: string | null;
           revised_by?: string | null;
           revision_notes?: string | null;
@@ -377,6 +380,8 @@ export type Database = {
           id: string;
           matricula: string | null;
           phone: string | null;
+          platform_admin: boolean;
+          provider_id: string;
           updated_at: string;
         };
         Insert: {
@@ -389,6 +394,8 @@ export type Database = {
           id: string;
           matricula?: string | null;
           phone?: string | null;
+          platform_admin?: boolean;
+          provider_id?: string;
           updated_at?: string;
         };
         Update: {
@@ -401,6 +408,8 @@ export type Database = {
           id?: string;
           matricula?: string | null;
           phone?: string | null;
+          platform_admin?: boolean;
+          provider_id?: string;
           updated_at?: string;
         };
         Relationships: [];
@@ -451,10 +460,12 @@ export type Database = {
         Row: {
           active: boolean;
           created_at: string;
+          device_id: string | null;
           expires_at: string | null;
           id: string;
           last_used_at: string | null;
           name: string;
+          provider_id: string;
           revoked_at: string | null;
           scopes: string[];
           token_hash: string;
@@ -464,10 +475,12 @@ export type Database = {
         Insert: {
           active?: boolean;
           created_at?: string;
+          device_id?: string | null;
           expires_at?: string | null;
           id?: string;
           last_used_at?: string | null;
           name: string;
+          provider_id: string;
           revoked_at?: string | null;
           scopes?: string[];
           token_hash: string;
@@ -477,15 +490,215 @@ export type Database = {
         Update: {
           active?: boolean;
           created_at?: string;
+          device_id?: string | null;
           expires_at?: string | null;
           id?: string;
           last_used_at?: string | null;
           name?: string;
+          provider_id?: string;
           revoked_at?: string | null;
           scopes?: string[];
           token_hash?: string;
           token_prefix?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      providers: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+          logo_url: string | null;
+          primary_color: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          status?: string;
+          logo_url?: string | null;
+          primary_color?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          status?: string;
+          logo_url?: string | null;
+          primary_color?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      provider_cities: {
+        Row: {
+          id: string;
+          provider_id: string;
+          name: string;
+          normalized_name: string;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_id: string;
+          name: string;
+          normalized_name: string;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider_id?: string;
+          name?: string;
+          normalized_name?: string;
+          active?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      agent_devices: {
+        Row: {
+          id: string;
+          provider_id: string;
+          user_id: string;
+          name: string;
+          fingerprint_hash: string;
+          platform: string | null;
+          agent_version: string | null;
+          status: string;
+          last_seen_at: string | null;
+          created_at: string;
+          revoked_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          provider_id: string;
+          user_id: string;
+          name: string;
+          fingerprint_hash: string;
+          platform?: string | null;
+          agent_version?: string | null;
+          status?: string;
+          last_seen_at?: string | null;
+          created_at?: string;
+          revoked_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          provider_id?: string;
+          user_id?: string;
+          name?: string;
+          fingerprint_hash?: string;
+          platform?: string | null;
+          agent_version?: string | null;
+          status?: string;
+          last_seen_at?: string | null;
+          created_at?: string;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
+      agent_authorization_requests: {
+        Row: {
+          id: string;
+          provider_id: string;
+          device_code_hash: string;
+          user_code: string;
+          device_name: string;
+          fingerprint_hash: string;
+          platform: string | null;
+          agent_version: string | null;
+          status: string;
+          approved_by: string | null;
+          device_id: string | null;
+          expires_at: string;
+          approved_at: string | null;
+          consumed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_id: string;
+          device_code_hash: string;
+          user_code: string;
+          device_name: string;
+          fingerprint_hash: string;
+          platform?: string | null;
+          agent_version?: string | null;
+          status?: string;
+          approved_by?: string | null;
+          device_id?: string | null;
+          expires_at: string;
+          approved_at?: string | null;
+          consumed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider_id?: string;
+          device_code_hash?: string;
+          user_code?: string;
+          device_name?: string;
+          fingerprint_hash?: string;
+          platform?: string | null;
+          agent_version?: string | null;
+          status?: string;
+          approved_by?: string | null;
+          device_id?: string | null;
+          expires_at?: string;
+          approved_at?: string | null;
+          consumed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      announcements: {
+        Row: {
+          id: string;
+          provider_id: string;
+          title: string;
+          message: string;
+          severity: string;
+          active: boolean;
+          starts_at: string;
+          ends_at: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_id: string;
+          title: string;
+          message: string;
+          severity?: string;
+          active?: boolean;
+          starts_at?: string;
+          ends_at?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider_id?: string;
+          title?: string;
+          message?: string;
+          severity?: string;
+          active?: boolean;
+          starts_at?: string;
+          ends_at?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -514,6 +727,10 @@ export type Database = {
           _window_seconds?: number;
         };
         Returns: boolean;
+      };
+      consume_agent_authorization: {
+        Args: { _device_code_hash: string; _token_hash: string; _token_prefix: string };
+        Returns: { token_id: string }[];
       };
       link_diagnostic_report: {
         Args: {
