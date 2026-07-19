@@ -845,11 +845,11 @@ export type Database = {
       }
       link_diagnostic_report: {
         Args: {
-          _agent_version: string
+          _agent_version: string | null
           _case_id: string
           _checklist_id: string
           _diagnostic_session_id: string
-          _generated_at: string
+          _generated_at: string | null
           _id: string
           _metadata?: Json
           _original_filename: string
