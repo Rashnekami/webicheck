@@ -119,8 +119,15 @@ export async function createDraft(
   tipo: TipoChecklist = "validacao_ont",
 ): Promise<string> {
   const dados = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("provider_id")
+    .eq("id", userId)
+    .single();
+  if (profileError || !profile) throw new Error("Provedor do técnico não encontrado.");
   const draft: ChecklistDbInsert = {
     tecnico_id: userId,
+    provider_id: profile.provider_id,
     status: "rascunho",
     tipo,
     dados: checklistDataAsJson(dados),
