@@ -7,6 +7,8 @@ export type TipoChecklist = "validacao_ont" | "instalacao";
 export interface ChecklistData {
   sintoma: {
     ont_nao_liga: boolean;
+    ont_queimada: boolean;
+    ont_danificada_cliente: boolean;
     ont_reinicia: boolean;
     perde_internet: boolean;
     internet_cai_pon_acesa: boolean;
@@ -31,6 +33,7 @@ export interface ChecklistData {
     roseta_ok: boolean;
   };
   teste_cabeado: {
+    aplicabilidade: YesNo;
     navegacao: boolean;
     ping: boolean;
     velocidade: boolean;
@@ -49,6 +52,9 @@ export interface ChecklistData {
     rede_5: boolean;
     mais_aparelhos: boolean;
     cabo_funcionando: boolean;
+    download: string;
+    upload: string;
+    ping_ms: string;
     apenas_5g_desaparece: boolean;
     ambas_desaparecem: boolean;
     sem_internet: boolean;
@@ -84,6 +90,8 @@ export function emptyChecklistData(): ChecklistData {
   return {
     sintoma: {
       ont_nao_liga: false,
+      ont_queimada: false,
+      ont_danificada_cliente: false,
       ont_reinicia: false,
       perde_internet: false,
       internet_cai_pon_acesa: false,
@@ -108,6 +116,7 @@ export function emptyChecklistData(): ChecklistData {
       roseta_ok: false,
     },
     teste_cabeado: {
+      aplicabilidade: null,
       navegacao: false,
       ping: false,
       velocidade: false,
@@ -126,6 +135,9 @@ export function emptyChecklistData(): ChecklistData {
       rede_5: false,
       mais_aparelhos: false,
       cabo_funcionando: false,
+      download: "",
+      upload: "",
+      ping_ms: "",
       apenas_5g_desaparece: false,
       ambas_desaparecem: false,
       sem_internet: false,
@@ -221,6 +233,8 @@ export interface ChecklistRow {
   dados: ChecklistData | InstalacaoData;
   codigo_validacao: string | null;
   numero_publico: string | null;
+  revision_number: number;
+  is_current: boolean;
   finalizado_em: string | null;
   created_at: string;
   updated_at: string;
@@ -236,13 +250,7 @@ export interface FotoRow {
   id: string;
   checklist_id: string;
   tecnico_id: string;
-  categoria:
-    | "etiqueta"
-    | "leds"
-    | "fonte"
-    | "teste_cabeado"
-    | "teste_wifi"
-    | "outro";
+  categoria: "etiqueta" | "leds" | "fonte" | "teste_cabeado" | "teste_wifi" | "outro";
   storage_path: string;
   legenda: string | null;
   created_at: string;

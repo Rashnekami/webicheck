@@ -11,18 +11,12 @@ import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
-
+import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -39,11 +33,7 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const emailSchema = z
-  .string()
-  .trim()
-  .email({ message: "Informe um e-mail válido" })
-  .max(255);
+const emailSchema = z.string().trim().email({ message: "Informe um e-mail válido" }).max(255);
 const passwordSchema = z
   .string()
   .min(6, { message: "A senha deve ter pelo menos 6 caracteres" })
@@ -54,11 +44,8 @@ const loginSchema = z.object({
   password: passwordSchema,
 });
 const signupSchema = z.object({
-  full_name: z
-    .string()
-    .trim()
-    .min(2, { message: "Informe seu nome completo" })
-    .max(120),
+  full_name: z.string().trim().min(2, { message: "Informe seu nome completo" }).max(120),
+  city: z.string().refine(isKnownProfileCity, { message: "Selecione sua cidade" }),
   email: emailSchema,
   password: passwordSchema,
 });
@@ -70,9 +57,27 @@ function AuthPage() {
   const [tab, setTab] = useState<"login" | "signup" | "forgot">("login");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/painel", replace: true });
-      else setChecking(false);
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        setChecking(false);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active, city")
+        .eq("id", data.session.user.id)
+        .maybeSingle();
+      if (!profile?.active) {
+        await supabase.auth.signOut();
+        toast.error("Seu acesso está inativo. Procure um administrador.");
+        setChecking(false);
+        return;
+      }
+      if (!profile.city?.trim()) {
+        navigate({ to: "/completar-cadastro", replace: true });
+        return;
+      }
+      navigate({ to: "/painel", replace: true });
     });
   }, [navigate]);
 
@@ -98,16 +103,10 @@ function AuthPage() {
         <Card className="shadow-xl">
           <CardHeader className="pb-2">
             <CardTitle>Acessar plataforma</CardTitle>
-            <CardDescription>
-              Use seu e-mail cadastrado para entrar.
-            </CardDescription>
+            <CardDescription>Use seu e-mail cadastrado para entrar.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs
-              value={tab}
-              onValueChange={(v) => setTab(v as typeof tab)}
-              className="w-full"
-            >
+            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
                 <TabsTrigger value="signup">Cadastrar</TabsTrigger>
@@ -123,8 +122,8 @@ function AuthPage() {
                 <SignupForm onDone={() => setTab("login")} />
                 <GoogleButton className="mt-4" />
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Novos cadastros são criados como técnico. A liberação
-                  administrativa é feita por um administrador.
+                  Novos cadastros são criados como técnico. A liberação administrativa é feita por
+                  um administrador.
                 </p>
               </TabsContent>
 
@@ -148,7 +147,6 @@ function AuthPage() {
         <p className="mt-6 text-center text-xs text-white/80">
           © {new Date().getFullYear()} Webifibra — uso interno
         </p>
-
       </div>
     </div>
   );
@@ -162,7 +160,7 @@ function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
-    const { error } = await supabase.auth.signInWithPassword(values);
+    const { data, error } = await supabase.auth.signInWithPassword(values);
     if (error) {
       if (error.message.toLowerCase().includes("invalid")) {
         toast.error("E-mail ou senha inválidos.");
@@ -171,6 +169,23 @@ function LoginForm() {
       }
       return;
     }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("active, city")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (!profile?.active) {
+      await supabase.auth.signOut();
+      toast.error("Seu acesso está inativo. Procure um administrador.");
+      return;
+    }
+
+    if (!profile.city?.trim()) {
+      navigate({ to: "/completar-cadastro", replace: true });
+      return;
+    }
+
     navigate({ to: "/painel", replace: true });
   }
 
@@ -186,9 +201,7 @@ function LoginForm() {
           {...form.register("email")}
         />
         {form.formState.errors.email && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.email.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
         )}
       </div>
       <div className="space-y-1.5">
@@ -200,20 +213,11 @@ function LoginForm() {
           {...form.register("password")}
         />
         {form.formState.errors.password && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.password.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
         )}
       </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-      >
-        {form.formState.isSubmitting && (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
+      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
+        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Entrar
       </Button>
     </form>
@@ -226,7 +230,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
   const [signatureError, setSignatureError] = useState<string | null>(null);
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { full_name: "", email: "", password: "" },
+    defaultValues: { full_name: "", city: "", email: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof signupSchema>) {
@@ -240,7 +244,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
       password: values.password,
       options: {
         emailRedirectTo: window.location.origin,
-        data: { full_name: values.full_name },
+        data: { full_name: values.full_name, city: values.city },
       },
     });
     if (error) {
@@ -256,7 +260,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
     if (data.session && data.user) {
       await supabase
         .from("profiles")
-        .update({ assinatura: signature } as never)
+        .update({ assinatura: signature, city: values.city } as never)
         .eq("id", data.user.id);
     } else {
       try {
@@ -269,9 +273,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
       toast.success("Conta criada com sucesso.");
       navigate({ to: "/painel", replace: true });
     } else {
-      toast.success(
-        "Cadastro realizado. Verifique seu e-mail para confirmar o acesso.",
-      );
+      toast.success("Cadastro realizado. Verifique seu e-mail para confirmar o acesso.");
       onDone();
     }
   }
@@ -282,9 +284,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
         <Label htmlFor="su-name">Nome completo</Label>
         <Input id="su-name" autoComplete="name" {...form.register("full_name")} />
         {form.formState.errors.full_name && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.full_name.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.full_name.message}</p>
         )}
       </div>
       <div className="space-y-1.5">
@@ -297,9 +297,25 @@ function SignupForm({ onDone }: { onDone: () => void }) {
           {...form.register("email")}
         />
         {form.formState.errors.email && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.email.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="su-city">Cidade onde você atende</Label>
+        <select
+          id="su-city"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          {...form.register("city")}
+        >
+          <option value="">Selecione sua cidade</option>
+          {PROFILE_CITIES.map((city) => (
+            <option key={city} value={city}>
+              {city}
+            </option>
+          ))}
+        </select>
+        {form.formState.errors.city && (
+          <p className="text-xs text-destructive">{form.formState.errors.city.message}</p>
         )}
       </div>
       <div className="space-y-1.5">
@@ -311,27 +327,16 @@ function SignupForm({ onDone }: { onDone: () => void }) {
           {...form.register("password")}
         />
         {form.formState.errors.password && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.password.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
         )}
       </div>
       <div className="space-y-1.5">
         <Label>Assinatura</Label>
         <SignaturePad value={signature} onChange={setSignature} height={150} />
-        {signatureError && (
-          <p className="text-xs text-destructive">{signatureError}</p>
-        )}
+        {signatureError && <p className="text-xs text-destructive">{signatureError}</p>}
       </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-      >
-        {form.formState.isSubmitting && (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
+      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
+        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Criar conta
       </Button>
     </form>
@@ -368,20 +373,11 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
           {...form.register("email")}
         />
         {form.formState.errors.email && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.email.message}
-          </p>
+          <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
         )}
       </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-      >
-        {form.formState.isSubmitting && (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
+      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
+        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Enviar instruções
       </Button>
     </form>
@@ -418,11 +414,7 @@ function GoogleButton({ className }: { className?: string }) {
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
-        <svg
-          className="mr-2 h-4 w-4"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
+        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="#4285F4"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"

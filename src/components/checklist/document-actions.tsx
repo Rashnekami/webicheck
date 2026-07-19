@@ -34,10 +34,7 @@ import {
   type AdminSnapshotSummary,
 } from "@/lib/public-checklist.functions";
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
-import {
-  buildImageFilename,
-  exportNodeAsPng,
-} from "@/services/checklist-image-export";
+import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-export";
 import type { ChecklistRow } from "@/lib/checklist-schema";
 
 interface Props {
@@ -45,7 +42,7 @@ interface Props {
   tecnicoNome: string;
   assinatura: string | null;
   isAdmin: boolean;
-  onDownloadPdf: () => void;
+  onDownloadPdf: (publicUrl?: string | null) => void;
   pdfBusy: boolean;
 }
 
@@ -80,19 +77,14 @@ export function DocumentActions({
 
   // Auto-cria snapshot na primeira vez que a página abre o checklist finalizado
   useEffect(() => {
-    if (
-      row.status === "finalizado" &&
-      snapQuery.data === null &&
-      !ensureMut.isPending
-    ) {
+    if (row.status === "finalizado" && snapQuery.data === null && !ensureMut.isPending) {
       ensureMut.mutate(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.status, snapQuery.data]);
 
   const revokeMut = useMutation({
-    mutationFn: (snapshotId: string) =>
-      revokeChecklistSnapshot({ data: { snapshotId } }),
+    mutationFn: (snapshotId: string) => revokeChecklistSnapshot({ data: { snapshotId } }),
     onSuccess: () => {
       toast.success("Link desativado.");
       qc.invalidateQueries({ queryKey: ["snapshot", row.id] });
@@ -101,8 +93,7 @@ export function DocumentActions({
   });
 
   const reactivateMut = useMutation({
-    mutationFn: (snapshotId: string) =>
-      reactivateChecklistSnapshot({ data: { snapshotId } }),
+    mutationFn: (snapshotId: string) => reactivateChecklistSnapshot({ data: { snapshotId } }),
     onSuccess: () => {
       toast.success("Link reativado.");
       qc.invalidateQueries({ queryKey: ["snapshot", row.id] });
@@ -113,7 +104,7 @@ export function DocumentActions({
   const snap = snapQuery.data as AdminSnapshotSummary | null;
 
   const publicUrl = useMemo(() => {
-    if (!snap || typeof window === "undefined") return null;
+    if (!snap || snap.public_status !== "active" || typeof window === "undefined") return null;
     return `${window.location.origin}/validar/${snap.public_token}`;
   }, [snap]);
 
@@ -158,9 +149,7 @@ export function DocumentActions({
       `Checklist técnico Webifibra finalizado.`,
       row.os ? `OS: ${row.os}` : null,
       `Técnico: ${tecnicoNome}`,
-      row.finalizado_em
-        ? `Data: ${new Date(row.finalizado_em).toLocaleString("pt-BR")}`
-        : null,
+      row.finalizado_em ? `Data: ${new Date(row.finalizado_em).toLocaleString("pt-BR")}` : null,
       `Validação: ${publicUrl}`,
     ]
       .filter(Boolean)
@@ -223,9 +212,7 @@ export function DocumentActions({
         <ShieldOff className="mr-1 h-3.5 w-3.5" /> Desativado
       </Badge>
     ) : snap?.public_status === "replaced" ? (
-      <Badge className="bg-slate-500/15 text-slate-700 hover:bg-slate-500/20">
-        Substituído
-      </Badge>
+      <Badge className="bg-slate-500/15 text-slate-700 hover:bg-slate-500/20">Substituído</Badge>
     ) : (
       <Badge variant="secondary">Preparando…</Badge>
     );
@@ -240,7 +227,7 @@ export function DocumentActions({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={onDownloadPdf} disabled={pdfBusy} size="sm">
+            <Button onClick={() => onDownloadPdf(publicUrl)} disabled={pdfBusy} size="sm">
               {pdfBusy ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
@@ -250,7 +237,7 @@ export function DocumentActions({
             </Button>
             <Button
               onClick={baixarImagem}
-              disabled={busyImg}
+              disabled={busyImg || !publicUrl}
               size="sm"
               variant="default"
             >
@@ -261,35 +248,16 @@ export function DocumentActions({
               )}
               Baixar imagem
             </Button>
-            <Button
-              onClick={copyLink}
-              disabled={!publicUrl}
-              size="sm"
-              variant="outline"
-            >
+            <Button onClick={copyLink} disabled={!publicUrl} size="sm" variant="outline">
               <Link2 className="mr-1.5 h-4 w-4" /> Copiar link
             </Button>
-            <Button
-              onClick={copyTextOs}
-              disabled={!publicUrl}
-              size="sm"
-              variant="outline"
-            >
+            <Button onClick={copyTextOs} disabled={!publicUrl} size="sm" variant="outline">
               <Copy className="mr-1.5 h-4 w-4" /> Copiar texto para OS
             </Button>
-            <Button
-              onClick={share}
-              disabled={!publicUrl}
-              size="sm"
-              variant="outline"
-            >
+            <Button onClick={share} disabled={!publicUrl} size="sm" variant="outline">
               <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar
             </Button>
-            <Button
-              onClick={() => setPreviewOpen(true)}
-              size="sm"
-              variant="ghost"
-            >
+            <Button onClick={() => setPreviewOpen(true)} size="sm" variant="ghost">
               <Eye className="mr-1.5 h-4 w-4" /> Visualizar
             </Button>
           </div>
@@ -300,15 +268,12 @@ export function DocumentActions({
                 <span>Versão v{snap.version}</span>
                 <span>
                   Integridade{" "}
-                  <b className="text-foreground">
-                    {snap.document_hash.slice(0, 8).toUpperCase()}
-                  </b>
+                  <b className="text-foreground">{snap.document_hash.slice(0, 8).toUpperCase()}</b>
                 </span>
                 <span>Acessos: {snap.view_count ?? 0}</span>
                 {snap.last_viewed_at && (
                   <span>
-                    Último acesso:{" "}
-                    {new Date(snap.last_viewed_at).toLocaleString("pt-BR")}
+                    Último acesso: {new Date(snap.last_viewed_at).toLocaleString("pt-BR")}
                   </span>
                 )}
               </div>
@@ -395,9 +360,8 @@ export function DocumentActions({
           <DialogHeader>
             <DialogTitle>Gerar novo link público?</DialogTitle>
             <DialogDescription>
-              O link atual deixará de funcionar e um novo endereço será
-              gerado. Utilize apenas quando for necessário substituir o
-              documento.
+              O link atual deixará de funcionar e um novo endereço será gerado. Utilize apenas
+              quando for necessário substituir o documento.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -416,9 +380,7 @@ export function DocumentActions({
               }}
               disabled={ensureMut.isPending}
             >
-              {ensureMut.isPending && (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              )}
+              {ensureMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Confirmar
             </Button>
           </DialogFooter>

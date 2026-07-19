@@ -1,9 +1,4 @@
-import {
-  createFileRoute,
-  Outlet,
-  redirect,
-  useNavigate,
-} from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
@@ -15,6 +10,18 @@ export const Route = createFileRoute("/_authenticated")({
     if (typeof window === "undefined") return;
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("active, city")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    if (!profile?.active) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
+    if (!profile.city?.trim()) {
+      throw redirect({ to: "/completar-cadastro" });
+    }
     return { user: data.user };
   },
   component: AuthenticatedLayout,
@@ -25,9 +32,26 @@ function AuthenticatedLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) navigate({ to: "/auth", replace: true });
-      else setReady(true);
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (error || !data.user) {
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active, city")
+        .eq("id", data.user.id)
+        .maybeSingle();
+      if (!profile?.active) {
+        await supabase.auth.signOut();
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      if (!profile.city?.trim()) {
+        navigate({ to: "/completar-cadastro", replace: true });
+        return;
+      }
+      setReady(true);
     });
   }, [navigate]);
 

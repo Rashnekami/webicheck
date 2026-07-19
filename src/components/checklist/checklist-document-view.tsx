@@ -115,6 +115,24 @@ function SectionBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SubsectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        marginBottom: 3,
+        fontSize: 10,
+        fontWeight: 800,
+        color: BRAND_DARK,
+        textTransform: "uppercase",
+        letterSpacing: 0.7,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function useQrDataUrl(text: string | null | undefined) {
   const [url, setUrl] = useState<string>("");
   useEffect(() => {
@@ -141,10 +159,7 @@ function useQrDataUrl(text: string | null | undefined) {
 }
 
 export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
-  function ChecklistDocumentView(
-    { payload, publicUrl, shortHash, version, fixedWidth },
-    ref,
-  ) {
+  function ChecklistDocumentView({ payload, publicUrl, shortHash, version, fixedWidth }, ref) {
     const isInstal = payload.tipo === "instalacao";
     const h = payload.header;
     const d = payload.dados as Record<string, Record<string, unknown> | string>;
@@ -156,8 +171,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
       background: "white",
       color: INK,
       padding: 24,
-      fontFamily:
-        "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       fontSize: 13,
       lineHeight: 1.4,
       boxSizing: "border-box",
@@ -165,7 +179,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
 
     const tecAssinatura = payload.tecnico.assinatura;
     const clienteAssinatura = isInstal
-      ? (d.assinatura_cliente as string | null | undefined) ?? null
+      ? ((d.assinatura_cliente as string | null | undefined) ?? null)
       : null;
 
     return (
@@ -208,9 +222,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
                 letterSpacing: 0.2,
               }}
             >
-              {isInstal
-                ? "CHECKLIST DE INSTALAÇÃO"
-                : "CHECKLIST TÉCNICO DE VALIDAÇÃO DE ONT"}
+              {isInstal ? "CHECKLIST DE INSTALAÇÃO" : "CHECKLIST TÉCNICO DE VALIDAÇÃO DE ONT"}
             </div>
             <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
               Documento oficial Webifibra · uso interno e comprovação técnica
@@ -265,9 +277,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
             <div style={{ fontSize: 10, color: MUTED, letterSpacing: 0.8 }}>
               CÓDIGO DE VALIDAÇÃO
             </div>
-            <div style={{ fontSize: 12, fontWeight: 700 }}>
-              {payload.codigo_validacao || "—"}
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>{payload.codigo_validacao || "—"}</div>
           </div>
         </div>
 
@@ -286,10 +296,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
             <Field label="Cliente" value={h.cliente as string} />
             <Field label="Cidade" value={h.cidade as string} />
             <Field label="Técnico" value={payload.tecnico.full_name} />
-            <Field
-              label="Data"
-              value={fmtDateISO(h.data_atendimento as string)}
-            />
+            <Field label="Data" value={fmtDateISO(h.data_atendimento as string)} />
             <Field label="Hora" value={h.hora_atendimento as string} />
             {isInstal ? (
               <>
@@ -306,11 +313,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
           </div>
         </SectionBox>
 
-        {isInstal ? (
-          <InstalacaoBody d={d as never} />
-        ) : (
-          <ValidacaoBody d={d as never} />
-        )}
+        {isInstal ? <InstalacaoBody d={d as never} /> : <ValidacaoBody d={d as never} />}
 
         {/* Assinaturas + Autenticidade */}
         <div
@@ -356,15 +359,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
   },
 );
 
-function SignBox({
-  title,
-  name,
-  image,
-}: {
-  title: string;
-  name: string;
-  image?: string | null;
-}) {
+function SignBox({ title, name, image }: { title: string; name: string; image?: string | null }) {
   return (
     <div
       style={{
@@ -387,9 +382,7 @@ function SignBox({
           style={{ maxHeight: 80, maxWidth: "100%", objectFit: "contain" }}
         />
       ) : (
-        <span style={{ color: MUTED, fontSize: 11 }}>
-          (assinatura não registrada)
-        </span>
+        <span style={{ color: MUTED, fontSize: 11 }}>(assinatura não registrada)</span>
       )}
       <div
         style={{
@@ -418,6 +411,7 @@ function AuthBox({
 }) {
   return (
     <div
+      data-validation-qr={qr ? "ready" : publicUrl ? "loading" : "unavailable"}
       style={{
         border: `1px solid ${BORDER}`,
         borderRadius: 6,
@@ -434,6 +428,7 @@ function AuthBox({
         <img
           src={qr}
           alt="QR de validação"
+          data-validation-qr-image="ready"
           style={{ width: 130, height: 130 }}
         />
       ) : (
@@ -496,6 +491,8 @@ function ValidacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
       <SectionBox>
         <div style={grid2}>
           <Chk v={s.ont_nao_liga} label="ONT não liga" />
+          <Chk v={s.ont_queimada} label="ONT/ONU queimada" />
+          <Chk v={s.ont_danificada_cliente} label="ONT/ONU danificada pelo cliente" />
           <Chk v={s.ont_reinicia} label="ONT reinicia/desliga" />
           <Chk v={s.perde_internet} label="Perde internet/provisionamento" />
           <Chk v={s.internet_cai_pon_acesa} label="Internet cai com PON acesa" />
@@ -531,40 +528,61 @@ function ValidacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
 
       <SectionTitle>4. Teste cabeado</SectionTitle>
       <SectionBox>
-        <div style={grid2}>
-          <Chk v={tc.navegacao} label="Navegação testada" />
-          <Chk v={tc.ping} label="Ping testado" />
-          <Chk v={tc.velocidade} label="Velocidade testada" />
-          <Chk v={tc.cabo_substituido} label="Cabo substituído" />
-        </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            columnGap: 12,
-            marginTop: 4,
-          }}
-        >
-          <Field label="Download (Mbps)" value={tc.download as string} />
-          <Field label="Upload (Mbps)" value={tc.upload as string} />
-          <Field label="Ping (ms)" value={tc.ping_ms as string} />
-        </div>
-        <div style={grid2}>
-          <Chk v={tc.funcionou} label="Funcionou normalmente" />
-          <Chk v={tc.apresentou_falha} label="Também apresentou falha" />
-          <Chk v={tc.ont_reiniciou} label="ONT reiniciou" />
-          <Chk v={tc.lan_falhou} label="Porta LAN não funcionou" />
-          <Chk v={tc.nao_testado} label="Não foi possível testar" />
-        </div>
+        <Field label="Aplica-se ao atendimento" value={yesNo(tc.aplicabilidade)} />
+        {tc.aplicabilidade === "nao" ? (
+          <div style={{ marginTop: 5, color: MUTED }}>
+            Não se aplica — atendimento realizado sem equipamento para teste cabeado.
+          </div>
+        ) : (
+          <>
+            <SubsectionLabel>Execução do teste</SubsectionLabel>
+            <div style={grid2}>
+              <Chk v={tc.navegacao} label="Navegação testada" />
+              <Chk v={tc.ping} label="Ping testado" />
+              <Chk v={tc.velocidade} label="Velocidade testada" />
+              <Chk v={tc.cabo_substituido} label="Cabo substituído" />
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                columnGap: 12,
+                marginTop: 4,
+              }}
+            >
+              <Field label="Download (Mbps)" value={tc.download as string} />
+              <Field label="Upload (Mbps)" value={tc.upload as string} />
+              <Field label="Ping (ms)" value={tc.ping_ms as string} />
+            </div>
+            <SubsectionLabel>Resultado do teste</SubsectionLabel>
+            <div style={grid2}>
+              <Chk v={tc.funcionou} label="Funcionou normalmente" />
+              <Chk v={tc.apresentou_falha} label="Também apresentou falha" />
+              <Chk v={tc.ont_reiniciou} label="ONT reiniciou" />
+              <Chk v={tc.lan_falhou} label="Porta LAN não funcionou" />
+              <Chk v={tc.nao_testado} label="Aplicável, mas não foi possível testar" />
+            </div>
+          </>
+        )}
       </SectionBox>
 
       <SectionTitle>5. Teste Wi-Fi</SectionTitle>
       <SectionBox>
+        <SubsectionLabel>Execução do teste</SubsectionLabel>
         <div style={grid2}>
           <Chk v={tw.rede_24} label="Rede 2,4 GHz testada" />
           <Chk v={tw.rede_5} label="Rede 5 GHz testada" />
           <Chk v={tw.mais_aparelhos} label="Testado em mais de um aparelho" />
           <Chk v={tw.cabo_funcionando} label="Cabo permanece funcionando" />
+        </div>
+        <SubsectionLabel>Velocidade medida no Wi-Fi</SubsectionLabel>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", columnGap: 12 }}>
+          <Field label="Download (Mbps)" value={tw.download as string} />
+          <Field label="Upload (Mbps)" value={tw.upload as string} />
+          <Field label="Ping (ms)" value={tw.ping_ms as string} />
+        </div>
+        <SubsectionLabel>Resultado do teste</SubsectionLabel>
+        <div style={grid2}>
           <Chk v={tw.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
           <Chk v={tw.ambas_desaparecem} label="Ambas as redes desaparecem" />
           <Chk v={tw.sem_internet} label="Wi-Fi visível sem internet" />
@@ -644,10 +662,7 @@ function InstalacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
           v={itens.velocidade_ok}
           label="Teste de velocidade realizado via cabo, comprovando a entrega da banda contratada."
         />
-        <Chk
-          v={itens.navegacao_ok}
-          label="Navegação e estabilidade da conexão validadas."
-        />
+        <Chk v={itens.navegacao_ok} label="Navegação e estabilidade da conexão validadas." />
         <Chk
           v={itens.wifi_orientado}
           label="Cliente orientado sobre a diferença das redes Wi-Fi (2,4 GHz x 5 GHz)."

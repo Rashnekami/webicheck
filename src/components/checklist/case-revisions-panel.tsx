@@ -35,12 +35,12 @@ import {
   listDiagnosticReports,
   type ServiceStage,
 } from "@/lib/webi-diagnostic.functions";
+import {
+  ensureChecklistSnapshot,
+  getChecklistSnapshotSummary,
+} from "@/lib/public-checklist.functions";
 
-type RevisionStage =
-  | "pre_change"
-  | "post_ont_change"
-  | "noc_retest"
-  | "additional_test";
+type RevisionStage = "pre_change" | "post_ont_change" | "noc_retest" | "additional_test";
 
 const STAGE_LABELS: Record<ServiceStage, string> = {
   initial: "Atendimento inicial",
@@ -49,7 +49,6 @@ const STAGE_LABELS: Record<ServiceStage, string> = {
   noc_retest: "Reteste NOC",
   additional_test: "Teste adicional",
 };
-
 
 interface Props {
   row: ChecklistRow & {
@@ -110,10 +109,27 @@ export function CaseRevisionsPanel({
   });
 
   const [busy, setBusy] = useState<"none" | "checklist" | "revision" | "dossie">("none");
+
+  async function resolveValidationUrl(): Promise<string | null> {
+    const current = await getChecklistSnapshotSummary({ data: { checklistId: row.id } });
+    if (current && current.public_status !== "active") return null;
+    const snapshot =
+      current ??
+      (await ensureChecklistSnapshot({ data: { checklistId: row.id, forceNew: false } }));
+    return `${window.location.origin}/validar/${snapshot.public_token}`;
+  }
+
   async function handleChecklistOnly() {
     try {
       setBusy("checklist");
-      await downloadChecklistOnly({ row, fotos, tecnicoNome, assinatura: tecnicoAssinatura });
+      const publicUrl = await resolveValidationUrl();
+      await downloadChecklistOnly({
+        row,
+        fotos,
+        tecnicoNome,
+        assinatura: tecnicoAssinatura,
+        publicUrl,
+      });
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar o PDF do checklist.");
@@ -124,12 +140,14 @@ export function CaseRevisionsPanel({
   async function handleRevisionPdf() {
     try {
       setBusy("revision");
+      const publicUrl = await resolveValidationUrl();
       await generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
         assinatura: tecnicoAssinatura,
         diagnostics: diagsQ.data ?? [],
+        publicUrl,
         scope: "revision",
       });
     } catch (e) {
@@ -142,12 +160,14 @@ export function CaseRevisionsPanel({
   async function handleDossie() {
     try {
       setBusy("dossie");
+      const publicUrl = await resolveValidationUrl();
       await generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
         assinatura: tecnicoAssinatura,
         diagnostics: diagsQ.data ?? [],
+        publicUrl,
         scope: "case",
       });
     } catch (e) {
@@ -166,8 +186,7 @@ export function CaseRevisionsPanel({
         <Card className="border-amber-400/50 bg-amber-50/50">
           <CardContent className="flex items-center justify-between gap-3 p-3 text-sm">
             <span className="text-amber-900">
-              Esta é uma versão anterior — existe uma revisão mais recente deste
-              atendimento.
+              Esta é uma versão anterior — existe uma revisão mais recente deste atendimento.
             </span>
             <Button
               size="sm"
@@ -261,8 +280,9 @@ export function CaseRevisionsPanel({
           <DialogHeader>
             <DialogTitle>Criar nova revisão do checklist</DialogTitle>
             <DialogDescription>
-              A revisão começa como rascunho, herdando os dados desta versão. A
-              versão anterior fica preservada como histórico.
+              A revisão começa como rascunho. Dados do atendimento e dos equipamentos são
+              preservados; respostas, testes e evidências começam em branco. A versão anterior fica
+              no histórico.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -290,11 +310,7 @@ export function CaseRevisionsPanel({
             </div>
             <div>
               <Label>Observação (opcional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
             </div>
           </div>
           <DialogFooter>
@@ -305,9 +321,7 @@ export function CaseRevisionsPanel({
               onClick={() => createRev.mutate()}
               disabled={createRev.isPending || reason.trim().length < 3}
             >
-              {createRev.isPending && (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              )}
+              {createRev.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Criar revisão
             </Button>
           </DialogFooter>

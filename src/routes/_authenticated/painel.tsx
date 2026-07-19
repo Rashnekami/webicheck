@@ -1,7 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { LogOut, ShieldCheck, HardHat, ClipboardList, ArrowRight, PenLine, BarChart3 } from "lucide-react";
+import {
+  LogOut,
+  ShieldCheck,
+  HardHat,
+  ClipboardList,
+  ArrowRight,
+  PenLine,
+  BarChart3,
+  UsersRound,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
@@ -23,10 +32,7 @@ import { InstallButton } from "@/components/pwa/install-button";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
-    meta: [
-      { title: "Painel — Webifibra" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Painel — Webifibra" }, { name: "robots", content: "noindex" }],
   }),
   component: Painel,
 });
@@ -98,9 +104,7 @@ function Painel() {
           <div className="flex items-center gap-3">
             <WebifibraLogo size={44} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">
-                Webifibra
-              </p>
+              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
               <h1 className="text-lg font-semibold">Checklist Técnico</h1>
             </div>
           </div>
@@ -135,9 +139,7 @@ function Painel() {
                 <HardHat className="mr-1 h-3.5 w-3.5" /> Técnico de campo
               </Badge>
             )}
-            {!user.active && (
-              <Badge variant="destructive">Usuário bloqueado</Badge>
-            )}
+            {!user.active && <Badge variant="destructive">Usuário bloqueado</Badge>}
           </div>
         </section>
 
@@ -175,8 +177,28 @@ function Painel() {
                   <div className="space-y-1">
                     <h3 className="font-semibold text-foreground">Dashboard</h3>
                     <p className="text-sm text-muted-foreground">
-                      Gráficos de trocas, técnicos, cidades e analistas — com
-                      exportação em CSV.
+                      Gráficos de trocas, técnicos, cidades e analistas — com exportação em CSV.
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {user.isAdmin && (
+          <Link to="/usuarios" className="block">
+            <Card className="transition hover:border-primary/50 hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                    <UsersRound className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-foreground">Usuários</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Consulte cadastros, edite perfis e ative ou inative acessos.
                     </p>
                   </div>
                 </div>
@@ -196,8 +218,7 @@ function Painel() {
                 <div className="space-y-1">
                   <h3 className="font-semibold text-foreground">Integrações</h3>
                   <p className="text-sm text-muted-foreground">
-                    Chaves para o Webi Diagnostic Agent enviar os PDFs
-                    diretamente para o checklist.
+                    Chaves para o Webi Diagnostic Agent enviar os PDFs diretamente para o checklist.
                   </p>
                 </div>
               </div>
@@ -269,9 +290,7 @@ function Painel() {
               </div>
               <div>
                 <dt className="text-muted-foreground">Status</dt>
-                <dd className="font-medium">
-                  {user.active ? "Ativo" : "Bloqueado"}
-                </dd>
+                <dd className="font-medium">{user.active ? "Ativo" : "Bloqueado"}</dd>
               </div>
             </dl>
           </CardContent>

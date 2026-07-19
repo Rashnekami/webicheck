@@ -20,6 +20,7 @@ interface Params {
   fotos: FotoRow[];
   tecnicoNome: string;
   assinatura: string | null;
+  publicUrl?: string | null;
   diagnostics: DiagnosticReportRow[];
   /**
    * "case" (default): inclui todos os diagnósticos ativos do atendimento.
@@ -139,6 +140,7 @@ export async function generateDossiePdf({
   tecnicoNome,
   assinatura,
   diagnostics,
+  publicUrl,
   scope = "case",
   filenamePrefix,
 }: Params) {
@@ -148,8 +150,8 @@ export async function generateDossiePdf({
 
   const checklistBlob =
     row.tipo === "instalacao"
-      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura })
-      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura });
+      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura, publicUrl })
+      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura, publicUrl });
 
   const merged = await PDFDocument.create();
   await makeCoverPage(merged, { row, diagCount: activeDiags.length });
@@ -208,11 +210,12 @@ export async function downloadChecklistOnly({
   fotos,
   tecnicoNome,
   assinatura,
+  publicUrl,
 }: Omit<Params, "diagnostics" | "scope" | "filenamePrefix">) {
   const blob =
     row.tipo === "instalacao"
-      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura })
-      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura });
+      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura, publicUrl })
+      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura, publicUrl });
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const nome = `checklist-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}${revSuffix}.pdf`;
@@ -225,4 +228,3 @@ export async function downloadChecklistOnly({
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
-

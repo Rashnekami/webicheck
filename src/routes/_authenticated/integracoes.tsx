@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, KeyRound, Loader2, ShieldOff, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, KeyRound, Loader2, ShieldOff, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,10 +25,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/integracoes")({
   head: () => ({
-    meta: [
-      { title: "Integrações — Webifibra" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Integrações — Webifibra" }, { name: "robots", content: "noindex" }],
   }),
   component: IntegracoesPage,
 });
@@ -66,10 +63,15 @@ function IntegracoesPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
       <div>
+        <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
+          <Link to="/painel">
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
+          </Link>
+        </Button>
         <h1 className="text-2xl font-semibold">Integrações</h1>
         <p className="text-sm text-muted-foreground">
-          Chaves de integração do Webi Diagnostic. Cada chave é pessoal e vale
-          para uma instalação do Agent (por exemplo, um notebook).
+          Chaves de integração do Webi Diagnostic. Cada chave é pessoal e vale para uma instalação
+          do Agent (por exemplo, um notebook).
         </p>
       </div>
 
@@ -93,20 +95,24 @@ function IntegracoesPage() {
             </Button>
           </div>
           <div className="space-y-1 text-xs text-muted-foreground">
-            <p>Endpoints do Agent (headers: <code>X-Webi-Integration-Key</code>):</p>
-            <p className="font-mono text-[11px]">POST {baseUrl}/api/public/webi-diagnostic/resolve-checklist</p>
-            <p className="font-mono text-[11px]">POST {baseUrl}/api/public/webi-diagnostic/upload-report</p>
+            <p>
+              Endpoints do Agent (headers: <code>X-Webi-Integration-Key</code>):
+            </p>
+            <p className="font-mono text-[11px]">
+              POST {baseUrl}/api/public/webi-diagnostic/resolve-checklist
+            </p>
+            <p className="font-mono text-[11px]">
+              POST {baseUrl}/api/public/webi-diagnostic/upload-report
+            </p>
             <p className="pt-1">
-              O Agent deve enviar <code>checklist_code</code> exatamente como o
-              técnico digita (ex: <code>WEBICHECK20260001</code> ou{" "}
-              <code>WEBICHECK20260001-R2</code>). Se o checklist tiver sido
-              substituído, a API responde <code>409 CHECKLIST_SUPERSEDED</code> com{" "}
+              O Agent deve enviar <code>checklist_code</code> exatamente como o técnico digita (ex:{" "}
+              <code>WEBICHECK20260001</code> ou <code>WEBICHECK20260001-R2</code>). Se o checklist
+              tiver sido substituído, a API responde <code>409 CHECKLIST_SUPERSEDED</code> com{" "}
               <code>latest_checklist_code</code>.
             </p>
             <p>
               Etapas aceitas em <code>test_stage</code>: <code>before_change</code>,{" "}
-              <code>after_ont_change</code>, <code>noc_retest</code>,{" "}
-              <code>additional_test</code>.
+              <code>after_ont_change</code>, <code>noc_retest</code>, <code>additional_test</code>.
             </p>
           </div>
         </CardContent>
@@ -161,13 +167,11 @@ function IntegracoesPage() {
           <DialogHeader>
             <DialogTitle>Chave gerada — copie agora</DialogTitle>
             <DialogDescription>
-              Esta chave só será exibida uma vez. Guarde em local seguro e cole
-              no Webi Diagnostic Agent do <b>{issued?.name}</b>.
+              Esta chave só será exibida uma vez. Guarde em local seguro e cole no Webi Diagnostic
+              Agent do <b>{issued?.name}</b>.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-muted p-3 font-mono text-xs break-all">
-            {issued?.value}
-          </div>
+          <div className="rounded-md bg-muted p-3 font-mono text-xs break-all">{issued?.value}</div>
           <DialogFooter>
             <Button
               variant="outline"
