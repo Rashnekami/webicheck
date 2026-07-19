@@ -308,8 +308,8 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report"
             _storage_path: storagePath,
             _sha256: realHash,
             _size_bytes: fileEntry.size,
-            _agent_version: agentVersion ?? "",
-            _generated_at: generatedAt ?? new Date().toISOString(),
+            _agent_version: agentVersion,
+            _generated_at: generatedAt,
             _test_stage: stage,
             _metadata: {
               snapshot_status: "pending",
