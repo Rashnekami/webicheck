@@ -11,6 +11,7 @@ import {
   Loader2,
   Save,
   Trash2,
+  MonitorUp,
 } from "lucide-react";
 
 import { WebifibraLogo } from "@/components/webifibra-logo";
@@ -144,6 +145,17 @@ function ChecklistDetail() {
   const row = query.data;
   const readOnly = !row || row.status === "finalizado" || row.tecnico_id !== user?.id;
   const tipo = row?.tipo ?? "validacao_ont";
+  const diagnosticCode = row
+    ? `${row.numero_publico ?? row.codigo_validacao ?? ""}${row.revision_number > 1 ? `-R${row.revision_number}` : ""}`
+    : "";
+
+  function openDiagnostic() {
+    if (!diagnosticCode) {
+      toast.error("Este checklist ainda não possui código para o diagnóstico.");
+      return;
+    }
+    window.location.href = `webidiagnostic://open?checklist_code=${encodeURIComponent(diagnosticCode)}&webicheck_url=${encodeURIComponent(window.location.origin)}`;
+  }
 
   useEffect(() => {
     if (!row) return;
@@ -421,6 +433,11 @@ function ChecklistDetail() {
             Voltar
           </Button>
           <div className="flex items-center gap-2">
+            {row.status === "finalizado" && (
+              <Button variant="outline" onClick={openDiagnostic}>
+                <MonitorUp className="mr-1.5 h-4 w-4" /> Abrir no Webi Diagnostic
+              </Button>
+            )}
             {row.status === "finalizado" && (
               <Button onClick={() => handlePdf()} disabled={pdfBusy}>
                 {pdfBusy ? (
