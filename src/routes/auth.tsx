@@ -51,6 +51,12 @@ const signupSchema = z.object({
 });
 const forgotSchema = z.object({ email: emailSchema });
 
+function finishLogin() {
+  const returnTo = sessionStorage.getItem("webicheck.return_to");
+  sessionStorage.removeItem("webicheck.return_to");
+  window.location.assign(returnTo?.startsWith("/") ? returnTo : "/painel");
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
@@ -77,7 +83,7 @@ function AuthPage() {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      navigate({ to: "/painel", replace: true });
+      finishLogin();
     });
   }, [navigate]);
 
@@ -186,7 +192,7 @@ function LoginForm() {
       return;
     }
 
-    navigate({ to: "/painel", replace: true });
+    finishLogin();
   }
 
   return (
@@ -271,7 +277,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
     }
     if (data.session) {
       toast.success("Conta criada com sucesso.");
-      navigate({ to: "/painel", replace: true });
+      finishLogin();
     } else {
       toast.success("Cadastro realizado. Verifique seu e-mail para confirmar o acesso.");
       onDone();
@@ -398,7 +404,7 @@ function GoogleButton({ className }: { className?: string }) {
     }
     // Se result.redirected => o navegador vai redirecionar; se não, sessão já foi setada.
     if (!result.redirected) {
-      window.location.href = "/painel";
+      finishLogin();
     }
   }
   return (

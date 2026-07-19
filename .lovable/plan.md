@@ -1,18 +1,25 @@
-## Status atual da integração Webi Diagnostic
+## Objetivo
 
-### Concluído
-- **Banco & storage**: `case_id`, `parent_checklist_id`, `revision_number`, `revision_reason`, `service_stage`, `is_current`, `superseded_by_checklist_id`; `checklist_diagnostic_reports`; `webi_integration_tokens` (hash SHA-256, revogação, last_used); bucket privado `webi-diagnostic-reports` com RLS por dono do case ou admin.
-- **Endpoints públicos** `/api/public/webi-diagnostic/resolve-checklist` e `/upload-report`: aceitam `checklist_code` com sufixo `-Rn`, retornam `409 CHECKLIST_SUPERSEDED` com `latest_checklist_code`, validam token, magic bytes `%PDF-`, SHA-256, rate limit 30/min por token, exigem revisão atual e dono/admin.
-- **UI**:
-  - `/integracoes` com geração/rotação/revogação de token e documentação técnica.
-  - Painel de revisões com timeline visual (`case-timeline.tsx`) + seção formal de diagnósticos agrupada por etapa (`diagnostics-section.tsx`).
-  - Três botões de PDF no painel: **Checklist** (só o PDF desta versão), **Versão completa** (checklist + diagnósticos desta revisão) e **Dossiê completo** (todo o atendimento).
-  - Sufixo `-Rn` visível no cabeçalho e no nome de arquivo do `checklist-pdf.tsx` e `instalacao-pdf.tsx`.
-  - Página `/validar/:token`: banner de "versão mais recente" quando `is_current=false` e exibição de `checklist_code` no snapshot.
-- **Snapshots**: `SnapshotPayload` agora inclui `revision_number`, `checklist_code` e resumo dos diagnósticos ativos. Ao vincular ou revogar um diagnóstico, `regenerateChecklistSnapshot` cria nova versão e marca a anterior como `replaced` com `replaced_by_snapshot_id`.
-- **Revogação**: `revokeDiagnosticReport` marca `status=revoked` com `revoked_at`/`revoked_by`, mantém o PDF no storage e dispara regeneração do snapshot.
-- **Dashboards**: `dashboard-analytics.ts` e listagem principal deduplicam por `case_id` (contam cada atendimento uma vez).
-- **Divergência arquitetural**: documentada em `/integracoes` (TanStack server routes em vez de Edge Function; URL real `https://webicheck.lovable.app/api/public/webi-diagnostic/...`).
+Aplicar no banco de dados conectado (ambiente de preview, não produção) a migration já existente no repositório:
 
-### Pendente (fora do escopo desta rodada)
-- **Testes automatizados dos 22 cenários** (Vitest + fixtures Supabase). Requer instalar vitest, montar mocks/fixtures da Data API e simular multipart uploads. Recomendado tratar em uma rodada dedicada para não colidir com o app em produção.
+`supabase/migrations/20260719090000_provider_agent_foundation.sql` (254 linhas)
+
+Sem reescrever a migration, sem editar outros arquivos e sem publicar.
+
+## Passos
+
+1. Executar o SQL exato do arquivo `supabase/migrations/20260719090000_provider_agent_foundation.sql` através do fluxo de migration do Lovable Cloud (ferramenta `supabase--migration`), enviando o conteúdo original para aprovação.
+2. Aguardar sua aprovação da migration na UI (etapa obrigatória do fluxo).
+3. Após a execução, a preview é reconstruída automaticamente (regeneração de types + rebuild).
+4. Verificar se a migration foi aplicada completamente consultando o banco:
+   - Presença das tabelas criadas (ex.: `providers`, `agent_devices`, `agent_authorization_requests`, e demais definidas no arquivo).
+   - Presença das colunas novas em tabelas existentes (ex.: `provider_id`).
+   - RLS habilitada e policies criadas conforme o arquivo.
+5. Reportar o resultado: aplicada com sucesso, ou apontar qualquer statement que não tenha executado, com a mensagem de erro exata do Postgres.
+
+## Fora do escopo
+
+- Não altero o SQL da migration.
+- Não modifico código-fonte da aplicação.
+- Não publico em produção — a migration é aplicada apenas no banco conectado à preview.
+- Não regenero `src/integrations/supabase/types.ts` manualmente (isso ocorre automaticamente após a migration).

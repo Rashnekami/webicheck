@@ -277,10 +277,23 @@ export const createIntegrationToken = createServerFn({ method: "POST" })
     const token_prefix = value.slice(0, 10);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("provider_id, active")
+      .eq("id", userId)
+      .single();
+    if (!profile?.active) throw new Error("Usuário inativo.");
+    const { data: provider } = await supabaseAdmin
+      .from("providers")
+      .select("status")
+      .eq("id", profile.provider_id)
+      .single();
+    if (provider?.status !== "active") throw new Error("Provedor suspenso.");
     const { data: inserted, error } = await supabaseAdmin
       .from("webi_integration_tokens")
       .insert({
         user_id: userId,
+        provider_id: profile.provider_id,
         name: data.name.trim(),
         token_prefix,
         token_hash,
