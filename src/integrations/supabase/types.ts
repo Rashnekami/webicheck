@@ -14,6 +14,175 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_authorization_requests: {
+        Row: {
+          agent_version: string | null
+          approved_at: string | null
+          approved_by: string | null
+          consumed_at: string | null
+          created_at: string
+          device_code_hash: string
+          device_id: string | null
+          device_name: string
+          expires_at: string
+          fingerprint_hash: string
+          id: string
+          platform: string | null
+          provider_id: string
+          status: string
+          user_code: string
+        }
+        Insert: {
+          agent_version?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          device_code_hash: string
+          device_id?: string | null
+          device_name: string
+          expires_at: string
+          fingerprint_hash: string
+          id?: string
+          platform?: string | null
+          provider_id: string
+          status?: string
+          user_code: string
+        }
+        Update: {
+          agent_version?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          device_code_hash?: string
+          device_id?: string | null
+          device_name?: string
+          expires_at?: string
+          fingerprint_hash?: string
+          id?: string
+          platform?: string | null
+          provider_id?: string
+          status?: string
+          user_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_authorization_requests_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "agent_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_authorization_requests_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_devices: {
+        Row: {
+          agent_version: string | null
+          created_at: string
+          fingerprint_hash: string
+          id: string
+          last_seen_at: string | null
+          name: string
+          platform: string | null
+          provider_id: string
+          revoked_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          agent_version?: string | null
+          created_at?: string
+          fingerprint_hash: string
+          id?: string
+          last_seen_at?: string | null
+          name: string
+          platform?: string | null
+          provider_id: string
+          revoked_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          agent_version?: string | null
+          created_at?: string
+          fingerprint_hash?: string
+          id?: string
+          last_seen_at?: string | null
+          name?: string
+          platform?: string | null
+          provider_id?: string
+          revoked_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_devices_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          ends_at: string | null
+          id: string
+          message: string
+          provider_id: string
+          severity: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          ends_at?: string | null
+          id?: string
+          message: string
+          provider_id: string
+          severity?: string
+          starts_at?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          ends_at?: string | null
+          id?: string
+          message?: string
+          provider_id?: string
+          severity?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcements_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_diagnostic_reports: {
         Row: {
           agent_version: string | null
@@ -265,6 +434,7 @@ export type Database = {
           os: string | null
           parent_checklist_id: string | null
           plano: string | null
+          provider_id: string
           revised_at: string | null
           revised_by: string | null
           revision_notes: string | null
@@ -302,6 +472,7 @@ export type Database = {
           os?: string | null
           parent_checklist_id?: string | null
           plano?: string | null
+          provider_id: string
           revised_at?: string | null
           revised_by?: string | null
           revision_notes?: string | null
@@ -339,6 +510,7 @@ export type Database = {
           os?: string | null
           parent_checklist_id?: string | null
           plano?: string | null
+          provider_id?: string
           revised_at?: string | null
           revised_by?: string | null
           revision_notes?: string | null
@@ -364,6 +536,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "checklists_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "checklists_superseded_by_checklist_id_fkey"
             columns: ["superseded_by_checklist_id"]
             isOneToOne: false
@@ -383,6 +562,8 @@ export type Database = {
           id: string
           matricula: string | null
           phone: string | null
+          platform_admin: boolean
+          provider_id: string
           updated_at: string
         }
         Insert: {
@@ -395,6 +576,8 @@ export type Database = {
           id: string
           matricula?: string | null
           phone?: string | null
+          platform_admin?: boolean
+          provider_id: string
           updated_at?: string
         }
         Update: {
@@ -407,6 +590,84 @@ export type Database = {
           id?: string
           matricula?: string | null
           phone?: string | null
+          platform_admin?: boolean
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_cities: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          normalized_name: string
+          provider_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          normalized_name: string
+          provider_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          normalized_name?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_cities_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      providers: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          slug?: string
+          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -436,10 +697,12 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          device_id: string | null
           expires_at: string | null
           id: string
           last_used_at: string | null
           name: string
+          provider_id: string
           revoked_at: string | null
           scopes: string[]
           token_hash: string
@@ -449,10 +712,12 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          device_id?: string | null
           expires_at?: string | null
           id?: string
           last_used_at?: string | null
           name: string
+          provider_id: string
           revoked_at?: string | null
           scopes?: string[]
           token_hash: string
@@ -462,23 +727,50 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          device_id?: string | null
           expires_at?: string | null
           id?: string
           last_used_at?: string | null
           name?: string
+          provider_id?: string
           revoked_at?: string | null
           scopes?: string[]
           token_hash?: string
           token_prefix?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webi_integration_tokens_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "agent_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webi_integration_tokens_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      consume_agent_authorization: {
+        Args: {
+          _device_code_hash: string
+          _token_hash: string
+          _token_prefix: string
+        }
+        Returns: {
+          token_id: string
+        }[]
+      }
       create_checklist_revision: {
         Args: {
           _notes?: string
@@ -505,6 +797,7 @@ export type Database = {
           version: number
         }[]
       }
+      current_provider_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -512,6 +805,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "tecnico"
