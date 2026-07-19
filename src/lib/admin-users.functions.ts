@@ -142,11 +142,23 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       { data: targetProfile, error: targetProfileError },
     ] = await Promise.all([
       supabaseAdmin.from("user_roles").select("role").eq("user_id", data.userId),
-      supabaseAdmin.from("profiles").select("active").eq("id", data.userId).maybeSingle(),
+      supabaseAdmin
+        .from("profiles")
+        .select("active, provider_id")
+        .eq("id", data.userId)
+        .maybeSingle(),
     ]);
 
     if (targetRoleError) throw new Error(targetRoleError.message);
     if (targetProfileError) throw new Error(targetProfileError.message);
+
+    const { data: actorProfile, error: actorProfileError } = await supabaseAdmin
+      .from("profiles")
+      .select("provider_id")
+      .eq("id", context.userId)
+      .single();
+    if (actorProfileError || !actorProfile)
+      throw new Error("Provedor do administrador não encontrado.");
 
     const targetIsAdmin = (targetRoles ?? []).some((row) => row.role === "admin");
     const removesActiveAdmin =
@@ -185,6 +197,7 @@ export const updateAdminUser = createServerFn({ method: "POST" })
         matricula: data.matricula,
         city: data.city,
         active: data.active,
+        provider_id: targetProfile?.provider_id ?? actorProfile.provider_id,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" },
