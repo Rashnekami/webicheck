@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checkl
         const tokenHash = await sha256Hex(key);
         const { data: token } = await supabaseAdmin
           .from("webi_integration_tokens")
-          .select("id, user_id, active, expires_at, scopes")
+          .select("id, user_id, provider_id, device_id, active, expires_at, scopes")
           .eq("token_hash", tokenHash)
           .maybeSingle();
 
@@ -68,10 +68,28 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checkl
 
         const { data: tokenOwner } = await supabaseAdmin
           .from("profiles")
-          .select("active")
+          .select("active, provider_id")
           .eq("id", token.user_id)
           .maybeSingle();
         if (!tokenOwner?.active) return json({ ok: false, error: "inactive_account" }, 403);
+        const [{ data: provider }, deviceResult] = await Promise.all([
+          supabaseAdmin
+            .from("providers")
+            .select("status")
+            .eq("id", token.provider_id)
+            .maybeSingle(),
+          token.device_id
+            ? supabaseAdmin
+                .from("agent_devices")
+                .select("status")
+                .eq("id", token.device_id)
+                .maybeSingle()
+            : Promise.resolve({ data: { status: "active" } }),
+        ]);
+        if (tokenOwner.provider_id !== token.provider_id || provider?.status !== "active")
+          return json({ ok: false, error: "provider_suspended" }, 403);
+        if (deviceResult.data?.status !== "active")
+          return json({ ok: false, error: "device_suspended" }, 403);
 
         const scopes = (token.scopes ?? []) as string[];
         if (!scopes.includes("diagnostic:resolve")) {
@@ -116,8 +134,9 @@ export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checkl
         let query = supabaseAdmin
           .from("checklists")
           .select(
-            "id, case_id, revision_number, is_current, status, os, cliente, cidade, numero_publico, codigo_validacao, service_stage, revision_reason, tecnico_id",
+            "id, case_id, revision_number, is_current, status, os, cliente, cidade, numero_publico, codigo_validacao, service_stage, revision_reason, tecnico_id, provider_id",
           )
+          .eq("provider_id", token.provider_id)
           .eq("status", "finalizado")
           .order("revision_number", { ascending: false })
           .limit(1);
