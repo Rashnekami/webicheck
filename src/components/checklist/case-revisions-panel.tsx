@@ -60,6 +60,8 @@ interface Props {
     parent_checklist_id?: string | null;
   };
   isAdmin: boolean;
+  canCreateRevision: boolean;
+  canManageSnapshot: boolean;
   fotos?: FotoRow[];
   tecnicoNome?: string;
   tecnicoAssinatura?: string | null;
@@ -68,6 +70,8 @@ interface Props {
 export function CaseRevisionsPanel({
   row,
   isAdmin,
+  canCreateRevision,
+  canManageSnapshot,
   fotos = [],
   tecnicoNome = "",
   tecnicoAssinatura = null,
@@ -113,9 +117,8 @@ export function CaseRevisionsPanel({
   async function resolveValidationUrl(): Promise<string | null> {
     const current = await getChecklistSnapshotSummary({ data: { checklistId: row.id } });
     if (current && current.public_status !== "active") return null;
-    const snapshot =
-      current ??
-      (await ensureChecklistSnapshot({ data: { checklistId: row.id, forceNew: false } }));
+    if (!current && !canManageSnapshot) return null;
+    const snapshot = current ?? (await ensureChecklistSnapshot({ data: { checklistId: row.id } }));
     return `${window.location.origin}/validar/${snapshot.public_token}`;
   }
 
@@ -261,7 +264,7 @@ export function CaseRevisionsPanel({
                   </Button>
                 </>
               )}
-              {isFinalizado && row.is_current !== false && (
+              {canCreateRevision && isFinalizado && row.is_current !== false && (
                 <Button size="sm" onClick={() => setRevOpen(true)}>
                   <FilePlus2 className="mr-1.5 h-4 w-4" /> Criar revisão
                 </Button>

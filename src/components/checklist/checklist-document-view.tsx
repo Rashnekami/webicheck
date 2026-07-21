@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
-import type { SnapshotPayload } from "@/lib/public-checklist.functions";
+import type { JsonValue, SnapshotPayload } from "@/lib/public-checklist.functions";
 
 interface Props {
   payload: SnapshotPayload;
@@ -313,7 +313,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
           </div>
         </SectionBox>
 
-        {isInstal ? <InstalacaoBody d={d as never} /> : <ValidacaoBody d={d as never} />}
+        {isInstal ? <InstalacaoBody d={d as never} /> : <ValidacaoBody d={d as never} h={h} />}
 
         {/* Assinaturas + Autenticidade */}
         <div
@@ -471,7 +471,13 @@ function AuthBox({
   );
 }
 
-function ValidacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
+function ValidacaoBody({
+  d,
+  h,
+}: {
+  d: Record<string, Record<string, unknown>>;
+  h: Record<string, JsonValue>;
+}) {
   const s = d.sintoma ?? {};
   const vf = d.validacao_fisica ?? {};
   const tc = d.teste_cabeado ?? {};
@@ -631,7 +637,19 @@ function ValidacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
         {(d.relato as unknown as string) || "—"}
       </div>
 
-      <SectionTitle>9. Registro da autorização do NOC</SectionTitle>
+      <SectionTitle>9. Equipamento e conclusão da troca</SectionTitle>
+      <SectionBox>
+        <div style={grid2}>
+          <Field label="Troca realizada" value={yesNo(h.troca_realizada)} />
+          <Field label="Etiqueta da ONT retirada" value={h.equipment_tag_code} />
+          <Field label="Modelo retirado" value={h.modelo_ont_retirada || h.modelo} />
+          <Field label="Serial retirado" value={h.serial_ont_retirada || h.serial} />
+          <Field label="Modelo instalado" value={h.modelo_ont_instalada} />
+          <Field label="Serial instalado" value={h.serial_ont_instalada} />
+        </div>
+      </SectionBox>
+
+      <SectionTitle>10. Registro da autorização do NOC</SectionTitle>
       <SectionBox>
         <div style={grid2}>
           <Field label="Troca autorizada" value={yesNo(noc.autorizada)} />
@@ -641,14 +659,8 @@ function ValidacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
         </div>
         <Field label="Protocolo / OS do NOC" value={noc.protocolo as string} />
       </SectionBox>
-
-      <TrocaBox />
     </>
   );
-}
-
-function TrocaBox() {
-  return null;
 }
 
 function InstalacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {

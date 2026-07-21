@@ -1,14 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  Download,
-  BarChart3,
-  ShieldCheck,
-  Loader2,
-  AlertTriangle,
-} from "lucide-react";
+import { ArrowLeft, Download, BarChart3, ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -54,17 +47,11 @@ import {
   type DashboardFilters,
   type PeriodPreset,
 } from "@/lib/dashboard-analytics";
-import {
-  generatePresentationZip,
-  presentationZipFilename,
-} from "@/services/presentation-export";
+import { generatePresentationZip, presentationZipFilename } from "@/services/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
-    meta: [
-      { title: "Dashboard — Webifibra" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Dashboard — Webifibra" }, { name: "robots", content: "noindex" }],
   }),
   component: Dashboard,
 });
@@ -85,7 +72,7 @@ function Dashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!userLoading && user && !user.isAdmin) {
+    if (!userLoading && user && !user.canViewDashboard) {
       navigate({ to: "/painel", replace: true });
     }
   }, [user, userLoading, navigate]);
@@ -95,31 +82,27 @@ function Dashboard() {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [cidade, setCidade] = useState<string>("todas");
   const [tecnicoId, setTecnicoId] = useState<string>("todos");
-  const [tipo, setTipo] = useState<"todos" | "validacao_ont" | "instalacao">(
+  const [tipo, setTipo] = useState<"todos" | "validacao_ont" | "instalacao">("todos");
+  const [analista, setAnalista] = useState<string>("todos");
+  const [status, setStatus] = useState<"todos" | "com_troca" | "sem_troca" | "nao_informado">(
     "todos",
   );
-  const [analista, setAnalista] = useState<string>("todos");
-  const [status, setStatus] = useState<
-    "todos" | "com_troca" | "sem_troca" | "nao_informado"
-  >("todos");
   const [exporting, setExporting] = useState(false);
 
   const query = useQuery({
     queryKey: ["dashboard-checklists"],
     queryFn: () => listChecklists({ scope: "all", userId: user!.id }),
-    enabled: !!user?.isAdmin,
+    enabled: !!user?.canViewDashboard,
   });
 
   const profilesQuery = useQuery({
     queryKey: ["dashboard-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email");
+      const { data, error } = await supabase.from("profiles").select("id, full_name, email");
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!user?.isAdmin,
+    enabled: !!user?.canViewDashboard,
   });
 
   const nomePorId = useMemo(() => {
@@ -135,7 +118,7 @@ function Dashboard() {
   const canonAll = useMemo(() => {
     return (query.data ?? [])
       .filter((c) => c.status === "finalizado")
-      .filter((c) => (c as any).is_current !== false)
+      .filter((c) => c.is_current !== false)
       .map((c) => toCanon(c, nomePorId));
   }, [query.data, nomePorId]);
 
@@ -167,23 +150,21 @@ function Dashboard() {
   // Opções únicas para os selects (baseadas em TODO o dataset canonizado)
   const cidadesOpts = useMemo(
     () =>
-      Array.from(new Set(canonAll.map((r) => r.cidade).filter(Boolean))).sort(
-        (a, b) => a.localeCompare(b, "pt-BR"),
+      Array.from(new Set(canonAll.map((r) => r.cidade).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
       ),
     [canonAll],
   );
   const tecnicosOpts = useMemo(() => {
     const m = new Map<string, string>();
     canonAll.forEach((r) => m.set(r.tecnicoId, r.tecnicoNome));
-    return Array.from(m.entries()).sort((a, b) =>
-      a[1].localeCompare(b[1], "pt-BR"),
-    );
+    return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
   }, [canonAll]);
   const analistasOpts = useMemo(
     () =>
-      Array.from(
-        new Set(canonAll.map((r) => r.analistaNocNome).filter(Boolean)),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+      Array.from(new Set(canonAll.map((r) => r.analistaNocNome).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
     [canonAll],
   );
 
@@ -194,7 +175,7 @@ function Dashboard() {
       </div>
     );
   }
-  if (!user.isAdmin) return null;
+  if (!user.canViewDashboard) return null;
 
   function exportDetailedCsv() {
     const header = [
@@ -210,6 +191,7 @@ function Dashboard() {
       "serial_retirado",
       "modelo_instalado",
       "serial_instalado",
+      "etiqueta_equipamento",
       "troca_realizada",
       "sintomas",
       "analista_noc",
@@ -217,12 +199,9 @@ function Dashboard() {
     ];
     const rows = (query.data ?? []).filter((c) => {
       if (c.status !== "finalizado") return false;
-      if ((c as any).is_current === false) return false;
+      if (c.is_current === false) return false;
       const t = c.finalizado_em ? new Date(c.finalizado_em).getTime() : 0;
-      return (
-        t >= new Date(filters.startISO).getTime() &&
-        t < new Date(filters.endISO).getTime()
-      );
+      return t >= new Date(filters.startISO).getTime() && t < new Date(filters.endISO).getTime();
     });
     const lines = [header.join(";")];
     for (const c of rows) {
@@ -242,6 +221,7 @@ function Dashboard() {
           canon.serialOntRetirada,
           canon.modeloOntInstalada,
           canon.serialOntInstalada,
+          c.equipment_tag_code || "",
           canon.trocaRealizada === true
             ? "Sim"
             : canon.trocaRealizada === false
@@ -249,11 +229,7 @@ function Dashboard() {
               : "Não informado",
           canon.sintomas.join(" | "),
           canon.analistaNocNome,
-          canon.nocAutorizada === true
-            ? "Sim"
-            : canon.nocAutorizada === false
-              ? "Não"
-              : "",
+          canon.nocAutorizada === true ? "Sim" : canon.nocAutorizada === false ? "Não" : "",
         ]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(";"),
@@ -277,9 +253,7 @@ function Dashboard() {
         filterMetadata: {
           cidade: cidade !== "todas" ? cidade : undefined,
           tecnicoNome:
-            tecnicoId !== "todos"
-              ? tecnicosOpts.find(([id]) => id === tecnicoId)?.[1]
-              : undefined,
+            tecnicoId !== "todos" ? tecnicosOpts.find(([id]) => id === tecnicoId)?.[1] : undefined,
           tipo:
             tipo === "validacao_ont"
               ? "Validação de ONT"
@@ -321,15 +295,14 @@ function Dashboard() {
             </Link>
             <WebifibraLogo size={40} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">
-                Webifibra · análise
-              </p>
+              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra · análise</p>
               <h1 className="text-lg font-semibold">Dashboard de trocas de ONT</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-white/20 text-white">
-              <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Admin
+              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+              {user.isAdmin ? "Administrador" : "Somente leitura"}
             </Badge>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -494,18 +467,15 @@ function Dashboard() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               {agg.totalNaoInformado} validaç
-              {agg.totalNaoInformado === 1 ? "ão" : "ões"} sem informação de
-              troca. Esses registros não são contados como trocas realizadas.
-              Peça ao técnico responsável para preencher o campo “A ONT foi
-              fisicamente substituída?” no checklist.
+              {agg.totalNaoInformado === 1 ? "ão" : "ões"} sem informação de troca. Esses registros
+              não são contados como trocas realizadas. Peça ao técnico responsável para preencher o
+              campo “A ONT foi fisicamente substituída?” no checklist.
             </p>
           </div>
         )}
 
         {query.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Carregando dados...
-          </p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Carregando dados...</p>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -516,10 +486,7 @@ function Dashboard() {
                 sub={`${agg.totalSemTroca} sem troca`}
               />
               <StatCard label="Instalações" value={agg.totalInstalacoes} />
-              <StatCard
-                label="Cidades com troca"
-                value={agg.cidadesComTroca.length}
-              />
+              <StatCard label="Cidades com troca" value={agg.cidadesComTroca.length} />
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -583,19 +550,10 @@ function Dashboard() {
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard
-                title="Cidades com mais trocas"
-                subtitle="Distribuição geográfica"
-              >
+              <ChartCard title="Cidades com mais trocas" subtitle="Distribuição geográfica">
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
-                    <Pie
-                      data={agg.cidades}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius={110}
-                      label
-                    >
+                    <Pie data={agg.cidades} dataKey="value" nameKey="name" outerRadius={110} label>
                       {agg.cidades.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
@@ -650,21 +608,11 @@ function Dashboard() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-}) {
+function StatCard({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          {label}
-        </p>
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
         <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
         {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
       </CardContent>
@@ -685,9 +633,7 @@ function ChartCard({
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">{title}</CardTitle>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>

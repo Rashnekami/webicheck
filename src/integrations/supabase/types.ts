@@ -248,6 +248,7 @@ export type Database = {
           dados: Json;
           data_atendimento: string | null;
           endereco: string | null;
+          equipment_tag_code: string | null;
           finalizado_em: string | null;
           hora_atendimento: string | null;
           id: string;
@@ -285,6 +286,7 @@ export type Database = {
           dados?: Json;
           data_atendimento?: string | null;
           endereco?: string | null;
+          equipment_tag_code?: string | null;
           finalizado_em?: string | null;
           hora_atendimento?: string | null;
           id?: string;
@@ -322,6 +324,7 @@ export type Database = {
           dados?: Json;
           data_atendimento?: string | null;
           endereco?: string | null;
+          equipment_tag_code?: string | null;
           finalizado_em?: string | null;
           hora_atendimento?: string | null;
           id?: string;
@@ -560,7 +563,7 @@ export type Database = {
       };
     };
     Enums: {
-      app_role: "admin" | "tecnico";
+      app_role: "admin" | "supervisor" | "visualizador" | "tecnico";
       checklist_status: "rascunho" | "finalizado";
       checklist_tipo: "validacao_ont" | "instalacao";
       foto_categoria: "etiqueta" | "leds" | "fonte" | "teste_cabeado" | "teste_wifi" | "outro";
@@ -685,7 +688,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "tecnico"],
+      app_role: ["admin", "supervisor", "visualizador", "tecnico"],
       checklist_status: ["rascunho", "finalizado"],
       checklist_tipo: ["validacao_ont", "instalacao"],
       foto_categoria: ["etiqueta", "leds", "fonte", "teste_cabeado", "teste_wifi", "outro"],

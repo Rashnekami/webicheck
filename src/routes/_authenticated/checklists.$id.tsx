@@ -218,6 +218,12 @@ function ChecklistDetail() {
         errs.push("Aplicabilidade do teste cabeado");
       }
       if (!d.relato?.trim()) errs.push("Relato do técnico");
+      if (header.troca_realizada === true) {
+        if (!(header.serial_ont_retirada ?? header.serial)?.trim()) {
+          errs.push("Serial da ONT retirada");
+        }
+        if (!header.serial_ont_instalada?.trim()) errs.push("Serial da ONT instalada");
+      }
     } else {
       const d = data as InstalacaoData;
       if (!header.endereco?.trim()) errs.push("Endereço");
@@ -229,8 +235,8 @@ function ChecklistDetail() {
   async function resolveValidationUrl(): Promise<string | null> {
     const current = await getChecklistSnapshotSummary({ data: { checklistId: id } });
     if (current && current.public_status !== "active") return null;
-    const snapshot =
-      current ?? (await ensureChecklistSnapshot({ data: { checklistId: id, forceNew: false } }));
+    if (!current && !isOwner && !user?.isAdmin) return null;
+    const snapshot = current ?? (await ensureChecklistSnapshot({ data: { checklistId: id } }));
     return `${window.location.origin}/validar/${snapshot.public_token}`;
   }
 
@@ -384,6 +390,7 @@ function ChecklistDetail() {
               tecnicoNome={tecnicoNome}
               assinatura={tecnicoAssinatura}
               isAdmin={!!user?.isAdmin}
+              canManageSnapshot={isOwner || !!user?.isAdmin}
               onDownloadPdf={handlePdf}
               pdfBusy={pdfBusy}
             />
@@ -391,6 +398,8 @@ function ChecklistDetail() {
             <CaseRevisionsPanel
               row={row as never}
               isAdmin={!!user?.isAdmin}
+              canCreateRevision={isOwner || !!user?.isAdmin}
+              canManageSnapshot={isOwner || !!user?.isAdmin}
               fotos={fotosQuery.data ?? []}
               tecnicoNome={tecnicoNome}
               tecnicoAssinatura={tecnicoAssinatura}
@@ -406,6 +415,12 @@ function ChecklistDetail() {
                   <span className="text-muted-foreground">Finalizado em:</span>{" "}
                   {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "—"}
                 </p>
+                {row.equipment_tag_code && (
+                  <p>
+                    <span className="text-muted-foreground">Etiqueta da ONT retirada:</span>{" "}
+                    <b className="font-mono text-base text-primary">{row.equipment_tag_code}</b>
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Registro imutável para fins de fiscalização.
                 </p>

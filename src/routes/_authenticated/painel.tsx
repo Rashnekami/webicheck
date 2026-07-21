@@ -10,6 +10,7 @@ import {
   PenLine,
   BarChart3,
   UsersRound,
+  PackageSearch,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -134,6 +135,14 @@ function Painel() {
               <Badge className="bg-primary/10 text-primary hover:bg-primary/15">
                 <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Administrador
               </Badge>
+            ) : user.isSupervisor ? (
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/15">
+                <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Supervisor
+              </Badge>
+            ) : user.isViewer ? (
+              <Badge variant="secondary">
+                <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Visualizador / NOC
+              </Badge>
             ) : (
               <Badge variant="secondary">
                 <HardHat className="mr-1 h-3.5 w-3.5" /> Técnico de campo
@@ -152,10 +161,10 @@ function Painel() {
                 </div>
                 <div className="space-y-1">
                   <h3 className="font-semibold text-foreground">
-                    {user.isAdmin ? "Todos os checklists" : "Meus checklists"}
+                    {user.canViewAllChecklists ? "Todos os checklists" : "Meus checklists"}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {user.isAdmin
+                    {user.canViewAllChecklists
                       ? "Fiscalize atendimentos, filtre por técnico/cidade e baixe PDFs."
                       : "Registre novos atendimentos ou continue rascunhos em andamento."}
                   </p>
@@ -166,7 +175,7 @@ function Painel() {
           </Card>
         </Link>
 
-        {user.isAdmin && (
+        {user.canViewDashboard && (
           <Link to="/dashboard" className="block">
             <Card className="transition hover:border-primary/50 hover:shadow-md">
               <CardContent className="flex items-center justify-between gap-3 p-5">
@@ -178,6 +187,27 @@ function Painel() {
                     <h3 className="font-semibold text-foreground">Dashboard</h3>
                     <p className="text-sm text-muted-foreground">
                       Gráficos de trocas, técnicos, cidades e analistas — com exportação em CSV.
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {user.canViewEquipment && (
+          <Link to="/equipamentos" className="block">
+            <Card className="transition hover:border-primary/50 hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                    <PackageSearch className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-foreground">Trocas de equipamentos</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Localize a ONT retirada pelo código TE, serial, cliente ou checklist.
                     </p>
                   </div>
                 </div>
@@ -208,24 +238,27 @@ function Painel() {
           </Link>
         )}
 
-        <Link to="/integracoes" className="block">
-          <Card className="transition hover:border-primary/50 hover:shadow-md">
-            <CardContent className="flex items-center justify-between gap-3 p-5">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2 text-primary">
-                  <PenLine className="h-5 w-5" />
+        {(user.canCreateChecklist || user.isAdmin) && (
+          <Link to="/integracoes" className="block">
+            <Card className="transition hover:border-primary/50 hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                    <PenLine className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-foreground">Integrações</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Chaves para o Webi Diagnostic Agent enviar os PDFs diretamente para o
+                      checklist.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-foreground">Integrações</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Chaves para o Webi Diagnostic Agent enviar os PDFs diretamente para o checklist.
-                  </p>
-                </div>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        </Link>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
 
         <Card>
           <CardContent className="p-5 space-y-3">

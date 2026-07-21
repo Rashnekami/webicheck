@@ -47,7 +47,7 @@ function ChecklistsList() {
   const [tab, setTab] = useState<"todos" | "rascunho" | "finalizado">("todos");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const scope = user?.isAdmin ? "all" : "mine";
+  const scope = user?.canViewAllChecklists ? "all" : "mine";
 
   const query = useQuery({
     queryKey: ["checklists", scope, user?.id],
@@ -88,6 +88,7 @@ function ChecklistsList() {
       c.serial,
       c.codigo_validacao,
       c.numero_publico,
+      c.equipment_tag_code,
     ]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
@@ -109,12 +110,12 @@ function ChecklistsList() {
             <div>
               <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
               <h1 className="text-lg font-semibold">
-                {user?.isAdmin ? "Todos os checklists" : "Meus checklists"}
+                {user?.canViewAllChecklists ? "Todos os checklists" : "Meus checklists"}
               </h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {user?.isAdmin && (
+            {user?.canViewDashboard && (
               <>
                 <Link to="/dashboard">
                   <Button
@@ -126,7 +127,7 @@ function ChecklistsList() {
                   </Button>
                 </Link>
                 <Badge className="bg-white/20 text-white hover:bg-white/25">
-                  <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Admin
+                  <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Fiscalização
                 </Badge>
               </>
             )}
@@ -141,9 +142,11 @@ function ChecklistsList() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <Button size="lg" onClick={() => setPickerOpen(true)} className="whitespace-nowrap">
-            <Plus className="mr-1.5 h-4 w-4" /> Novo checklist
-          </Button>
+          {user?.canCreateChecklist && (
+            <Button size="lg" onClick={() => setPickerOpen(true)} className="whitespace-nowrap">
+              <Plus className="mr-1.5 h-4 w-4" /> Novo checklist
+            </Button>
+          )}
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
@@ -160,9 +163,11 @@ function ChecklistsList() {
                 <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
                   <ClipboardList className="h-10 w-10 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Nenhum checklist por aqui ainda.</p>
-                  <Button onClick={() => setPickerOpen(true)}>
-                    <Plus className="mr-1.5 h-4 w-4" /> Criar o primeiro
-                  </Button>
+                  {user?.canCreateChecklist && (
+                    <Button onClick={() => setPickerOpen(true)}>
+                      <Plus className="mr-1.5 h-4 w-4" /> Criar o primeiro
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (

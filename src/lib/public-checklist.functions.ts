@@ -129,6 +129,7 @@ export const ensureChecklistSnapshot = createServerFn({ method: "POST" })
         cto_porta: chk.cto_porta,
         data_atendimento: chk.data_atendimento,
         hora_atendimento: chk.hora_atendimento,
+        equipment_tag_code: chk.equipment_tag_code,
         troca_realizada: chk.troca_realizada,
         modelo_ont_retirada: chk.modelo_ont_retirada,
         serial_ont_retirada: chk.serial_ont_retirada,
@@ -335,7 +336,6 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
     } catch {
       // ignora
     }
-
 
     // Registra o acesso (best-effort)
     try {
