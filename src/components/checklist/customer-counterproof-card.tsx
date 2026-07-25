@@ -10,9 +10,12 @@ import { createCustomerCounterproof, getChecklistCounterproof, registerCounterpr
 
 export function CustomerCounterproofCard({ checklistId }: { checklistId: string }) {
   const qc = useQueryClient(); const [phone, setPhone] = useState("");
-  const q = useQuery({ queryKey: ["customer-counterproof", checklistId], queryFn: () => getChecklistCounterproof({ data: { checklistId } }), refetchInterval: (query) => ["pending", "opened"].includes(query.state.data?.status || "") ? 10000 : false });
+  const q = useQuery({ queryKey: ["customer-counterproof", checklistId], queryFn: () => getChecklistCounterproof({ data: { checklistId } }), refetchInterval: (query) => query.state.data && "status" in query.state.data && ["pending", "opened"].includes(query.state.data.status) ? 10000 : false });
   const create = useMutation({ mutationFn: () => createCustomerCounterproof({ data: { checklistId } }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["customer-counterproof", checklistId] }); toast.success("Contra-Prova gerada."); }, onError: (e: Error) => toast.error(e.message) });
   const cp = q.data;
+  if (cp && "unavailable" in cp) {
+    return <Card className="border-amber-300 bg-amber-50/40"><CardContent className="space-y-1 p-4"><h3 className="text-base font-semibold">Contra-Prova do Cliente</h3><p className="text-sm text-amber-800">Em preparação no ambiente de teste.</p><p className="text-xs text-muted-foreground">A migration da Contra-Prova ainda não foi aplicada. O checklist continua normal e nenhuma informação será criada até a homologação do banco.</p></CardContent></Card>;
+  }
   const link = useMemo(() => cp?.public_token && typeof window !== "undefined" ? `${window.location.origin}/contra-prova/${cp.public_token}` : "", [cp?.public_token]);
   const send = useMutation({ mutationFn: async () => { if (!cp) throw new Error("Gere a Contra-Prova primeiro."); const saved = await registerCounterproofPhone({ data: { counterproofId: cp.id, phone, whatsappOpened: true } }); const message = `Olá! Para confirmar as orientações do atendimento técnico, acesse:\n${link}\nCódigo: ${cp.code}`; window.open(`https://wa.me/${saved.phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer"); }, onSuccess: () => toast.success("Abrindo conversa no WhatsApp."), onError: (e: Error) => toast.error(e.message) });
   async function copy() { try { await navigator.clipboard.writeText(link); toast.success("Link copiado."); } catch { toast.error("Não foi possível copiar o link."); } }
