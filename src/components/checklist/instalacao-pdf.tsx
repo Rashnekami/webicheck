@@ -2,6 +2,7 @@ import { Document, Page, Text, View, Image, StyleSheet, pdf } from "@react-pdf/r
 import QRCode from "qrcode";
 import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
 const BRAND = "#1a53ff";
 const BRAND_DARK = "#0f3fd4";
@@ -67,6 +68,7 @@ const styles = StyleSheet.create({
   },
   numberLabel: { fontSize: 8, color: MUTED, letterSpacing: 0.6 },
   numberValue: { fontSize: 13, fontWeight: 700, color: BRAND_DARK, letterSpacing: 1 },
+  counterproofBox: { borderWidth: 1, borderColor: "#86efac", backgroundColor: "#f0fdf4", padding: 6, borderRadius: 4, marginBottom: 8 },
   qrImage: { width: 56, height: 56, marginLeft: 8 },
   sectionTitle: {
     backgroundColor: BRAND,
@@ -211,6 +213,7 @@ type Params = {
   tecnicoNome: string;
   assinatura?: string | null;
   publicUrl?: string | null;
+  counterproof?: CounterproofDocumentInfo | null;
 };
 
 function InstalacaoDocument({
@@ -219,6 +222,7 @@ function InstalacaoDocument({
   assinatura,
   logoUri,
   qrUri,
+  counterproof,
 }: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as InstalacaoData;
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
@@ -239,6 +243,14 @@ function InstalacaoDocument({
             <Text style={styles.headerBadge}>DOCUMENTO OFICIAL</Text>
           </View>
         </View>
+
+        {counterproof?.status === "validated" ? (
+          <View style={styles.counterproofBox}>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: "#166534" }}>CONTRA-PROVA VALIDADA PELO CLIENTE</Text>
+            <Text style={{ fontSize: 8, color: INK }}>Código: {counterproof.code} · Checklist: {counterproof.checklist_code}</Text>
+            <Text style={{ fontSize: 8, color: INK }}>Validação: {counterproof.validated_at ? new Date(counterproof.validated_at).toLocaleString("pt-BR") : "—"} · Evidência de identificação registrada</Text>
+          </View>
+        ) : null}
 
         <View style={styles.numberBanner}>
           <View>
@@ -376,6 +388,7 @@ export async function buildInstalacaoPdfBlob({
   tecnicoNome,
   assinatura,
   publicUrl,
+  counterproof,
 }: Params): Promise<Blob> {
   const [logoUri, qrUri] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
@@ -395,6 +408,7 @@ export async function buildInstalacaoPdfBlob({
       logoUri={logoUri}
       qrUri={qrUri}
       publicUrl={publicUrl}
+      counterproof={counterproof}
     />,
   ).toBlob();
 }
