@@ -41,7 +41,7 @@ export function CustomerCounterproofCard({ checklistId }: { checklistId: string 
     if (!payload || !counterproof) return;
     const appUrl = `whatsapp://send?phone=55${payload.digits}&text=${encodeURIComponent(payload.message)}`;
     window.location.href = appUrl;
-    registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone: digits, whatsappOpened: true } })
+    registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone: payload.digits, whatsappOpened: true } })
       .then(() => qc.invalidateQueries({ queryKey: ["customer-counterproof", checklistId] }))
       .catch((e: Error) => toast.error(e.message));
     toast.success("Abrindo o app do WhatsApp.");
