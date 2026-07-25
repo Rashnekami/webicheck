@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { ChecklistRow, FotoRow } from "@/lib/checklist-schema";
 import { buildChecklistPdfBlob } from "./checklist-pdf";
 import { buildInstalacaoPdfBlob } from "./instalacao-pdf";
+import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   getDiagnosticDownloadUrl,
   listDiagnosticReports,
@@ -180,6 +181,13 @@ async function appendRevisionBlock(
     ? new Date(checklist.finalizado_em).toLocaleString("pt-BR")
     : "—";
   const numero = checklist.numero_publico ?? checklist.codigo_validacao ?? checklist.id.slice(0, 8);
+  let counterproof = null;
+  try {
+    const cp = await getChecklistCounterproof({ data: { checklistId: checklist.id } });
+    counterproof = cp && "status" in cp && cp.status === "validated" ? cp : null;
+  } catch {
+    // O dossiê continua sendo gerado mesmo quando o perfil não pode consultar a Contra-Prova.
+  }
 
   await makeSectionPage(
     merged,
@@ -218,6 +226,7 @@ async function appendRevisionBlock(
             tecnicoNome: tecnico?.full_name || tecnico?.email || "",
             assinatura: tecnico?.assinatura ?? null,
             publicUrl: publicUrl ?? null,
+            counterproof,
           })
         : await buildChecklistPdfBlob({
             row: checklist as unknown as ChecklistRow,
@@ -225,6 +234,7 @@ async function appendRevisionBlock(
             tecnicoNome: tecnico?.full_name || tecnico?.email || "",
             assinatura: tecnico?.assinatura ?? null,
             publicUrl: publicUrl ?? null,
+            counterproof,
           });
   } finally {
     delete (globalThis as unknown as { __dossieSignedFotoMap?: Map<string, string | null> })
