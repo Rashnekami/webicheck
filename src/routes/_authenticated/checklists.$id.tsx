@@ -59,6 +59,7 @@ import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
+import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
 import {
   ensureChecklistSnapshot,
   getChecklistSnapshotSummary,
@@ -392,6 +393,7 @@ function ChecklistDetail() {
 
         {row.status === "finalizado" && (
           <>
+            <CustomerCounterproofCard checklistId={id} />
             <DocumentActions
               row={{ ...row, ...header, dados: data } as ChecklistRow}
               tecnicoNome={tecnicoNome}
