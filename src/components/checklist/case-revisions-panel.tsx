@@ -4,10 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { FileArchive, FileDown, FilePlus2, Files, Loader2 } from "lucide-react";
 import type { ChecklistData, FotoRow } from "@/lib/checklist-schema";
-import {
-  downloadChecklistOnly,
-  generateDossiePdf,
-} from "@/components/checklist/dossie-pdf";
+import { downloadChecklistOnly, generateDossiePdf } from "@/components/checklist/dossie-pdf";
 import { DiagnosticsSection } from "@/components/checklist/diagnostics-section";
 import { CaseTimeline } from "@/components/checklist/case-timeline";
 
@@ -43,8 +40,7 @@ import {
   getChecklistSnapshotSummary,
 } from "@/lib/public-checklist.functions";
 
-type RevisionStage =
-  "pre_change" | "post_ont_change" | "noc_retest" | "additional_test";
+type RevisionStage = "pre_change" | "post_ont_change" | "noc_retest" | "additional_test";
 
 const STAGE_LABELS: Record<ServiceStage, string> = {
   initial: "Atendimento inicial",
@@ -112,9 +108,7 @@ export function CaseRevisionsPanel({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const [busy, setBusy] = useState<
-    "none" | "checklist" | "revision" | "dossie"
-  >("none");
+  const [busy, setBusy] = useState<"none" | "checklist" | "revision" | "dossie">("none");
 
   async function resolveValidationUrl(): Promise<string | null> {
     const current = await getChecklistSnapshotSummary({
@@ -189,8 +183,7 @@ export function CaseRevisionsPanel({
   }
 
   const isFinalizado = row.status === "finalizado";
-  const checklistData =
-    row.tipo === "validacao_ont" ? (row.dados as ChecklistData) : null;
+  const checklistData = row.tipo === "validacao_ont" ? (row.dados as ChecklistData) : null;
   const wantsPostSwapDiagnostic =
     checklistData?.resultado_final?.executar_diagnostico_pos_troca === true;
   const canPreparePostSwap =
@@ -212,8 +205,7 @@ export function CaseRevisionsPanel({
         <Card className="border-amber-400/50 bg-amber-50/50">
           <CardContent className="flex items-center justify-between gap-3 p-3 text-sm">
             <span className="text-amber-900">
-              Esta é uma versão anterior — existe uma revisão mais recente deste
-              atendimento.
+              Esta é uma versão anterior — existe uma revisão mais recente deste atendimento.
             </span>
             <Button
               size="sm"
@@ -239,8 +231,8 @@ export function CaseRevisionsPanel({
                 Troca registrada — teste opcional disponível
               </h3>
               <p className="text-sm text-emerald-900">
-                Crie a etapa pós-troca para testar a nova ONT sem alterar o
-                histórico da ONT retirada nem gerar outro ticket.
+                Crie a etapa pós-troca para testar a nova ONT sem alterar o histórico da ONT
+                retirada nem gerar outro ticket.
               </p>
             </div>
             <Button onClick={openPostSwapRevision}>
@@ -255,9 +247,7 @@ export function CaseRevisionsPanel({
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold">
-                Atendimento e revisões
-              </h3>
+              <h3 className="text-base font-semibold">Atendimento e revisões</h3>
               <p className="text-xs text-muted-foreground">
                 Versão atual: R{row.revision_number ?? 1} ·{" "}
                 {STAGE_LABELS[row.service_stage ?? "initial"]}
@@ -329,30 +319,23 @@ export function CaseRevisionsPanel({
           <DialogHeader>
             <DialogTitle>Criar nova revisão do checklist</DialogTitle>
             <DialogDescription>
-              A revisão começa como rascunho. Dados do atendimento e dos
-              equipamentos são preservados; respostas, testes e evidências
-              começam em branco. A versão anterior fica no histórico.
+              A revisão começa como rascunho. Dados do atendimento e dos equipamentos são
+              preservados; respostas, testes e evidências começam em branco. A versão anterior fica
+              no histórico.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Etapa do atendimento</Label>
-              <Select
-                value={stage}
-                onValueChange={(v) => setStage(v as RevisionStage)}
-              >
+              <Select value={stage} onValueChange={(v) => setStage(v as RevisionStage)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pre_change">Pré-troca</SelectItem>
-                  <SelectItem value="post_ont_change">
-                    Pós-troca da ONT
-                  </SelectItem>
+                  <SelectItem value="post_ont_change">Pós-troca da ONT</SelectItem>
                   <SelectItem value="noc_retest">Reteste NOC</SelectItem>
-                  <SelectItem value="additional_test">
-                    Teste adicional
-                  </SelectItem>
+                  <SelectItem value="additional_test">Teste adicional</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -366,11 +349,7 @@ export function CaseRevisionsPanel({
             </div>
             <div>
               <Label>Observação (opcional)</Label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
             </div>
           </div>
           <DialogFooter>
@@ -381,9 +360,7 @@ export function CaseRevisionsPanel({
               onClick={() => createRev.mutate()}
               disabled={createRev.isPending || reason.trim().length < 3}
             >
-              {createRev.isPending && (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              )}
+              {createRev.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Criar revisão
             </Button>
           </DialogFooter>
