@@ -414,6 +414,12 @@ function ChecklistDetail() {
                   <span className="text-muted-foreground">Código de validação:</span>{" "}
                   <b>{row.codigo_validacao}</b>
                 </p>
+                {row.exchange_ticket_code && (
+                  <p>
+                    <span className="text-muted-foreground">Ticket da troca:</span>{" "}
+                    <b>{row.exchange_ticket_code}</b>
+                  </p>
+                )}
                 <p>
                   <span className="text-muted-foreground">Finalizado em:</span>{" "}
                   {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "—"}
