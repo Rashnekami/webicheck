@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createCustomerCounterproof, getChecklistCounterproof, registerCounterproofPhone } from "@/lib/customer-counterproof.functions";
+import { createCustomerCounterproof, getChecklistCounterproof, registerCounterproofPhone, type CounterproofSummary } from "@/lib/customer-counterproof.functions";
+
+function isCounterproofSummary(value: unknown): value is CounterproofSummary {
+  return !!value && typeof value === "object" && !("unavailable" in value);
+}
 
 export function CustomerCounterproofCard({ checklistId }: { checklistId: string }) {
   const qc = useQueryClient(); const [phone, setPhone] = useState("");
@@ -21,11 +25,13 @@ export function CustomerCounterproofCard({ checklistId }: { checklistId: string 
   });
   const create = useMutation({ mutationFn: () => createCustomerCounterproof({ data: { checklistId } }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["customer-counterproof", checklistId] }); toast.success("Contra-Prova gerada."); }, onError: (e: Error) => toast.error(e.message) });
   const cp = q.data;
-  if (cp && "unavailable" in cp) {
+  const isUnavailable = !!cp && "unavailable" in cp;
+  const counterproof = isCounterproofSummary(cp) ? cp : null;
+  const link = useMemo(() => counterproof?.public_token && typeof window !== "undefined" ? `${window.location.origin}/contra-prova/${counterproof.public_token}` : "", [counterproof?.public_token]);
+  const send = useMutation({ mutationFn: async () => { if (!counterproof) throw new Error("Gere a Contra-Prova primeiro."); const saved = await registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone, whatsappOpened: true } }); const message = `Olá! Para confirmar as orientações do atendimento técnico, acesse:\n${link}\nCódigo: ${counterproof.code}`; window.open(`https://wa.me/${saved.phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer"); }, onSuccess: () => toast.success("Abrindo conversa no WhatsApp."), onError: (e: Error) => toast.error(e.message) });
+  if (isUnavailable) {
     return <Card className="border-amber-300 bg-amber-50/40"><CardContent className="space-y-1 p-4"><h3 className="text-base font-semibold">Contra-Prova do Cliente</h3><p className="text-sm text-amber-800">Em preparação no ambiente de teste.</p><p className="text-xs text-muted-foreground">A migration da Contra-Prova ainda não foi aplicada. O checklist continua normal e nenhuma informação será criada até a homologação do banco.</p></CardContent></Card>;
   }
-  const link = useMemo(() => cp?.public_token && typeof window !== "undefined" ? `${window.location.origin}/contra-prova/${cp.public_token}` : "", [cp?.public_token]);
-  const send = useMutation({ mutationFn: async () => { if (!cp) throw new Error("Gere a Contra-Prova primeiro."); const saved = await registerCounterproofPhone({ data: { counterproofId: cp.id, phone, whatsappOpened: true } }); const message = `Olá! Para confirmar as orientações do atendimento técnico, acesse:\n${link}\nCódigo: ${cp.code}`; window.open(`https://wa.me/${saved.phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer"); }, onSuccess: () => toast.success("Abrindo conversa no WhatsApp."), onError: (e: Error) => toast.error(e.message) });
   async function copy() { try { await navigator.clipboard.writeText(link); toast.success("Link copiado."); } catch { toast.error("Não foi possível copiar o link."); } }
   return <Card className={cp?.status === "validated" ? "border-emerald-300 bg-emerald-50/40" : ""}><CardContent className="space-y-3 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-semibold">Contra-Prova do Cliente</h3><p className="text-xs text-muted-foreground">Confirmação digital vinculada definitivamente ao checklist.</p></div>{cp?.status === "validated" ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-700"><ShieldCheck className="h-4 w-4" /> Validada</span> : cp?.status === "annulled" ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-700"><ShieldAlert className="h-4 w-4" /> Anulada</span> : null}</div>
     {!cp || cp.status === "annulled" ? <Button onClick={() => create.mutate()} disabled={create.isPending}>{create.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}Gerar Contra-Prova</Button> : <><div className="rounded-md bg-muted/50 p-3 text-sm"><p><b>Código:</b> {cp.code}</p><p><b>Checklist:</b> {cp.checklist_code}</p>{cp.status === "validated" ? <p className="mt-1 font-medium text-emerald-700"><CheckCircle2 className="mr-1 inline h-4 w-4" />Contra-Prova validada pelo cliente<br /><span className="font-normal">{cp.validated_at && new Date(cp.validated_at).toLocaleString("pt-BR")}</span></p> : <p className="mt-1 text-amber-700">Aguardando validação do cliente.</p>}</div>
