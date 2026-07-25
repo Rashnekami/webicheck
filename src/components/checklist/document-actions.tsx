@@ -36,6 +36,8 @@ import {
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
 import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-export";
 import type { ChecklistRow } from "@/lib/checklist-schema";
+import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
 interface Props {
   row: ChecklistRow;
@@ -44,6 +46,7 @@ interface Props {
   isAdmin: boolean;
   onDownloadPdf: (publicUrl?: string | null) => void;
   pdfBusy: boolean;
+  counterproof?: CounterproofDocumentInfo | null;
 }
 
 export function DocumentActions({
@@ -53,6 +56,7 @@ export function DocumentActions({
   isAdmin,
   onDownloadPdf,
   pdfBusy,
+  counterproof: counterproofProp,
 }: Props) {
   const qc = useQueryClient();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -102,6 +106,12 @@ export function DocumentActions({
   });
 
   const snap = snapQuery.data as AdminSnapshotSummary | null;
+  const counterproofQuery = useQuery({
+    queryKey: ["customer-counterproof", row.id],
+    queryFn: () => getChecklistCounterproof({ data: { checklistId: row.id } }),
+    enabled: row.status === "finalizado",
+  });
+  const counterproof = counterproofProp ?? (counterproofQuery.data && "status" in counterproofQuery.data && counterproofQuery.data.status === "validated" ? counterproofQuery.data : null);
 
   const publicUrl = useMemo(() => {
     if (!snap || snap.public_status !== "active" || typeof window === "undefined") return null;
@@ -338,6 +348,7 @@ export function DocumentActions({
           shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
           version={snap?.version ?? 1}
           fixedWidth={880}
+          counterproof={counterproof}
         />
       </div>
 
@@ -350,6 +361,7 @@ export function DocumentActions({
               publicUrl={publicUrl}
               shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
               version={snap?.version ?? 1}
+              counterproof={counterproof}
             />
           </div>
         </DialogContent>
