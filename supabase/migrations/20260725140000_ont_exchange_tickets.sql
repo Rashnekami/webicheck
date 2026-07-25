@@ -79,6 +79,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Serializa duas finalizações simultâneas do mesmo atendimento.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended(NEW.provider_id::text || ':' || NEW.case_id::text, 2026)
+  );
+
   SELECT * INTO _existing
   FROM public.ont_exchange_tickets
   WHERE provider_id = NEW.provider_id AND case_id = NEW.case_id
@@ -151,8 +156,21 @@ FOR EACH ROW
 EXECUTE FUNCTION public.assign_ont_exchange_ticket();
 
 -- Gera tickets para trocas já finalizadas, preservando a ordem histórica.
-UPDATE public.checklists
-SET troca_realizada = troca_realizada
-WHERE status::text = 'finalizado'
-  AND troca_realizada IS TRUE
-  AND exchange_ticket_code IS NULL;
+DO $$
+DECLARE
+  _checklist_id uuid;
+BEGIN
+  FOR _checklist_id IN
+    SELECT id
+    FROM public.checklists
+    WHERE status::text = 'finalizado'
+      AND troca_realizada IS TRUE
+      AND exchange_ticket_code IS NULL
+    ORDER BY COALESCE(finalizado_em, created_at), id
+  LOOP
+    UPDATE public.checklists
+    SET troca_realizada = troca_realizada
+    WHERE id = _checklist_id;
+  END LOOP;
+END;
+$$;
