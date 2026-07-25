@@ -88,6 +88,7 @@ function ChecklistsList() {
       c.serial,
       c.codigo_validacao,
       c.numero_publico,
+      c.exchange_ticket_code,
     ]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
@@ -215,6 +216,11 @@ function ChecklistsList() {
                                 }) || ""
                               : `Atualizado em ${new Date(c.updated_at).toLocaleString("pt-BR")}`}
                           </p>
+                          {c.exchange_ticket_code && (
+                            <p className="mt-1 text-xs font-semibold text-amber-700">
+                              Ticket da troca: {c.exchange_ticket_code}
+                            </p>
+                          )}
                         </Link>
                         <div className="flex flex-col items-end gap-1.5">
                           {(c.status === "rascunho" && c.tecnico_id === user?.id) ||
