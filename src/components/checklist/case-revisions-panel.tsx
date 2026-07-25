@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { FileArchive, FileDown, FilePlus2, Files, Loader2 } from "lucide-react";
-import type { FotoRow } from "@/lib/checklist-schema";
+import type { ChecklistData, FotoRow } from "@/lib/checklist-schema";
 import { downloadChecklistOnly, generateDossiePdf } from "@/components/checklist/dossie-pdf";
 import { DiagnosticsSection } from "@/components/checklist/diagnostics-section";
 import { CaseTimeline } from "@/components/checklist/case-timeline";
@@ -179,6 +179,21 @@ export function CaseRevisionsPanel({
   }
 
   const isFinalizado = row.status === "finalizado";
+  const checklistData = row.tipo === "validacao_ont" ? (row.dados as ChecklistData) : null;
+  const wantsPostSwapDiagnostic =
+    checklistData?.resultado_final?.executar_diagnostico_pos_troca === true;
+  const canPreparePostSwap =
+    isFinalizado &&
+    row.is_current !== false &&
+    row.service_stage !== "post_ont_change" &&
+    wantsPostSwapDiagnostic;
+
+  function openPostSwapRevision() {
+    setStage("post_ont_change");
+    setReason("Diagnóstico pós-troca da ONT");
+    setNotes("Etapa criada para validar a nova ONT no Webi Diagnostic.");
+    setRevOpen(true);
+  }
 
   return (
     <div className="space-y-4">
@@ -199,6 +214,24 @@ export function CaseRevisionsPanel({
               }
             >
               Abrir versão atual
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {canPreparePostSwap && (
+        <Card className="border-emerald-300 bg-emerald-50/70">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-emerald-950">Troca registrada — teste opcional disponível</h3>
+              <p className="text-sm text-emerald-900">
+                Crie a etapa pós-troca para testar a nova ONT sem alterar o histórico da ONT
+                retirada nem gerar outro ticket.
+              </p>
+            </div>
+            <Button onClick={openPostSwapRevision}>
+              <FilePlus2 className="mr-1.5 h-4 w-4" />
+              Preparar teste pós-troca
             </Button>
           </CardContent>
         </Card>
