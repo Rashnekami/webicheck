@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
@@ -61,6 +62,11 @@ const ValidarTokenRoute = ValidarTokenRouteImport.update({
 const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
   id: '/usuarios',
   path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
+  id: '/trocas-ont',
+  path: '/trocas-ont',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/provedor': typeof AuthenticatedProvedorRoute
+  '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/provedor': typeof AuthenticatedProvedorRoute
+  '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
+  '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
     | '/integracoes'
     | '/painel'
     | '/provedor'
+    | '/trocas-ont'
     | '/usuarios'
     | '/validar/$token'
     | '/checklists/$id'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/integracoes'
     | '/painel'
     | '/provedor'
+    | '/trocas-ont'
     | '/usuarios'
     | '/validar/$token'
     | '/checklists/$id'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/_authenticated/integracoes'
     | '/_authenticated/painel'
     | '/_authenticated/provedor'
+    | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       path: '/usuarios'
       fullPath: '/usuarios'
       preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/trocas-ont': {
+      id: '/_authenticated/trocas-ont'
+      path: '/trocas-ont'
+      fullPath: '/trocas-ont'
+      preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/provedor': {
@@ -417,6 +436,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
+  AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
@@ -428,6 +448,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
+  AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
@@ -457,3 +478,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
