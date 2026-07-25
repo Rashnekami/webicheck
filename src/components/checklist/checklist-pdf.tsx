@@ -4,6 +4,7 @@ import type { ChecklistData, ChecklistRow, FotoRow } from "@/lib/checklist-schem
 import { FOTO_CATEGORIAS } from "@/lib/checklist-schema";
 import { signedFotoUrl } from "@/lib/checklists";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
 const BRAND = "#1a53ff";
 const BRAND_DARK = "#0f3fd4";
@@ -70,6 +71,7 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: "#78350f",
   },
+  counterproofBox: { borderWidth: 1, borderColor: "#86efac", backgroundColor: "#f0fdf4", padding: 6, borderRadius: 4, marginBottom: 8 },
   sectionTitle: {
     backgroundColor: BRAND,
     color: "white",
@@ -264,6 +266,7 @@ type Params = {
   tecnicoNome: string;
   assinatura?: string | null;
   publicUrl?: string | null;
+  counterproof?: CounterproofDocumentInfo | null;
 };
 
 function ChecklistDocument({
@@ -273,6 +276,7 @@ function ChecklistDocument({
   assinatura,
   logoUri,
   qrUri,
+  counterproof,
 }: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as ChecklistData;
   const equipmentUnavailable = d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
@@ -292,6 +296,14 @@ function ChecklistDocument({
             <Text style={styles.headerBadge}>DOCUMENTO OFICIAL</Text>
           </View>
         </View>
+
+        {counterproof?.status === "validated" ? (
+          <View style={styles.counterproofBox}>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: "#166534" }}>CONTRA-PROVA VALIDADA PELO CLIENTE</Text>
+            <Text style={{ fontSize: 8, color: INK }}>Código: {counterproof.code} · Checklist: {counterproof.checklist_code}</Text>
+            <Text style={{ fontSize: 8, color: INK }}>Validação: {counterproof.validated_at ? new Date(counterproof.validated_at).toLocaleString("pt-BR") : "—"} · Evidência de identificação registrada</Text>
+          </View>
+        ) : null}
 
         <View style={styles.numberBanner}>
           <View>
@@ -570,6 +582,7 @@ export async function buildChecklistPdfBlob({
   tecnicoNome,
   assinatura,
   publicUrl,
+  counterproof,
 }: Params): Promise<Blob> {
   const [logoUri, fotosComUri, qrUri] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
@@ -602,6 +615,7 @@ export async function buildChecklistPdfBlob({
       logoUri={logoUri}
       qrUri={qrUri}
       publicUrl={publicUrl}
+      counterproof={counterproof}
     />,
   ).toBlob();
 }
