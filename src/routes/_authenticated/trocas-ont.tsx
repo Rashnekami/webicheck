@@ -50,11 +50,31 @@ async function listOntExchanges(): Promise<OntExchangeTicket[]> {
 function OntExchangesPage() {
   const { data: user, isLoading: loadingUser } = useCurrentUser();
   const [search, setSearch] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["ont-exchange-tickets"],
     queryFn: listOntExchanges,
     enabled: user?.isAdmin === true || user?.isWarehouse === true,
   });
+
+  async function handleDossie(ticketId: string) {
+    try {
+      setDownloadingId(ticketId);
+      const bundle = await getCaseDossieBundle({ data: { ticketId } });
+      await downloadCaseDossieFromBundle(bundle);
+    } catch (e) {
+      const msg = (e as Error).message || "";
+      if (msg.includes("different_provider") || msg.includes("missing_role"))
+        toast.error("Sem permissão para baixar este dossiê.");
+      else if (msg.includes("user_inactive")) toast.error("Sua conta está inativa.");
+      else if (msg.includes("provider_suspended")) toast.error("Provedor suspenso.");
+      else if (msg.includes("not_found")) toast.error("Atendimento ou ticket não encontrado.");
+      else toast.error("Não foi possível gerar o dossiê.");
+      console.error(e);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   const items = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
