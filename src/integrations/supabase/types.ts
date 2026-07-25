@@ -423,7 +423,6 @@ export type Database = {
           dados: Json
           data_atendimento: string | null
           endereco: string | null
-          exchange_ticket_code: string | null
           finalizado_em: string | null
           hora_atendimento: string | null
           id: string
@@ -462,7 +461,6 @@ export type Database = {
           dados?: Json
           data_atendimento?: string | null
           endereco?: string | null
-          exchange_ticket_code?: string | null
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
@@ -501,7 +499,6 @@ export type Database = {
           dados?: Json
           data_atendimento?: string | null
           endereco?: string | null
-          exchange_ticket_code?: string | null
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
@@ -550,110 +547,6 @@ export type Database = {
             columns: ["superseded_by_checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ont_exchange_ticket_counters: {
-        Row: {
-          last_value: number
-          provider_id: string
-          ticket_year: number
-        }
-        Insert: {
-          last_value?: number
-          provider_id: string
-          ticket_year: number
-        }
-        Update: {
-          last_value?: number
-          provider_id?: string
-          ticket_year?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ont_exchange_ticket_counters_provider_id_fkey"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "providers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ont_exchange_tickets: {
-        Row: {
-          case_id: string
-          checklist_id: string | null
-          city: string | null
-          client_name: string | null
-          exchanged_at: string
-          id: string
-          installed_model: string | null
-          installed_serial: string | null
-          provider_id: string
-          reason: string
-          removed_model: string | null
-          removed_serial: string | null
-          revision_number: number
-          service_order: string | null
-          technician_id: string | null
-          technician_name: string | null
-          ticket_code: string
-          updated_at: string
-        }
-        Insert: {
-          case_id: string
-          checklist_id?: string | null
-          city?: string | null
-          client_name?: string | null
-          exchanged_at?: string
-          id?: string
-          installed_model?: string | null
-          installed_serial?: string | null
-          provider_id: string
-          reason?: string
-          removed_model?: string | null
-          removed_serial?: string | null
-          revision_number?: number
-          service_order?: string | null
-          technician_id?: string | null
-          technician_name?: string | null
-          ticket_code: string
-          updated_at?: string
-        }
-        Update: {
-          case_id?: string
-          checklist_id?: string | null
-          city?: string | null
-          client_name?: string | null
-          exchanged_at?: string
-          id?: string
-          installed_model?: string | null
-          installed_serial?: string | null
-          provider_id?: string
-          reason?: string
-          removed_model?: string | null
-          removed_serial?: string | null
-          revision_number?: number
-          service_order?: string | null
-          technician_id?: string | null
-          technician_name?: string | null
-          ticket_code?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ont_exchange_tickets_checklist_id_fkey"
-            columns: ["checklist_id"]
-            isOneToOne: false
-            referencedRelation: "checklists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ont_exchange_tickets_provider_id_fkey"
-            columns: ["provider_id"]
-            isOneToOne: false
-            referencedRelation: "providers"
             referencedColumns: ["id"]
           },
         ]
@@ -952,11 +845,11 @@ export type Database = {
       }
       link_diagnostic_report: {
         Args: {
-          _agent_version: string | null
+          _agent_version: string
           _case_id: string
           _checklist_id: string
           _diagnostic_session_id: string
-          _generated_at: string | null
+          _generated_at: string
           _id: string
           _metadata?: Json
           _original_filename: string
@@ -975,7 +868,7 @@ export type Database = {
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "tecnico" | "almoxarifado"
+      app_role: "admin" | "tecnico"
       checklist_status: "rascunho" | "finalizado"
       checklist_tipo: "validacao_ont" | "instalacao"
       foto_categoria:
@@ -1112,7 +1005,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "tecnico", "almoxarifado"],
+      app_role: ["admin", "tecnico"],
       checklist_status: ["rascunho", "finalizado"],
       checklist_tipo: ["validacao_ont", "instalacao"],
       foto_categoria: [
