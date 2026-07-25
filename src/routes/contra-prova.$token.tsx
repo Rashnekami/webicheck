@@ -1,23 +1,21 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
-import { getPublicCounterproof, completePublicCounterproof } from "@/lib/customer-counterproof.functions";
-import { SignaturePad } from "@/components/signature-pad";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { WebifibraLogo } from "@/components/webifibra-logo";
+node:fs:440
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
 
-export const Route = createFileRoute("/contra-prova/$token")({ component: CounterproofPage, head: () => ({ meta: [{ title: "Contra-Prova do Cliente — Webifibra" }, { name: "robots", content: "noindex,nofollow" }] }) });
-function fileDataUrl(file: File) { return new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file); }); }
-function CounterproofPage() {
-  const { token } = Route.useParams(); const [confirmed, setConfirmed] = useState(false); const [identity, setIdentity] = useState<string | null>(null); const [signature, setSignature] = useState<string | null>(null); const input = useRef<HTMLInputElement>(null);
-  const q = useQuery({ queryKey: ["public-counterproof", token], queryFn: () => getPublicCounterproof({ data: { token } }) });
-  const finish = useMutation({ mutationFn: () => completePublicCounterproof({ data: { token, confirmed, identityImage: identity || "", signature: signature || "" } }), onSuccess: () => q.refetch() });
-  if (q.isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
-  const cp = q.data; if (!cp) return <div className="p-8 text-center">Link inválido ou indisponível.</div>;
-  if (cp.status === "validated") return <div className="flex min-h-screen items-center justify-center p-4"><div className="max-w-md rounded-xl border bg-white p-6 text-center shadow"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-3 text-xl font-bold">Contra-Prova validada</h1><p className="mt-2 text-sm text-muted-foreground">Código: <b>{cp.code}</b><br />Checklist: <b>{cp.checklist_code}</b><br />{cp.validated_at && new Date(cp.validated_at).toLocaleString("pt-BR")}</p></div></div>;
-  if (cp.status === "annulled") return <div className="p-8 text-center">Esta Contra-Prova foi anulada. Solicite um novo link à equipe.</div>;
-  return <main className="min-h-screen bg-slate-50 pb-10"><header className="brand-gradient flex items-center gap-3 p-4 text-white"><WebifibraLogo size={40} /><div><p className="text-xs opacity-80">Confirmação do atendimento</p><h1 className="font-semibold">Contra-Prova do Cliente</h1></div></header><div className="mx-auto max-w-lg space-y-4 p-4"><section className="rounded-xl border bg-white p-4"><div className="flex gap-2"><ShieldCheck className="h-5 w-5 text-emerald-600" /><div><p className="font-semibold">Atendimento técnico registrado</p><p className="text-sm text-muted-foreground">Cliente: {cp.client_name || "—"}<br />OS: {cp.service_order || "—"}<br />Checklist: {cp.checklist_code}<br />Código: {cp.code}</p></div></div></section><section className="space-y-4 rounded-xl border bg-white p-4"><div className="flex items-start gap-2"><Checkbox id="confirm" checked={confirmed} onCheckedChange={(v) => setConfirmed(v === true)} /><Label htmlFor="confirm" className="leading-5">Confirmo que recebi as orientações do atendimento técnico e tive oportunidade de esclarecer minhas dúvidas.</Label></div><div><Label>Foto segurando RG ou CNH</Label><input ref={input} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setIdentity(await fileDataUrl(f)); }} /><Button className="mt-2" variant="outline" onClick={() => input.current?.click()}>{identity ? "Foto registrada" : "Tirar foto"}</Button><p className="mt-1 text-xs text-muted-foreground">A foto é privada e usada somente como evidência do atendimento.</p></div><div><Label>Assinatura</Label><SignaturePad value={signature} onChange={setSignature} height={150} /></div><Button className="w-full" disabled={!confirmed || !identity || !signature || finish.isPending} onClick={() => finish.mutate()}>{finish.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Finalizar Contra-Prova</Button>{finish.error && <p className="text-sm text-destructive">{finish.error.message}</p>}</section></div></main>;
+Error: ENOENT: no such file or directory, open 'src/routes/contra-prova..tsx'
+    at Object.readFileSync (node:fs:440:20)
+    at [eval]:1:48
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30)
+    at evalTypeScript (node:internal/process/execution:295:3)
+    at node:internal/main/eval_string:71:3 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'src/routes/contra-prova..tsx'
 }
+
+Node.js v24.14.0
