@@ -12,6 +12,7 @@ import {
   UsersRound,
   Megaphone,
   Building2,
+  PackageSearch,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -213,6 +214,27 @@ function Painel() {
                     <h3 className="font-semibold text-foreground">Dashboard</h3>
                     <p className="text-sm text-muted-foreground">
                       Gráficos de trocas, técnicos, cidades e analistas — com exportação em CSV.
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {(user.isAdmin || user.isWarehouse) && (
+          <Link to="/trocas-ont" className="block">
+            <Card className="transition hover:border-primary/50 hover:shadow-md">
+              <CardContent className="flex items-center justify-between gap-3 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                    <PackageSearch className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold">Trocas de ONT</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Consulte ticket, equipamento retirado, serial e motivo.
                     </p>
                   </div>
                 </div>
