@@ -226,8 +226,7 @@ function ChecklistDetail() {
       const d = data as ChecklistData;
       if (!header.modelo?.trim()) errs.push("Modelo da ONT");
       if (!header.serial?.trim()) errs.push("Serial da ONT");
-      const equipmentUnavailable =
-        d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
+      const equipmentUnavailable = d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
       if (!equipmentUnavailable && !d.teste_cabeado.aplicabilidade) {
         errs.push("Aplicabilidade do teste cabeado");
       }
