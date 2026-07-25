@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "tecnico";
+export type AppRole = "admin" | "tecnico" | "almoxarifado";
 
 export interface CurrentUser {
   id: string;
@@ -14,6 +14,7 @@ export interface CurrentUser {
   assinatura: string | null;
   roles: AppRole[];
   isAdmin: boolean;
+  isWarehouse: boolean;
 }
 
 export function useCurrentUser() {
@@ -39,6 +40,7 @@ export function useCurrentUser() {
         assinatura: p?.assinatura ?? null,
         roles: roleList,
         isAdmin: roleList.includes("admin"),
+        isWarehouse: roleList.includes("almoxarifado"),
       };
     },
     staleTime: 60_000,
