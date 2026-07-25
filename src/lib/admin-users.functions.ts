@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
-export type ManagedUserRole = "admin" | "tecnico";
+export type ManagedUserRole = "admin" | "tecnico" | "almoxarifado";
 
 export interface AdminUserRecord {
   id: string;
@@ -116,7 +116,8 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       if (!input.userId) throw new Error("Usuário inválido.");
       if (!/^\S+@\S+\.\S+$/.test(input.email.trim())) throw new Error("Informe um e-mail válido.");
       if (input.fullName.trim().length < 2) throw new Error("Informe o nome completo.");
-      if (!["admin", "tecnico"].includes(input.role)) throw new Error("Perfil de acesso inválido.");
+      if (!["admin", "tecnico", "almoxarifado"].includes(input.role))
+        throw new Error("Perfil de acesso inválido.");
       return {
         ...input,
         email: input.email.trim().toLowerCase(),
@@ -208,14 +209,14 @@ export const updateAdminUser = createServerFn({ method: "POST" })
     // uma falha intermediária nunca deixa o usuário sem papel algum.
     const { error: upsertRoleError } = await supabaseAdmin
       .from("user_roles")
-      .upsert({ user_id: data.userId, role: data.role }, { onConflict: "user_id,role" });
+      .upsert({ user_id: data.userId, role: data.role } as never, { onConflict: "user_id,role" });
     if (upsertRoleError) throw new Error(upsertRoleError.message);
 
     const { error: deleteRolesError } = await supabaseAdmin
       .from("user_roles")
       .delete()
       .eq("user_id", data.userId)
-      .neq("role", data.role);
+      .neq("role", data.role as never);
     if (deleteRolesError) throw new Error(deleteRolesError.message);
 
     if (!data.active) {
