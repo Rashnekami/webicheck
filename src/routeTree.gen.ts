@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
+import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
@@ -57,6 +58,11 @@ const IndexRoute = IndexRouteImport.update({
 const ValidarTokenRoute = ValidarTokenRouteImport.update({
   id: '/validar/$token',
   path: '/validar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContraProvaTokenRoute = ContraProvaTokenRouteImport.update({
+  id: '/contra-prova/$token',
+  path: '/contra-prova/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/provedor': typeof AuthenticatedProvedorRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/provedor': typeof AuthenticatedProvedorRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
+  '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
+  '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/provedor'
     | '/trocas-ont'
     | '/usuarios'
+    | '/contra-prova/$token'
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists/'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/provedor'
     | '/trocas-ont'
     | '/usuarios'
+    | '/contra-prova/$token'
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/_authenticated/provedor'
     | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
+    | '/contra-prova/$token'
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/checklists/'
@@ -277,6 +289,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AutorizarAgentRoute: typeof AutorizarAgentRoute
   CompletarCadastroRoute: typeof CompletarCadastroRoute
+  ContraProvaTokenRoute: typeof ContraProvaTokenRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
   ApiPublicWebiDiagnosticDeviceStartRoute: typeof ApiPublicWebiDiagnosticDeviceStartRoute
   ApiPublicWebiDiagnosticDeviceTokenRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRoute
@@ -327,6 +340,13 @@ declare module '@tanstack/react-router' {
       path: '/validar/$token'
       fullPath: '/validar/$token'
       preLoaderRoute: typeof ValidarTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contra-prova/$token': {
+      id: '/contra-prova/$token'
+      path: '/contra-prova/$token'
+      fullPath: '/contra-prova/$token'
+      preLoaderRoute: typeof ContraProvaTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/usuarios': {
@@ -463,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   AutorizarAgentRoute: AutorizarAgentRoute,
   CompletarCadastroRoute: CompletarCadastroRoute,
+  ContraProvaTokenRoute: ContraProvaTokenRoute,
   ValidarTokenRoute: ValidarTokenRoute,
   ApiPublicWebiDiagnosticDeviceStartRoute:
     ApiPublicWebiDiagnosticDeviceStartRoute,
@@ -478,3 +499,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
