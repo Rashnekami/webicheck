@@ -265,6 +265,8 @@ function ChecklistDocument({
   qrUri,
 }: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as ChecklistData;
+  const equipmentUnavailable =
+    d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const numero = (row.numero_publico || "— pendente —") + revSuffix;
@@ -369,6 +371,18 @@ function ChecklistDocument({
           </View>
         </View>
 
+        {equipmentUnavailable ? (
+          <>
+            <Text style={styles.sectionTitle}>4. Testes anteriores à troca</Text>
+            <View style={styles.sectionBox}>
+              <Text style={{ color: "#78350f" }}>
+                Não aplicáveis — a ONT/ONU retirada foi registrada como queimada ou danificada.
+                Os resultados cabeados e Wi-Fi anteriores à substituição permanecem nulos.
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
         <Text style={styles.sectionTitle}>4. Teste cabeado</Text>
         <View style={styles.sectionBox}>
           <Field
@@ -434,6 +448,9 @@ function ChecklistDocument({
           </View>
         </View>
 
+          </>
+        )}
+
         <Text style={styles.sectionTitle}>6. Evidências marcadas</Text>
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
@@ -454,6 +471,13 @@ function ChecklistDocument({
             <Field label="Encaminhado ao NOC" value={yesNo(d.resultado_final.encaminhado_noc)} />
             <Field label="Interrompeu atendimento" value={yesNo(d.resultado_final.interrompeu)} />
             <Field label="Motivo" value={d.resultado_final.motivo} w="100%" />
+            {equipmentUnavailable && row.troca_realizada === true ? (
+              <Field
+                label="Teste pós-troca solicitado"
+                value={d.resultado_final.executar_diagnostico_pos_troca ? "Sim" : "Não"}
+                w="100%"
+              />
+            ) : null}
           </View>
         </View>
 
