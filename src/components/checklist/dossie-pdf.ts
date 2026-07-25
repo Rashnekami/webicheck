@@ -190,7 +190,7 @@ async function appendRevisionBlock(
     ? new Date(checklist.finalizado_em).toLocaleString("pt-BR")
     : "—";
   const numero = checklist.numero_publico ?? checklist.codigo_validacao ?? checklist.id.slice(0, 8);
-  const counterproof = await counterproofDocument(checklist.id);
+  const counterproof = revision.counterproof ?? (await counterproofDocument(checklist.id));
 
   await makeSectionPage(
     merged,
