@@ -12,6 +12,7 @@ export type CounterproofSummary = {
   signature_data_url?: string | null; identity_registered: boolean; annulment_reason?: string | null;
 };
 export type CounterproofLookup = CounterproofSummary | { unavailable: true };
+export type CounterproofDocumentInfo = Pick<CounterproofSummary, "code" | "checklist_code" | "status" | "validated_at" | "identity_registered">;
 
 function normalizePhone(raw: string) {
   const digits = raw.replace(/\D/g, "");
