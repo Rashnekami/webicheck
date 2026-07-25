@@ -60,6 +60,7 @@ import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
 import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
+import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   ensureChecklistSnapshot,
   getChecklistSnapshotSummary,
@@ -254,12 +255,15 @@ function ChecklistDetail() {
       setPdfBusy(true);
       const publicUrl = publicUrlHint || (await resolveValidationUrl());
       const merged = { ...row, ...header, dados: data } as ChecklistRow;
+      const counterproof = await getChecklistCounterproof({ data: { checklistId: id } });
+      const counterproofDocument = counterproof && "status" in counterproof && counterproof.status === "validated" ? counterproof : null;
       if (tipo === "instalacao") {
         await generateInstalacaoPdf({
           row: merged,
           tecnicoNome,
           assinatura: tecnicoAssinatura,
           publicUrl,
+          counterproof: counterproofDocument,
         });
       } else {
         await generateChecklistPdf({
@@ -268,6 +272,7 @@ function ChecklistDetail() {
           tecnicoNome,
           assinatura: tecnicoAssinatura,
           publicUrl,
+          counterproof: counterproofDocument,
         });
       }
     } catch (e) {
