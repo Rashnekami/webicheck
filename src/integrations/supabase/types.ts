@@ -943,6 +943,10 @@ export type Database = {
         }[]
       }
       current_provider_id: { Args: never; Returns: string }
+      empty_checklist_revision_data: {
+        Args: { _tipo: Database["public"]["Enums"]["checklist_tipo"] }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
