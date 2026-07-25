@@ -10,7 +10,15 @@ import { createCustomerCounterproof, getChecklistCounterproof, registerCounterpr
 
 export function CustomerCounterproofCard({ checklistId }: { checklistId: string }) {
   const qc = useQueryClient(); const [phone, setPhone] = useState("");
-  const q = useQuery({ queryKey: ["customer-counterproof", checklistId], queryFn: () => getChecklistCounterproof({ data: { checklistId } }), refetchInterval: (query) => query.state.data && "status" in query.state.data && ["pending", "opened"].includes(query.state.data.status) ? 10000 : false });
+  const q = useQuery({
+    queryKey: ["customer-counterproof", checklistId],
+    queryFn: () => getChecklistCounterproof({ data: { checklistId } }),
+    // A consulta depende da tabela adicionada pela migration. Nunca execute no
+    // render do servidor, para um ambiente de homologação sem migration não
+    // impedir a abertura de nenhum checklist existente.
+    enabled: typeof window !== "undefined",
+    refetchInterval: (query) => query.state.data && "status" in query.state.data && ["pending", "opened"].includes(query.state.data.status) ? 10000 : false,
+  });
   const create = useMutation({ mutationFn: () => createCustomerCounterproof({ data: { checklistId } }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["customer-counterproof", checklistId] }); toast.success("Contra-Prova gerada."); }, onError: (e: Error) => toast.error(e.message) });
   const cp = q.data;
   if (cp && "unavailable" in cp) {
