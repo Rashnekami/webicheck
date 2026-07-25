@@ -4,7 +4,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ChecklistData, ChecklistRow, YesNo } from "@/lib/checklist-schema";
+import {
+  emptyChecklistData,
+  type ChecklistData,
+  type ChecklistRow,
+  type YesNo,
+} from "@/lib/checklist-schema";
 
 type Props = {
   header: Pick<
@@ -112,6 +117,36 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
       })) as unknown as void;
 
   const s = data;
+  const equipmentUnavailable =
+    s.sintoma.ont_queimada || s.sintoma.ont_danificada_cliente;
+
+  const setCriticalEquipmentSymptom = (
+    field: "ont_queimada" | "ont_danificada_cliente",
+    value: boolean,
+  ) => {
+    onDataChange((prev) => {
+      if (!value) {
+        return {
+          ...prev,
+          sintoma: { ...prev.sintoma, [field]: false },
+        };
+      }
+
+      const empty = emptyChecklistData();
+      return {
+        ...prev,
+        sintoma: { ...prev.sintoma, [field]: true },
+        teste_cabeado: empty.teste_cabeado,
+        teste_wifi: empty.teste_wifi,
+        evidencias_marcadas: {
+          ...prev.evidencias_marcadas,
+          teste_cabeado: false,
+          teste_wifi: false,
+        },
+      };
+    });
+  };
+
   const wiredHasLegacyData =
     s.teste_cabeado.navegacao ||
     s.teste_cabeado.ping ||
@@ -211,13 +246,13 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
           />
           <Cb
             checked={s.sintoma.ont_queimada}
-            onCheckedChange={(v) => set("sintoma")({ ont_queimada: v })}
+            onCheckedChange={(v) => setCriticalEquipmentSymptom("ont_queimada", v)}
             label="ONT/ONU queimada"
             disabled={readOnly}
           />
           <Cb
             checked={s.sintoma.ont_danificada_cliente}
-            onCheckedChange={(v) => set("sintoma")({ ont_danificada_cliente: v })}
+            onCheckedChange={(v) => setCriticalEquipmentSymptom("ont_danificada_cliente", v)}
             label="ONT/ONU danificada pelo cliente"
             disabled={readOnly}
           />
@@ -356,6 +391,18 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
         </div>
       </Section>
 
+      {equipmentUnavailable ? (
+        <Section n={4} title="Testes anteriores à troca">
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-medium">Testes de rede não aplicáveis ao equipamento retirado.</p>
+            <p className="mt-1">
+              A ONT/ONU foi marcada como queimada ou danificada. Os campos de teste cabeado e
+              Wi-Fi foram limpos para não registrar resultados inválidos antes da substituição.
+            </p>
+          </div>
+        </Section>
+      ) : (
+        <>
       <Section n={4} title="Teste cabeado">
         <YesNoField
           label="O teste cabeado se aplica a este atendimento?"
@@ -568,6 +615,8 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
           />
         </div>
       </Section>
+        </>
+      )}
 
       <Section n={6} title="Evidências marcadas (fotos anexadas abaixo)">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -670,11 +719,14 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
                 ? "nao"
                 : null
           }
-          onChange={(v) =>
+          onChange={(v) => {
             onHeaderChange({
               troca_realizada: v === "sim" ? true : v === "nao" ? false : null,
-            })
-          }
+            });
+            if (v !== "sim") {
+              set("resultado_final")({ executar_diagnostico_pos_troca: false });
+            }
+          }}
           disabled={readOnly}
         />
         <p className="text-xs text-muted-foreground">
@@ -717,6 +769,22 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
             />
           </div>
         </div>
+        {equipmentUnavailable && header.troca_realizada === true && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+            <Cb
+              checked={s.resultado_final.executar_diagnostico_pos_troca}
+              onCheckedChange={(v) =>
+                set("resultado_final")({ executar_diagnostico_pos_troca: v })
+              }
+              label="Após finalizar a troca, quero preparar uma etapa pós-troca para testar a nova ONT no Webi Diagnostic"
+              disabled={readOnly}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              O atendimento atual preserva o defeito e o ticket da ONT retirada. O diagnóstico da
+              nova ONT será anexado em uma revisão pós-troca do mesmo atendimento.
+            </p>
+          </div>
+        )}
       </Section>
 
       <Section n={10} title="Registro da autorização do NOC">
