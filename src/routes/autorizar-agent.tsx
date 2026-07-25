@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Laptop, Loader2, LogIn } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ function AuthorizeAgentPage() {
   const navigate = useNavigate();
   const [code, setCode] = useState(search.code.toUpperCase());
   const [authorized, setAuthorized] = useState(false);
+  const automaticAuthorizationStarted = useRef(false);
   const session = useQuery({
     queryKey: ["agent-auth-session"],
     queryFn: async () => (await supabase.auth.getUser()).data.user,
@@ -38,6 +39,19 @@ function AuthorizeAgentPage() {
     onSuccess: () => setAuthorized(true),
     onError: (e: Error) => toast.error(e.message),
   });
+  useEffect(() => {
+    if (!session.data || !search.code || code.length < 6 || automaticAuthorizationStarted.current) {
+      return;
+    }
+    automaticAuthorizationStarted.current = true;
+    getAgentAuthorization({ data: { userCode: code } })
+      .then(() => approveAgentAuthorization({ data: { userCode: code } }))
+      .then(() => setAuthorized(true))
+      .catch((error: Error) => {
+        automaticAuthorizationStarted.current = false;
+        toast.error(error.message);
+      });
+  }, [code, search.code, session.data]);
   if (session.isLoading)
     return (
       <div className="flex min-h-screen items-center justify-center">
