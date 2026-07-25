@@ -34,12 +34,12 @@ export function CustomerCounterproofCard({ checklistId }: { checklistId: string 
     if (digits.startsWith("55")) { toast.error("Informe somente DDD + número, sem 55."); return; }
     if (!/^\d{10,11}$/.test(digits) || Number(digits.slice(0, 2)) < 11) { toast.error("Informe um telefone válido com DDD + número."); return; }
     const message = `Olá! Para confirmar as orientações do atendimento técnico, acesse:\n${link}\nCódigo: ${counterproof.code}`;
-    return { digits, message, waMeUrl: `https://wa.me/55${digits}?text=${encodeURIComponent(message)}` };
+    return { digits, message, whatsappUrl: `https://api.whatsapp.com/send?phone=55${digits}&text=${encodeURIComponent(message)}&type=phone_number&app_absent=0` };
   }
   function openWhatsapp() {
     const payload = buildWhatsappPayload();
     if (!payload || !counterproof) return;
-    window.open(payload.waMeUrl, "_blank", "noopener,noreferrer");
+    window.open(payload.whatsappUrl, "_blank", "noopener,noreferrer");
     registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone: payload.digits, whatsappOpened: true } })
       .then(() => qc.invalidateQueries({ queryKey: ["customer-counterproof", checklistId] }))
       .catch((e: Error) => toast.error(e.message));
@@ -48,7 +48,7 @@ export function CustomerCounterproofCard({ checklistId }: { checklistId: string 
   async function copyWhatsappLink() {
     const payload = buildWhatsappPayload();
     if (!payload) return;
-    try { await navigator.clipboard.writeText(payload.waMeUrl); toast.success("Link wa.me copiado."); } catch { toast.error("Não foi possível copiar o link wa.me."); }
+    try { await navigator.clipboard.writeText(payload.whatsappUrl); toast.success("Link do WhatsApp copiado."); } catch { toast.error("Não foi possível copiar o link."); }
   }
   if (isUnavailable) {
     return <Card className="border-amber-300 bg-amber-50/40"><CardContent className="space-y-1 p-4"><h3 className="text-base font-semibold">Contra-Prova do Cliente</h3><p className="text-sm text-amber-800">Em preparação no ambiente de teste.</p><p className="text-xs text-muted-foreground">A migration da Contra-Prova ainda não foi aplicada. O checklist continua normal e nenhuma informação será criada até a homologação do banco.</p></CardContent></Card>;
