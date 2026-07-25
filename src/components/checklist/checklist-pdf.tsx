@@ -1,18 +1,6 @@
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  Image,
-  StyleSheet,
-  pdf,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet, pdf } from "@react-pdf/renderer";
 import QRCode from "qrcode";
-import type {
-  ChecklistData,
-  ChecklistRow,
-  FotoRow,
-} from "@/lib/checklist-schema";
+import type { ChecklistData, ChecklistRow, FotoRow } from "@/lib/checklist-schema";
 import { FOTO_CATEGORIAS } from "@/lib/checklist-schema";
 import { signedFotoUrl } from "@/lib/checklists";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
@@ -233,9 +221,7 @@ const styles = StyleSheet.create({
 
 const Chk = ({ v, label }: { v: boolean; label: string }) => (
   <View style={styles.checkboxRow}>
-    <View style={styles.checkboxOuter}>
-      {v ? <View style={styles.checkboxInner} /> : null}
-    </View>
+    <View style={styles.checkboxOuter}>{v ? <View style={styles.checkboxInner} /> : null}</View>
     <Text style={styles.checkboxLabel}>{label}</Text>
   </View>
 );
@@ -289,10 +275,8 @@ function ChecklistDocument({
   qrUri,
 }: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as ChecklistData;
-  const equipmentUnavailable =
-    d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
-  const rev =
-    (row as unknown as { revision_number?: number }).revision_number ?? 1;
+  const equipmentUnavailable = d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
+  const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const numero = (row.numero_publico || "— pendente —") + revSuffix;
   return (
@@ -303,12 +287,8 @@ function ChecklistDocument({
             {logoUri ? <Image src={logoUri} style={styles.headerLogo} /> : null}
           </View>
           <View style={styles.headerTextBox}>
-            <Text style={styles.headerTitle}>
-              CHECKLIST TÉCNICO DE VALIDAÇÃO DE ONT
-            </Text>
-            <Text style={styles.headerSub}>
-              Uso exclusivo do técnico de campo · Webifibra
-            </Text>
+            <Text style={styles.headerTitle}>CHECKLIST TÉCNICO DE VALIDAÇÃO DE ONT</Text>
+            <Text style={styles.headerSub}>Uso exclusivo do técnico de campo · Webifibra</Text>
             <Text style={styles.headerBadge}>DOCUMENTO OFICIAL</Text>
           </View>
         </View>
@@ -324,9 +304,7 @@ function ChecklistDocument({
               <Text style={{ fontSize: 9, fontWeight: 700, color: INK }}>
                 {row.codigo_validacao || "—"}
               </Text>
-              {qrUri ? (
-                <Text style={styles.numberLabel}>VALIDAR ONLINE</Text>
-              ) : null}
+              {qrUri ? <Text style={styles.numberLabel}>VALIDAR ONLINE</Text> : null}
             </View>
             {qrUri ? <Image src={qrUri} style={styles.qrImage} /> : null}
           </View>
@@ -334,8 +312,8 @@ function ChecklistDocument({
 
         <View style={styles.warn}>
           <Text>
-            IMPORTANTE: preencher antes de solicitar a troca e não restaurar a
-            ONT antes de enviar as evidências ao NOC.
+            IMPORTANTE: preencher antes de solicitar a troca e não restaurar a ONT antes de enviar
+            as evidências ao NOC.
           </Text>
         </View>
 
@@ -370,44 +348,20 @@ function ChecklistDocument({
           <View style={styles.grid2}>
             <Chk v={d.sintoma.ont_nao_liga} label="ONT não liga" />
             <Chk v={d.sintoma.ont_queimada} label="ONT/ONU queimada" />
-            <Chk
-              v={d.sintoma.ont_danificada_cliente}
-              label="ONT/ONU danificada pelo cliente"
-            />
+            <Chk v={d.sintoma.ont_danificada_cliente} label="ONT/ONU danificada pelo cliente" />
             <Chk v={d.sintoma.ont_reinicia} label="ONT reinicia/desliga" />
-            <Chk
-              v={d.sintoma.perde_internet}
-              label="Perde internet/provisionamento"
-            />
-            <Chk
-              v={d.sintoma.internet_cai_pon_acesa}
-              label="Internet cai com PON acesa"
-            />
+            <Chk v={d.sintoma.perde_internet} label="Perde internet/provisionamento" />
+            <Chk v={d.sintoma.internet_cai_pon_acesa} label="Internet cai com PON acesa" />
             <Chk v={d.sintoma.los_acende} label="LOS acende" />
-            <Chk
-              v={d.sintoma.wifi_5g_desaparece}
-              label="Wi-Fi 5 GHz desaparece"
-            />
-            <Chk
-              v={d.sintoma.wifi_ambas_desaparecem}
-              label="Wi-Fi 2,4 e 5 GHz desaparecem"
-            />
-            <Chk
-              v={d.sintoma.wifi_falha_cabo_ok}
-              label="Wi-Fi falha, cabo OK"
-            />
-            <Chk
-              v={d.sintoma.lan_nao_funciona}
-              label="Porta LAN não funciona"
-            />
+            <Chk v={d.sintoma.wifi_5g_desaparece} label="Wi-Fi 5 GHz desaparece" />
+            <Chk v={d.sintoma.wifi_ambas_desaparecem} label="Wi-Fi 2,4 e 5 GHz desaparecem" />
+            <Chk v={d.sintoma.wifi_falha_cabo_ok} label="Wi-Fi falha, cabo OK" />
+            <Chk v={d.sintoma.lan_nao_funciona} label="Porta LAN não funciona" />
             <Chk v={d.sintoma.lentidao} label="Lentidão" />
           </View>
           <View style={styles.grid2}>
             <Field label="Outro" value={d.sintoma.outro_texto} w="100%" />
-            <Field
-              label="Falha presenciada"
-              value={yesNo(d.sintoma.falha_presenciada)}
-            />
+            <Field label="Falha presenciada" value={yesNo(d.sintoma.falha_presenciada)} />
             <Field label="Horário" value={d.sintoma.horario} />
           </View>
         </View>
@@ -415,48 +369,24 @@ function ChecklistDocument({
         <Text style={styles.sectionTitle}>3. Validação física</Text>
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
-            <Chk
-              v={d.validacao_fisica.tomada}
-              label="Tomada e alimentação verificadas"
-            />
-            <Chk
-              v={d.validacao_fisica.fonte}
-              label="Fonte e conector verificados"
-            />
-            <Chk
-              v={d.validacao_fisica.outra_tomada}
-              label="Testada em outra tomada"
-            />
-            <Chk
-              v={d.validacao_fisica.outra_fonte}
-              label="Testada com outra fonte"
-            />
-            <Chk
-              v={d.validacao_fisica.patch_cord}
-              label="Patch cord óptico verificado"
-            />
-            <Chk
-              v={d.validacao_fisica.sem_dobras}
-              label="Sem dobras no cabo óptico"
-            />
-            <Chk
-              v={d.validacao_fisica.luz_verde_ok}
-              label="LED PON/Óptico OK"
-            />
+            <Chk v={d.validacao_fisica.tomada} label="Tomada e alimentação verificadas" />
+            <Chk v={d.validacao_fisica.fonte} label="Fonte e conector verificados" />
+            <Chk v={d.validacao_fisica.outra_tomada} label="Testada em outra tomada" />
+            <Chk v={d.validacao_fisica.outra_fonte} label="Testada com outra fonte" />
+            <Chk v={d.validacao_fisica.patch_cord} label="Patch cord óptico verificado" />
+            <Chk v={d.validacao_fisica.sem_dobras} label="Sem dobras no cabo óptico" />
+            <Chk v={d.validacao_fisica.luz_verde_ok} label="LED PON/Óptico OK" />
             <Chk v={d.validacao_fisica.roseta_ok} label="Roseta/adaptador OK" />
           </View>
         </View>
 
         {equipmentUnavailable ? (
           <>
-            <Text style={styles.sectionTitle}>
-              4. Testes anteriores à troca
-            </Text>
+            <Text style={styles.sectionTitle}>4. Testes anteriores à troca</Text>
             <View style={styles.sectionBox}>
               <Text style={{ color: "#78350f" }}>
-                Não aplicáveis — a ONT/ONU retirada foi registrada como queimada
-                ou danificada. Os resultados cabeados e Wi-Fi anteriores à
-                substituição permanecem nulos.
+                Não aplicáveis — a ONT/ONU retirada foi registrada como queimada ou danificada. Os
+                resultados cabeados e Wi-Fi anteriores à substituição permanecem nulos.
               </Text>
             </View>
           </>
@@ -471,62 +401,28 @@ function ChecklistDocument({
               />
               {d.teste_cabeado.aplicabilidade === "nao" ? (
                 <Text style={{ color: MUTED, marginTop: 3 }}>
-                  Não se aplica — atendimento realizado sem equipamento para
-                  teste cabeado.
+                  Não se aplica — atendimento realizado sem equipamento para teste cabeado.
                 </Text>
               ) : (
                 <>
                   <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
                   <View style={styles.grid2}>
-                    <Chk
-                      v={d.teste_cabeado.navegacao}
-                      label="Navegação testada"
-                    />
+                    <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
                     <Chk v={d.teste_cabeado.ping} label="Ping testado" />
-                    <Chk
-                      v={d.teste_cabeado.velocidade}
-                      label="Velocidade testada"
-                    />
-                    <Chk
-                      v={d.teste_cabeado.cabo_substituido}
-                      label="Cabo substituído"
-                    />
+                    <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
+                    <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
                   </View>
                   <View style={styles.grid2}>
-                    <Field
-                      label="Download (Mbps)"
-                      value={d.teste_cabeado.download}
-                      w="33.33%"
-                    />
-                    <Field
-                      label="Upload (Mbps)"
-                      value={d.teste_cabeado.upload}
-                      w="33.33%"
-                    />
-                    <Field
-                      label="Ping (ms)"
-                      value={d.teste_cabeado.ping_ms}
-                      w="33.33%"
-                    />
+                    <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
+                    <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
+                    <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
                   </View>
                   <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
                   <View style={styles.grid2}>
-                    <Chk
-                      v={d.teste_cabeado.funcionou}
-                      label="Funcionou normalmente"
-                    />
-                    <Chk
-                      v={d.teste_cabeado.apresentou_falha}
-                      label="Também apresentou falha"
-                    />
-                    <Chk
-                      v={d.teste_cabeado.ont_reiniciou}
-                      label="ONT reiniciou"
-                    />
-                    <Chk
-                      v={d.teste_cabeado.lan_falhou}
-                      label="Porta LAN não funcionou"
-                    />
+                    <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
+                    <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
+                    <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
+                    <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
                     <Chk
                       v={d.teste_cabeado.nao_testado}
                       label="Aplicável, mas não foi possível testar"
@@ -542,57 +438,22 @@ function ChecklistDocument({
               <View style={styles.grid2}>
                 <Chk v={d.teste_wifi.rede_24} label="Rede 2,4 GHz testada" />
                 <Chk v={d.teste_wifi.rede_5} label="Rede 5 GHz testada" />
-                <Chk
-                  v={d.teste_wifi.mais_aparelhos}
-                  label="Testado em mais de um aparelho"
-                />
-                <Chk
-                  v={d.teste_wifi.cabo_funcionando}
-                  label="Cabo permanece funcionando"
-                />
+                <Chk v={d.teste_wifi.mais_aparelhos} label="Testado em mais de um aparelho" />
+                <Chk v={d.teste_wifi.cabo_funcionando} label="Cabo permanece funcionando" />
               </View>
-              <Text style={styles.subsectionLabel}>
-                VELOCIDADE MEDIDA NO WI-FI
-              </Text>
+              <Text style={styles.subsectionLabel}>VELOCIDADE MEDIDA NO WI-FI</Text>
               <View style={styles.grid2}>
-                <Field
-                  label="Download (Mbps)"
-                  value={d.teste_wifi.download}
-                  w="33.33%"
-                />
-                <Field
-                  label="Upload (Mbps)"
-                  value={d.teste_wifi.upload}
-                  w="33.33%"
-                />
-                <Field
-                  label="Ping (ms)"
-                  value={d.teste_wifi.ping_ms}
-                  w="33.33%"
-                />
+                <Field label="Download (Mbps)" value={d.teste_wifi.download} w="33.33%" />
+                <Field label="Upload (Mbps)" value={d.teste_wifi.upload} w="33.33%" />
+                <Field label="Ping (ms)" value={d.teste_wifi.ping_ms} w="33.33%" />
               </View>
               <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
               <View style={styles.grid2}>
-                <Chk
-                  v={d.teste_wifi.apenas_5g_desaparece}
-                  label="Apenas 5 GHz desaparece"
-                />
-                <Chk
-                  v={d.teste_wifi.ambas_desaparecem}
-                  label="Ambas as redes desaparecem"
-                />
-                <Chk
-                  v={d.teste_wifi.sem_internet}
-                  label="Wi-Fi visível sem internet"
-                />
-                <Chk
-                  v={d.teste_wifi.um_aparelho}
-                  label="Ocorreu apenas em um aparelho"
-                />
-                <Chk
-                  v={d.teste_wifi.nao_reproduzida}
-                  label="Falha não reproduzida"
-                />
+                <Chk v={d.teste_wifi.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
+                <Chk v={d.teste_wifi.ambas_desaparecem} label="Ambas as redes desaparecem" />
+                <Chk v={d.teste_wifi.sem_internet} label="Wi-Fi visível sem internet" />
+                <Chk v={d.teste_wifi.um_aparelho} label="Ocorreu apenas em um aparelho" />
+                <Chk v={d.teste_wifi.nao_reproduzida} label="Falha não reproduzida" />
               </View>
             </View>
           </>
@@ -601,54 +462,27 @@ function ChecklistDocument({
         <Text style={styles.sectionTitle}>6. Evidências marcadas</Text>
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
-            <Chk
-              v={d.evidencias_marcadas.etiqueta}
-              label="Foto da etiqueta (modelo/serial)"
-            />
+            <Chk v={d.evidencias_marcadas.etiqueta} label="Foto da etiqueta (modelo/serial)" />
             <Chk v={d.evidencias_marcadas.leds} label="Foto dos LEDs da ONT" />
-            <Chk
-              v={d.evidencias_marcadas.fonte}
-              label="Foto da fonte/conexões"
-            />
-            <Chk
-              v={d.evidencias_marcadas.teste_cabeado}
-              label="Evidência do teste cabeado"
-            />
-            <Chk
-              v={d.evidencias_marcadas.teste_wifi}
-              label="Evidência do teste Wi-Fi"
-            />
+            <Chk v={d.evidencias_marcadas.fonte} label="Foto da fonte/conexões" />
+            <Chk v={d.evidencias_marcadas.teste_cabeado} label="Evidência do teste cabeado" />
+            <Chk v={d.evidencias_marcadas.teste_wifi} label="Evidência do teste Wi-Fi" />
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          7. Resultado após reset/teste final
-        </Text>
+        <Text style={styles.sectionTitle}>7. Resultado após reset/teste final</Text>
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
             <Chk v={d.resultado_final.permaneceu} label="Falha permaneceu" />
             <Chk v={d.resultado_final.parou} label="Falha parou" />
-            <Chk
-              v={d.resultado_final.nao_reproduzida}
-              label="Não foi reproduzida"
-            />
-            <Field
-              label="Encaminhado ao NOC"
-              value={yesNo(d.resultado_final.encaminhado_noc)}
-            />
-            <Field
-              label="Interrompeu atendimento"
-              value={yesNo(d.resultado_final.interrompeu)}
-            />
+            <Chk v={d.resultado_final.nao_reproduzida} label="Não foi reproduzida" />
+            <Field label="Encaminhado ao NOC" value={yesNo(d.resultado_final.encaminhado_noc)} />
+            <Field label="Interrompeu atendimento" value={yesNo(d.resultado_final.interrompeu)} />
             <Field label="Motivo" value={d.resultado_final.motivo} w="100%" />
             {equipmentUnavailable && row.troca_realizada === true ? (
               <Field
                 label="Teste pós-troca solicitado"
-                value={
-                  d.resultado_final.executar_diagnostico_pos_troca
-                    ? "Sim"
-                    : "Não"
-                }
+                value={d.resultado_final.executar_diagnostico_pos_troca ? "Sim" : "Não"}
                 w="100%"
               />
             ) : null}
@@ -660,20 +494,14 @@ function ChecklistDocument({
           <Text>{d.relato || "—"}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          9. Registro da autorização do NOC
-        </Text>
+        <Text style={styles.sectionTitle}>9. Registro da autorização do NOC</Text>
         <View style={styles.sectionBox}>
           <View style={styles.grid2}>
             <Field label="Troca autorizada" value={yesNo(d.noc.autorizada)} />
             <Field label="Analista" value={d.noc.analista} />
             <Field label="Data" value={d.noc.data} />
             <Field label="Hora" value={d.noc.hora} />
-            <Field
-              label="Protocolo/OS do NOC"
-              value={d.noc.protocolo}
-              w="100%"
-            />
+            <Field label="Protocolo/OS do NOC" value={d.noc.protocolo} w="100%" />
           </View>
         </View>
 
@@ -682,9 +510,7 @@ function ChecklistDocument({
             {assinatura ? (
               <Image src={assinatura} style={styles.signImage} />
             ) : (
-              <Text style={{ color: MUTED, fontSize: 8 }}>
-                (assinatura não cadastrada)
-              </Text>
+              <Text style={{ color: MUTED, fontSize: 8 }}>(assinatura não cadastrada)</Text>
             )}
             <View style={styles.signLine}>
               <Text style={styles.signName}>{tecnicoNome || "—"}</Text>
@@ -697,15 +523,9 @@ function ChecklistDocument({
           <Text>Webifibra · {numero}</Text>
           <Text>
             Finalizado:{" "}
-            {row.finalizado_em
-              ? new Date(row.finalizado_em).toLocaleString("pt-BR")
-              : "rascunho"}
+            {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "rascunho"}
           </Text>
-          <Text
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
+          <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>
 
@@ -713,9 +533,7 @@ function ChecklistDocument({
         <Page key={f.id} size="A4" style={styles.page}>
           <View style={styles.header}>
             <View style={styles.headerLogoBox}>
-              {logoUri ? (
-                <Image src={logoUri} style={styles.headerLogo} />
-              ) : null}
+              {logoUri ? <Image src={logoUri} style={styles.headerLogo} /> : null}
             </View>
             <View style={styles.headerTextBox}>
               <Text style={styles.headerTitle}>EVIDÊNCIAS FOTOGRÁFICAS</Text>
@@ -726,10 +544,7 @@ function ChecklistDocument({
           </View>
           <View style={styles.photoItem} wrap={false}>
             {(f as FotoRow & { _uri?: string })._uri ? (
-              <Image
-                src={(f as FotoRow & { _uri: string })._uri}
-                style={styles.photoImg}
-              />
+              <Image src={(f as FotoRow & { _uri: string })._uri} style={styles.photoImg} />
             ) : (
               <Text style={{ color: MUTED }}>Imagem indisponível</Text>
             )}
@@ -740,9 +555,7 @@ function ChecklistDocument({
           <View style={styles.footer} fixed>
             <Text>Webifibra · {numero}</Text>
             <Text
-              render={({ pageNumber, totalPages }) =>
-                `Página ${pageNumber} de ${totalPages}`
-              }
+              render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
             />
           </View>
         </Page>
@@ -795,9 +608,7 @@ export async function buildChecklistPdfBlob({
 
 export async function generateChecklistPdf(params: Params) {
   const blob = await buildChecklistPdfBlob(params);
-  const rev =
-    (params.row as unknown as { revision_number?: number }).revision_number ??
-    1;
+  const rev = (params.row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const nome = `checklist-${params.row.numero_publico || params.row.codigo_validacao || params.row.id.slice(0, 8)}${revSuffix}.pdf`;
   const url = URL.createObjectURL(blob);
