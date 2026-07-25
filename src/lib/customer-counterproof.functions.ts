@@ -11,6 +11,7 @@ export type CounterproofSummary = {
   client_phone_e164: string | null; validated_at: string | null; created_at: string;
   signature_data_url?: string | null; identity_registered: boolean; annulment_reason?: string | null;
 };
+export type CounterproofLookup = CounterproofSummary | { unavailable: true };
 
 function normalizePhone(raw: string) {
   const digits = raw.replace(/\D/g, "");
@@ -34,8 +35,13 @@ async function sha256(bytes: Uint8Array) {
 }
 
 export const getChecklistCounterproof = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .inputValidator((d: { checklistId: string }) => d).handler(async ({ data, context }): Promise<CounterproofSummary | null> => {
+  .inputValidator((d: { checklistId: string }) => d).handler(async ({ data, context }): Promise<CounterproofLookup | null> => {
     const { data: row, error } = await context.supabase.from("customer_counterproofs" as never).select("*").eq("checklist_id", data.checklistId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    // A tela técnica precisa continuar utilizável enquanto a migration ainda não
+    // foi aplicada no ambiente de homologação.
+    if (error && (error.code === "PGRST205" || error.message.includes("customer_counterproofs"))) {
+      return { unavailable: true };
+    }
     if (error) throw new Error(error.message); if (!row) return null;
     const r = row as any; return { ...r, identity_registered: !!r.identity_storage_path };
   });
