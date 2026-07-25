@@ -39,7 +39,9 @@ jobs:
       - name: Lint changed TypeScript files
         shell: bash
         run: |
-          git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx'             | xargs -r npx eslint
+          git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx' \
+            | grep -v '^src/integrations/supabase/types\.ts$' \
+            | xargs -r npx eslint
 
       - name: Build
         run: npm run build
