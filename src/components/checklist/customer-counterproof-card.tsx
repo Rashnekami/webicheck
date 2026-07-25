@@ -28,7 +28,21 @@ export function CustomerCounterproofCard({ checklistId }: { checklistId: string 
   const isUnavailable = !!cp && "unavailable" in cp;
   const counterproof = isCounterproofSummary(cp) ? cp : null;
   const link = useMemo(() => counterproof?.public_token && typeof window !== "undefined" ? `${window.location.origin}/contra-prova/${counterproof.public_token}` : "", [counterproof?.public_token]);
-  const send = useMutation({ mutationFn: async () => { if (!counterproof) throw new Error("Gere a Contra-Prova primeiro."); const saved = await registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone, whatsappOpened: true } }); const message = `Olá! Para confirmar as orientações do atendimento técnico, acesse:\n${link}\nCódigo: ${counterproof.code}`; window.open(`https://wa.me/${saved.phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer"); }, onSuccess: () => toast.success("Abrindo conversa no WhatsApp."), onError: (e: Error) => toast.error(e.message) });
+  function openWhatsapp() {
+    if (!counterproof) { toast.error("Gere a Contra-Prova primeiro."); return; }
+    const digits = phone.replace(/\D/g, "");
+    if (digits.startsWith("55")) { toast.error("Informe somente DDD + número, sem 55."); return; }
+    if (!/^\d{10,11}$/.test(digits) || Number(digits.slice(0, 2)) < 11) { toast.error("Informe um telefone válido com DDD + número."); return; }
+    const message = `Olá! Para confirmar as orientações do atendimento técnico, acesse:\n${link}\nCódigo: ${counterproof.code}`;
+    const url = `https://wa.me/55${digits}?text=${encodeURIComponent(message)}`;
+    const a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+    document.body.appendChild(a); a.click(); a.remove();
+    registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone: digits, whatsappOpened: true } })
+      .then(() => qc.invalidateQueries({ queryKey: ["customer-counterproof", checklistId] }))
+      .catch((e: Error) => toast.error(e.message));
+    toast.success("Abrindo conversa no WhatsApp.");
+  }
   if (isUnavailable) {
     return <Card className="border-amber-300 bg-amber-50/40"><CardContent className="space-y-1 p-4"><h3 className="text-base font-semibold">Contra-Prova do Cliente</h3><p className="text-sm text-amber-800">Em preparação no ambiente de teste.</p><p className="text-xs text-muted-foreground">A migration da Contra-Prova ainda não foi aplicada. O checklist continua normal e nenhuma informação será criada até a homologação do banco.</p></CardContent></Card>;
   }
