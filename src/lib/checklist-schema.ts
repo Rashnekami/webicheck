@@ -75,6 +75,7 @@ export interface ChecklistData {
     encaminhado_noc: YesNo;
     interrompeu: YesNo;
     motivo: string;
+    executar_diagnostico_pos_troca: boolean;
   };
   relato: string;
   noc: {
@@ -158,6 +159,7 @@ export function emptyChecklistData(): ChecklistData {
       encaminhado_noc: null,
       interrompeu: null,
       motivo: "",
+      executar_diagnostico_pos_troca: false,
     },
     relato: "",
     noc: {
