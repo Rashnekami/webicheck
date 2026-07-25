@@ -191,13 +191,28 @@ function OntExchangesPage() {
               <p className="text-xs text-muted-foreground">
                 Troca registrada em {new Date(item.exchanged_at).toLocaleString("pt-BR")}
               </p>
-              {user.isAdmin && item.checklist_id && (
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/checklists/$id" params={{ id: item.checklist_id }}>
-                    Abrir checklist
-                  </Link>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDossie(item.id)}
+                  disabled={downloadingId === item.id}
+                >
+                  {downloadingId === item.id ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileArchive className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Baixar dossiê completo
                 </Button>
-              )}
+                {user.isAdmin && item.checklist_id && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/checklists/$id" params={{ id: item.checklist_id }}>
+                      Abrir checklist
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
