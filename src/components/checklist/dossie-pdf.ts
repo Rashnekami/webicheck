@@ -4,6 +4,15 @@ import type { ChecklistRow, FotoRow } from "@/lib/checklist-schema";
 import { buildChecklistPdfBlob } from "./checklist-pdf";
 import { buildInstalacaoPdfBlob } from "./instalacao-pdf";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
+
+async function counterproofDocument(checklistId: string) {
+  try {
+    const cp = await getChecklistCounterproof({ data: { checklistId } });
+    return cp && "status" in cp && cp.status === "validated" ? cp : null;
+  } catch {
+    return null;
+  }
+}
 import {
   getDiagnosticDownloadUrl,
   listDiagnosticReports,
@@ -181,13 +190,7 @@ async function appendRevisionBlock(
     ? new Date(checklist.finalizado_em).toLocaleString("pt-BR")
     : "—";
   const numero = checklist.numero_publico ?? checklist.codigo_validacao ?? checklist.id.slice(0, 8);
-  let counterproof = null;
-  try {
-    const cp = await getChecklistCounterproof({ data: { checklistId: checklist.id } });
-    counterproof = cp && "status" in cp && cp.status === "validated" ? cp : null;
-  } catch {
-    // O dossiê continua sendo gerado mesmo quando o perfil não pode consultar a Contra-Prova.
-  }
+  const counterproof = await counterproofDocument(checklist.id);
 
   await makeSectionPage(
     merged,
@@ -402,10 +405,11 @@ export async function generateDossiePdf({
     .filter((d) => d.status === "active")
     .filter((d) => d.checklist_id === row.id);
 
+  const counterproof = await counterproofDocument(row.id);
   const checklistBlob =
     row.tipo === "instalacao"
-      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura, publicUrl })
-      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura, publicUrl });
+      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura, publicUrl, counterproof })
+      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura, publicUrl, counterproof });
 
   const merged = await PDFDocument.create();
   await makeCoverPage(merged, {
@@ -481,10 +485,11 @@ export async function downloadChecklistOnly({
   assinatura,
   publicUrl,
 }: Omit<Params, "diagnostics" | "scope" | "filenamePrefix">) {
+  const counterproof = await counterproofDocument(row.id);
   const blob =
     row.tipo === "instalacao"
-      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura, publicUrl })
-      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura, publicUrl });
+      ? await buildInstalacaoPdfBlob({ row, tecnicoNome, assinatura, publicUrl, counterproof })
+      : await buildChecklistPdfBlob({ row, fotos, tecnicoNome, assinatura, publicUrl, counterproof });
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const nome = `checklist-${row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)}${revSuffix}.pdf`;
