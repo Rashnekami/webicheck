@@ -244,6 +244,7 @@ export interface ChecklistRow {
   serial_ont_retirada: string | null;
   modelo_ont_instalada: string | null;
   serial_ont_instalada: string | null;
+  exchange_ticket_code: string | null;
 }
 
 export interface FotoRow {
