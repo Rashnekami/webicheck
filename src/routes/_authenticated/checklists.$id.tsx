@@ -440,11 +440,21 @@ function ChecklistDetail() {
             Voltar
           </Button>
           <div className="flex items-center gap-2">
-            {row.status === "finalizado" && (
-              <Button variant="outline" onClick={openDiagnostic}>
-                <MonitorUp className="mr-1.5 h-4 w-4" /> Abrir no Webi Diagnostic
-              </Button>
-            )}
+            {row.status === "finalizado" &&
+              (import.meta.env.VITE_WEBI_DIAGNOSTIC_ENABLED === "true" ? (
+                <Button variant="outline" onClick={openDiagnostic}>
+                  <MonitorUp className="mr-1.5 h-4 w-4" /> Abrir no Webi Diagnostic
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled
+                  title="Integração com Webi Diagnostic em homologação"
+                  aria-label="Webi Diagnostic em homologação"
+                >
+                  <MonitorUp className="mr-1.5 h-4 w-4" /> Webi Diagnostic — Em homologação
+                </Button>
+              ))}
             {row.status === "finalizado" && (
               <Button onClick={() => handlePdf()} disabled={pdfBusy}>
                 {pdfBusy ? (
