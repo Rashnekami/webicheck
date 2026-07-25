@@ -326,6 +326,9 @@ function ChecklistDocument({
             <Field label="Modelo" value={row.modelo} w="33.33%" />
             <Field label="Serial" value={row.serial} w="33.33%" />
             <Field label="CTO/Porta" value={row.cto_porta} w="33.33%" />
+            {row.exchange_ticket_code ? (
+              <Field label="Ticket da troca" value={row.exchange_ticket_code} />
+            ) : null}
           </View>
         </View>
 
