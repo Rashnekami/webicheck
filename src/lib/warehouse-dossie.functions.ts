@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { evaluateDossieAccess, type DossieAccessResult } from "@/lib/dossie-access";
 import type { ChecklistData, ChecklistRow, FotoRow, InstalacaoData } from "@/lib/checklist-schema";
 import type { DiagnosticReportRow } from "@/lib/webi-diagnostic.functions";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
 export interface DossieRevision {
   checklist: ChecklistRow & {
@@ -13,6 +14,7 @@ export interface DossieRevision {
     parent_checklist_id: string | null;
     is_current: boolean;
   };
+  counterproof?: CounterproofDocumentInfo | null;
   tecnico: {
     id: string;
     full_name: string;
@@ -165,7 +167,7 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
     const tecnicoIds = Array.from(new Set(revisions.map((r) => r.tecnico_id)));
 
     // 7. Fotos, técnicos e diagnósticos em uma única rodada.
-    const [{ data: fotoRows }, { data: tecRows }, { data: diagRows }] = await Promise.all([
+    const [{ data: fotoRows }, { data: tecRows }, { data: diagRows }, { data: counterproofRows }] = await Promise.all([
       supabaseAdmin.from("checklist_fotos").select("*").in("checklist_id", revisionIds),
       supabaseAdmin
         .from("profiles")
@@ -179,6 +181,11 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
         .eq("case_id", caseId)
         .eq("status", "active")
         .order("created_at", { ascending: true }),
+      supabaseAdmin
+        .from("customer_counterproofs")
+        .select("id, checklist_id, code, checklist_code, status, validated_at, identity_storage_path")
+        .in("checklist_id", revisionIds)
+        .order("created_at", { ascending: false }),
     ]);
 
     const fotos = (fotoRows ?? []) as FotoRow[];
@@ -194,6 +201,18 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
       ]),
     );
     const diagnostics = (diagRows ?? []) as DiagnosticReportRow[];
+    const counterproofByChecklist = new Map<string, CounterproofDocumentInfo>();
+    for (const cp of counterproofRows ?? []) {
+      if (cp.status === "validated" && !counterproofByChecklist.has(cp.checklist_id)) {
+        counterproofByChecklist.set(cp.checklist_id, {
+          code: cp.code,
+          checklist_code: cp.checklist_code,
+          status: cp.status,
+          validated_at: cp.validated_at,
+          identity_registered: Boolean(cp.identity_storage_path),
+        });
+      }
+    }
 
     // 8. URLs assinadas de fotos e relatórios (5 min).
     const [signedFotos, signedDiags] = await Promise.all([
@@ -222,6 +241,7 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
         dados: r.dados as unknown as ChecklistData | InstalacaoData,
       } as DossieRevision["checklist"],
       tecnico: tecnicos.get(r.tecnico_id) ?? null,
+      counterproof: counterproofByChecklist.get(r.id) ?? null,
       fotos: signedFotos.filter((f) => f.checklist_id === r.id),
       diagnostics: signedDiags.filter((d) => d.checklist_id === r.id),
     }));
