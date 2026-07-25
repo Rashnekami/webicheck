@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
 import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AbrirWhatsappRouteImport } from './routes/abrir-whatsapp'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
@@ -45,11 +44,6 @@ const AutorizarAgentRoute = AutorizarAgentRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AbrirWhatsappRoute = AbrirWhatsappRouteImport.update({
-  id: '/abrir-whatsapp',
-  path: '/abrir-whatsapp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -153,7 +147,6 @@ const ApiPublicWebiDiagnosticDeviceStartRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/abrir-whatsapp': typeof AbrirWhatsappRoute
   '/auth': typeof AuthRoute
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
@@ -176,7 +169,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/abrir-whatsapp': typeof AbrirWhatsappRoute
   '/auth': typeof AuthRoute
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
@@ -201,7 +193,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/abrir-whatsapp': typeof AbrirWhatsappRoute
   '/auth': typeof AuthRoute
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
@@ -226,7 +217,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/abrir-whatsapp'
     | '/auth'
     | '/autorizar-agent'
     | '/completar-cadastro'
@@ -249,7 +239,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/abrir-whatsapp'
     | '/auth'
     | '/autorizar-agent'
     | '/completar-cadastro'
@@ -273,7 +262,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
-    | '/abrir-whatsapp'
     | '/auth'
     | '/autorizar-agent'
     | '/completar-cadastro'
@@ -298,7 +286,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  AbrirWhatsappRoute: typeof AbrirWhatsappRoute
   AuthRoute: typeof AuthRoute
   AutorizarAgentRoute: typeof AutorizarAgentRoute
   CompletarCadastroRoute: typeof CompletarCadastroRoute
@@ -332,13 +319,6 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/abrir-whatsapp': {
-      id: '/abrir-whatsapp'
-      path: '/abrir-whatsapp'
-      fullPath: '/abrir-whatsapp'
-      preLoaderRoute: typeof AbrirWhatsappRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -500,7 +480,6 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AbrirWhatsappRoute: AbrirWhatsappRoute,
   AuthRoute: AuthRoute,
   AutorizarAgentRoute: AutorizarAgentRoute,
   CompletarCadastroRoute: CompletarCadastroRoute,
@@ -520,13 +499,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
