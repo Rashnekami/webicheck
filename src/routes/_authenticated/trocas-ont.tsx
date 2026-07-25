@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, PackageSearch, Search } from "lucide-react";
+import { ArrowLeft, FileArchive, Loader2, PackageSearch, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { getCaseDossieBundle } from "@/lib/warehouse-dossie.functions";
+import { downloadCaseDossieFromBundle } from "@/components/checklist/dossie-pdf";
 
 export const Route = createFileRoute("/_authenticated/trocas-ont")({
   head: () => ({
@@ -47,11 +50,31 @@ async function listOntExchanges(): Promise<OntExchangeTicket[]> {
 function OntExchangesPage() {
   const { data: user, isLoading: loadingUser } = useCurrentUser();
   const [search, setSearch] = useState("");
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const query = useQuery({
     queryKey: ["ont-exchange-tickets"],
     queryFn: listOntExchanges,
     enabled: user?.isAdmin === true || user?.isWarehouse === true,
   });
+
+  async function handleDossie(ticketId: string) {
+    try {
+      setDownloadingId(ticketId);
+      const bundle = await getCaseDossieBundle({ data: { ticketId } });
+      await downloadCaseDossieFromBundle(bundle);
+    } catch (e) {
+      const msg = (e as Error).message || "";
+      if (msg.includes("different_provider") || msg.includes("missing_role"))
+        toast.error("Sem permissão para baixar este dossiê.");
+      else if (msg.includes("user_inactive")) toast.error("Sua conta está inativa.");
+      else if (msg.includes("provider_suspended")) toast.error("Provedor suspenso.");
+      else if (msg.includes("not_found")) toast.error("Atendimento ou ticket não encontrado.");
+      else toast.error("Não foi possível gerar o dossiê.");
+      console.error(e);
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   const items = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
@@ -168,13 +191,28 @@ function OntExchangesPage() {
               <p className="text-xs text-muted-foreground">
                 Troca registrada em {new Date(item.exchanged_at).toLocaleString("pt-BR")}
               </p>
-              {user.isAdmin && item.checklist_id && (
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/checklists/$id" params={{ id: item.checklist_id }}>
-                    Abrir checklist
-                  </Link>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDossie(item.id)}
+                  disabled={downloadingId === item.id}
+                >
+                  {downloadingId === item.id ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileArchive className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Baixar dossiê completo
                 </Button>
-              )}
+                {user.isAdmin && item.checklist_id && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/checklists/$id" params={{ id: item.checklist_id }}>
+                      Abrir checklist
+                    </Link>
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
