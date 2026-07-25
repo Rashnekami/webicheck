@@ -166,7 +166,7 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
       .eq("case_id", caseId)
       .order("revision_number", { ascending: true });
     if (revErr) throw new Error(revErr.message);
-    const revisions = (revisionRows ?? []) as DossieRevision["checklist"][];
+    const revisions = (revisionRows ?? []) as unknown as DossieRevision["checklist"][];
     if (revisions.length === 0) {
       throw accessError({ ok: false, code: 404, reason: "case_not_found" });
     }
