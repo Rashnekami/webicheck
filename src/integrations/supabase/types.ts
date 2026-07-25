@@ -554,6 +554,152 @@ export type Database = {
           },
         ]
       }
+      customer_counterproof_events: {
+        Row: {
+          actor_type: string
+          actor_user_id: string | null
+          counterproof_id: string
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          user_agent: string | null
+        }
+        Insert: {
+          actor_type: string
+          actor_user_id?: string | null
+          counterproof_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Update: {
+          actor_type?: string
+          actor_user_id?: string | null
+          counterproof_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_counterproof_events_counterproof_id_fkey"
+            columns: ["counterproof_id"]
+            isOneToOne: false
+            referencedRelation: "customer_counterproofs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_counterproofs: {
+        Row: {
+          annulled_at: string | null
+          annulled_by: string | null
+          annulment_reason: string | null
+          case_id: string
+          checklist_code: string
+          checklist_id: string
+          client_name: string | null
+          client_phone_e164: string | null
+          code: string
+          created_at: string
+          created_by: string
+          first_opened_at: string | null
+          id: string
+          identity_sha256: string | null
+          identity_storage_path: string | null
+          provider_id: string
+          public_token: string
+          service_order: string | null
+          signature_data_url: string | null
+          status: string
+          tecnico_id: string
+          terms_version: string | null
+          updated_at: string
+          validated_at: string | null
+          validated_ip: string | null
+          validated_user_agent: string | null
+        }
+        Insert: {
+          annulled_at?: string | null
+          annulled_by?: string | null
+          annulment_reason?: string | null
+          case_id: string
+          checklist_code: string
+          checklist_id: string
+          client_name?: string | null
+          client_phone_e164?: string | null
+          code: string
+          created_at?: string
+          created_by: string
+          first_opened_at?: string | null
+          id?: string
+          identity_sha256?: string | null
+          identity_storage_path?: string | null
+          provider_id: string
+          public_token: string
+          service_order?: string | null
+          signature_data_url?: string | null
+          status?: string
+          tecnico_id: string
+          terms_version?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_ip?: string | null
+          validated_user_agent?: string | null
+        }
+        Update: {
+          annulled_at?: string | null
+          annulled_by?: string | null
+          annulment_reason?: string | null
+          case_id?: string
+          checklist_code?: string
+          checklist_id?: string
+          client_name?: string | null
+          client_phone_e164?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string
+          first_opened_at?: string | null
+          id?: string
+          identity_sha256?: string | null
+          identity_storage_path?: string | null
+          provider_id?: string
+          public_token?: string
+          service_order?: string | null
+          signature_data_url?: string | null
+          status?: string
+          tecnico_id?: string
+          terms_version?: string | null
+          updated_at?: string
+          validated_at?: string | null
+          validated_ip?: string | null
+          validated_user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_counterproofs_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_counterproofs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ont_exchange_ticket_counters: {
         Row: {
           last_value: number
