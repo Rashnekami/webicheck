@@ -210,6 +210,9 @@ function UsersPage() {
                         <ShieldCheck className="mr-1 h-3 w-3" /> Admin
                       </Badge>
                     )}
+                    {user.role === "almoxarifado" && (
+                      <Badge variant="secondary">Almoxarifado</Badge>
+                    )}
                     <Badge
                       variant={user.active ? "default" : "secondary"}
                       className={user.active ? "bg-emerald-500/15 text-emerald-700" : undefined}
@@ -328,6 +331,7 @@ function UsersPage() {
                   }
                 >
                   <option value="tecnico">Técnico</option>
+                  <option value="almoxarifado">Almoxarifado (somente trocas)</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
