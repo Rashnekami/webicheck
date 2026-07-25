@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '*.ts' '*.tsx' \
-            | grep -v '^src/integrations/supabase/types\.ts$' \
+            | sed '/^src\/integrations\/supabase\/types\.ts$/d' \
             | xargs -r npx eslint
 
       - name: Build
