@@ -233,9 +233,8 @@ export async function signedFotoUrl(path: string, expiresIn = 3600): Promise<str
   // Override para o fluxo do dossiê (almoxarifado): as URLs são geradas no
   // servidor porque o RLS não deixa o usuário assinar diretamente. O caller
   // popula __dossieSignedFotoMap antes de acionar a geração do PDF.
-  const map = (
-    globalThis as unknown as { __dossieSignedFotoMap?: Map<string, string | null> }
-  ).__dossieSignedFotoMap;
+  const map = (globalThis as unknown as { __dossieSignedFotoMap?: Map<string, string | null> })
+    .__dossieSignedFotoMap;
   if (map?.has(path)) {
     const url = map.get(path);
     if (url) return url;
@@ -247,4 +246,3 @@ export async function signedFotoUrl(path: string, expiresIn = 3600): Promise<str
   if (error) throw error;
   return data.signedUrl;
 }
-

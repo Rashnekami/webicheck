@@ -250,9 +250,7 @@ async function appendRevisionBlock(
     );
     const buf =
       "signed_url" in d && (d as DossieRevision["diagnostics"][number]).signed_url
-        ? await fetchDiagnosticFromUrl(
-            (d as DossieRevision["diagnostics"][number]).signed_url,
-          )
+        ? await fetchDiagnosticFromUrl((d as DossieRevision["diagnostics"][number]).signed_url)
         : await fetchDiagnosticById(d.id);
     if (!buf) continue;
     try {

@@ -1,15 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  evaluateDossieAccess,
-  type DossieAccessResult,
-} from "@/lib/dossie-access";
-import type {
-  ChecklistData,
-  ChecklistRow,
-  FotoRow,
-  InstalacaoData,
-} from "@/lib/checklist-schema";
+import { evaluateDossieAccess, type DossieAccessResult } from "@/lib/dossie-access";
+import type { ChecklistData, ChecklistRow, FotoRow, InstalacaoData } from "@/lib/checklist-schema";
 import type { DiagnosticReportRow } from "@/lib/webi-diagnostic.functions";
 
 export interface DossieRevision {
@@ -151,9 +143,7 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
         ? { id: profile.id, active: profile.active, provider_id: profile.provider_id }
         : null,
       provider: providerRow ? { id: providerRow.id, status: providerRow.status } : null,
-      case: baseRev
-        ? { provider_id: baseRev.provider_id, tecnico_id: baseRev.tecnico_id }
-        : null,
+      case: baseRev ? { provider_id: baseRev.provider_id, tecnico_id: baseRev.tecnico_id } : null,
       roles,
       platformAdmin: profile?.platform_admin ?? false,
     });
@@ -176,10 +166,7 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
 
     // 7. Fotos, técnicos e diagnósticos em uma única rodada.
     const [{ data: fotoRows }, { data: tecRows }, { data: diagRows }] = await Promise.all([
-      supabaseAdmin
-        .from("checklist_fotos")
-        .select("*")
-        .in("checklist_id", revisionIds),
+      supabaseAdmin.from("checklist_fotos").select("*").in("checklist_id", revisionIds),
       supabaseAdmin
         .from("profiles")
         .select("id, full_name, email, assinatura")
