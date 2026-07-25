@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useState } from "react";
 import QRCode from "qrcode";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { SnapshotPayload } from "@/lib/public-checklist.functions";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
 interface Props {
   payload: SnapshotPayload;
@@ -10,6 +11,7 @@ interface Props {
   version?: number | null;
   /** Renderiza com largura fixa em px (para exportação PNG). */
   fixedWidth?: number;
+  counterproof?: CounterproofDocumentInfo | null;
 }
 
 const BRAND = "#1a53ff";
@@ -159,7 +161,7 @@ function useQrDataUrl(text: string | null | undefined) {
 }
 
 export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
-  function ChecklistDocumentView({ payload, publicUrl, shortHash, version, fixedWidth }, ref) {
+  function ChecklistDocumentView({ payload, publicUrl, shortHash, version, fixedWidth, counterproof }, ref) {
     const isInstal = payload.tipo === "instalacao";
     const h = payload.header;
     const d = payload.dados as Record<string, Record<string, unknown> | string>;
@@ -280,6 +282,14 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
             <div style={{ fontSize: 12, fontWeight: 700 }}>{payload.codigo_validacao || "—"}</div>
           </div>
         </div>
+
+        {counterproof?.status === "validated" ? (
+          <div style={{ border: "1px solid #86efac", borderRadius: 6, background: "#f0fdf4", padding: 10, marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#166534" }}>CONTRA-PROVA VALIDADA PELO CLIENTE</div>
+            <div style={{ fontSize: 11, color: INK }}>Código: {counterproof.code} · Checklist: {counterproof.checklist_code}</div>
+            <div style={{ fontSize: 11, color: INK }}>Validação: {fmtDateTime(counterproof.validated_at)} · Evidência de identificação registrada</div>
+          </div>
+        ) : null}
 
         {/* 1 — Identificação */}
         <SectionTitle>1. Identificação do atendimento</SectionTitle>
