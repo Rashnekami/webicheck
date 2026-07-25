@@ -192,7 +192,12 @@ const styles = StyleSheet.create({
     backgroundColor: SOFT_BG,
   },
   numberLabel: { fontSize: 8, color: MUTED, letterSpacing: 0.6 },
-  numberValue: { fontSize: 13, fontWeight: 700, color: BRAND_DARK, letterSpacing: 1 },
+  numberValue: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: BRAND_DARK,
+    letterSpacing: 1,
+  },
   photoItem: {
     width: "100%",
     flex: 1,
@@ -204,7 +209,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  photoImg: { width: "100%", height: 610, objectFit: "contain", borderRadius: 2 },
+  photoImg: {
+    width: "100%",
+    height: 610,
+    objectFit: "contain",
+    borderRadius: 2,
+  },
   photoLabel: { fontSize: 9, marginTop: 6, color: MUTED, textAlign: "center" },
   qrImage: { width: 56, height: 56, marginLeft: 8 },
 });
@@ -265,6 +275,7 @@ function ChecklistDocument({
   qrUri,
 }: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as ChecklistData;
+  const equipmentUnavailable = d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const numero = (row.numero_publico || "— pendente —") + revSuffix;
@@ -369,70 +380,84 @@ function ChecklistDocument({
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>4. Teste cabeado</Text>
-        <View style={styles.sectionBox}>
-          <Field
-            label="Aplica-se ao atendimento"
-            value={yesNo(d.teste_cabeado.aplicabilidade)}
-            w="100%"
-          />
-          {d.teste_cabeado.aplicabilidade === "nao" ? (
-            <Text style={{ color: MUTED, marginTop: 3 }}>
-              Não se aplica — atendimento realizado sem equipamento para teste cabeado.
-            </Text>
-          ) : (
-            <>
+        {equipmentUnavailable ? (
+          <>
+            <Text style={styles.sectionTitle}>4. Testes anteriores à troca</Text>
+            <View style={styles.sectionBox}>
+              <Text style={{ color: "#78350f" }}>
+                Não aplicáveis — a ONT/ONU retirada foi registrada como queimada ou danificada. Os
+                resultados cabeados e Wi-Fi anteriores à substituição permanecem nulos.
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>4. Teste cabeado</Text>
+            <View style={styles.sectionBox}>
+              <Field
+                label="Aplica-se ao atendimento"
+                value={yesNo(d.teste_cabeado.aplicabilidade)}
+                w="100%"
+              />
+              {d.teste_cabeado.aplicabilidade === "nao" ? (
+                <Text style={{ color: MUTED, marginTop: 3 }}>
+                  Não se aplica — atendimento realizado sem equipamento para teste cabeado.
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
+                  <View style={styles.grid2}>
+                    <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
+                    <Chk v={d.teste_cabeado.ping} label="Ping testado" />
+                    <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
+                    <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
+                  </View>
+                  <View style={styles.grid2}>
+                    <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
+                    <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
+                    <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
+                  </View>
+                  <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
+                  <View style={styles.grid2}>
+                    <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
+                    <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
+                    <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
+                    <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
+                    <Chk
+                      v={d.teste_cabeado.nao_testado}
+                      label="Aplicável, mas não foi possível testar"
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+
+            <Text style={styles.sectionTitle}>5. Teste Wi-Fi</Text>
+            <View style={styles.sectionBox}>
               <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
               <View style={styles.grid2}>
-                <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
-                <Chk v={d.teste_cabeado.ping} label="Ping testado" />
-                <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
-                <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
+                <Chk v={d.teste_wifi.rede_24} label="Rede 2,4 GHz testada" />
+                <Chk v={d.teste_wifi.rede_5} label="Rede 5 GHz testada" />
+                <Chk v={d.teste_wifi.mais_aparelhos} label="Testado em mais de um aparelho" />
+                <Chk v={d.teste_wifi.cabo_funcionando} label="Cabo permanece funcionando" />
               </View>
+              <Text style={styles.subsectionLabel}>VELOCIDADE MEDIDA NO WI-FI</Text>
               <View style={styles.grid2}>
-                <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
-                <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
-                <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
+                <Field label="Download (Mbps)" value={d.teste_wifi.download} w="33.33%" />
+                <Field label="Upload (Mbps)" value={d.teste_wifi.upload} w="33.33%" />
+                <Field label="Ping (ms)" value={d.teste_wifi.ping_ms} w="33.33%" />
               </View>
               <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
               <View style={styles.grid2}>
-                <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
-                <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
-                <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
-                <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
-                <Chk
-                  v={d.teste_cabeado.nao_testado}
-                  label="Aplicável, mas não foi possível testar"
-                />
+                <Chk v={d.teste_wifi.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
+                <Chk v={d.teste_wifi.ambas_desaparecem} label="Ambas as redes desaparecem" />
+                <Chk v={d.teste_wifi.sem_internet} label="Wi-Fi visível sem internet" />
+                <Chk v={d.teste_wifi.um_aparelho} label="Ocorreu apenas em um aparelho" />
+                <Chk v={d.teste_wifi.nao_reproduzida} label="Falha não reproduzida" />
               </View>
-            </>
-          )}
-        </View>
-
-        <Text style={styles.sectionTitle}>5. Teste Wi-Fi</Text>
-        <View style={styles.sectionBox}>
-          <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
-          <View style={styles.grid2}>
-            <Chk v={d.teste_wifi.rede_24} label="Rede 2,4 GHz testada" />
-            <Chk v={d.teste_wifi.rede_5} label="Rede 5 GHz testada" />
-            <Chk v={d.teste_wifi.mais_aparelhos} label="Testado em mais de um aparelho" />
-            <Chk v={d.teste_wifi.cabo_funcionando} label="Cabo permanece funcionando" />
-          </View>
-          <Text style={styles.subsectionLabel}>VELOCIDADE MEDIDA NO WI-FI</Text>
-          <View style={styles.grid2}>
-            <Field label="Download (Mbps)" value={d.teste_wifi.download} w="33.33%" />
-            <Field label="Upload (Mbps)" value={d.teste_wifi.upload} w="33.33%" />
-            <Field label="Ping (ms)" value={d.teste_wifi.ping_ms} w="33.33%" />
-          </View>
-          <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
-          <View style={styles.grid2}>
-            <Chk v={d.teste_wifi.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
-            <Chk v={d.teste_wifi.ambas_desaparecem} label="Ambas as redes desaparecem" />
-            <Chk v={d.teste_wifi.sem_internet} label="Wi-Fi visível sem internet" />
-            <Chk v={d.teste_wifi.um_aparelho} label="Ocorreu apenas em um aparelho" />
-            <Chk v={d.teste_wifi.nao_reproduzida} label="Falha não reproduzida" />
-          </View>
-        </View>
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>6. Evidências marcadas</Text>
         <View style={styles.sectionBox}>
@@ -454,6 +479,13 @@ function ChecklistDocument({
             <Field label="Encaminhado ao NOC" value={yesNo(d.resultado_final.encaminhado_noc)} />
             <Field label="Interrompeu atendimento" value={yesNo(d.resultado_final.interrompeu)} />
             <Field label="Motivo" value={d.resultado_final.motivo} w="100%" />
+            {equipmentUnavailable && row.troca_realizada === true ? (
+              <Field
+                label="Teste pós-troca solicitado"
+                value={d.resultado_final.executar_diagnostico_pos_troca ? "Sim" : "Não"}
+                w="100%"
+              />
+            ) : null}
           </View>
         </View>
 
