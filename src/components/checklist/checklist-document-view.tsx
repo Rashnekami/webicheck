@@ -11,6 +11,7 @@ import {
   InstallationDarkDocument,
   type InstallationDocumentPart,
 } from "@/components/checklist/installation-dark-document";
+import { ValidationDarkDocument } from "@/components/checklist/validation-dark-document";
 import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
 import type { StoredAiAnalysis } from "@/lib/checklist-schema";
 
