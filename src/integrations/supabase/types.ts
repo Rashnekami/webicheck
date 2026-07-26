@@ -606,6 +606,8 @@ export type Database = {
           case_id: string
           checklist_code: string
           checklist_id: string
+          client_checklist: Json | null
+          client_checklist_version: string | null
           client_name: string | null
           client_phone_e164: string | null
           code: string
@@ -634,6 +636,8 @@ export type Database = {
           case_id: string
           checklist_code: string
           checklist_id: string
+          client_checklist?: Json | null
+          client_checklist_version?: string | null
           client_name?: string | null
           client_phone_e164?: string | null
           code: string
@@ -662,6 +666,8 @@ export type Database = {
           case_id?: string
           checklist_code?: string
           checklist_id?: string
+          client_checklist?: Json | null
+          client_checklist_version?: string | null
           client_name?: string | null
           client_phone_e164?: string | null
           code?: string
