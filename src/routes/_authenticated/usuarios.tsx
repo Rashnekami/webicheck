@@ -410,10 +410,69 @@ function UsersPage() {
                   }
                 >
                   <option value="tecnico">Técnico</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="noc">NOC (leitura)</option>
                   <option value="almoxarifado">Almoxarifado (somente trocas)</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
+
+              {draft.role === "tecnico" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="user-supervisor">Supervisor responsável</Label>
+                  <select
+                    id="user-supervisor"
+                    className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
+                    value={draft.supervisorId ?? ""}
+                    onChange={(e) => setDraft({ ...draft, supervisorId: e.target.value || null })}
+                  >
+                    <option value="">Sem supervisor</option>
+                    {(supervisorsQuery.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                        {s.cities.length ? ` — ${s.cities.join(", ")}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {draft.role === "supervisor" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Cidades cobertas</Label>
+                  <div className="flex flex-wrap gap-2 rounded-xl border border-blue-400/20 bg-slate-950/45 p-3">
+                    {PROFILE_CITIES.map((city) => {
+                      const checked = draft.supervisorCities.includes(city);
+                      return (
+                        <label
+                          key={city}
+                          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition ${
+                            checked
+                              ? "border-cyan-400/60 bg-cyan-500/15 text-cyan-200"
+                              : "border-blue-400/20 text-slate-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-3 w-3"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(draft.supervisorCities);
+                              if (e.target.checked) next.add(city);
+                              else next.delete(city);
+                              setDraft({ ...draft, supervisorCities: Array.from(next) });
+                            }}
+                          />
+                          {city}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    O supervisor verá e revisará checklists dos técnicos atribuídos e das cidades marcadas.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="user-active">Situação do acesso</Label>
                 <select
