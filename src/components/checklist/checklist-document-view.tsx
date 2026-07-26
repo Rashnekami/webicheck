@@ -3,6 +3,11 @@ import QRCode from "qrcode";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { SnapshotPayload } from "@/lib/public-checklist.functions";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
+import {
+  INSTALACAO_TECHNICIAN_QUESTIONS,
+  readInstalacaoAnswer,
+} from "@/lib/instalacao-checklist";
+
 
 interface Props {
   payload: SnapshotPayload;
