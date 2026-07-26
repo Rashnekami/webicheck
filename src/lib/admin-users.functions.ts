@@ -71,24 +71,48 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     const ids = authUsers.map((user) => user.id);
     if (ids.length === 0) return [];
 
-    const [{ data: profiles, error: profileError }, { data: roles, error: roleError }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("profiles")
-          .select("id, email, full_name, phone, matricula, city, active, created_at, provider_id")
-          .in("id", ids),
-        supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
-      ]);
+    const [
+      { data: profiles, error: profileError },
+      { data: roles, error: roleError },
+      { data: supCities, error: supCitiesError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select(
+          "id, email, full_name, phone, matricula, city, active, created_at, provider_id, supervisor_id",
+        )
+        .in("id", ids),
+      supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
+      supabaseAdmin
+        .from("supervisor_cities")
+        .select("supervisor_id, city")
+        .in("supervisor_id", ids),
+    ]);
 
     if (profileError) throw new Error(profileError.message);
     if (roleError) throw new Error(roleError.message);
+    if (supCitiesError) throw new Error(supCitiesError.message);
 
     const profileById = new Map((profiles ?? []).map((row) => [row.id, row]));
     const rolesById = new Map<string, ManagedUserRole>();
     for (const row of roles ?? []) {
-      if (row.role === "admin" || !rolesById.has(row.user_id)) {
-        rolesById.set(row.user_id, row.role as ManagedUserRole);
-      }
+      const r = row.role as ManagedUserRole;
+      // preferência: admin > supervisor > noc > almoxarifado > tecnico
+      const priority: Record<ManagedUserRole, number> = {
+        admin: 5,
+        supervisor: 4,
+        noc: 3,
+        almoxarifado: 2,
+        tecnico: 1,
+      };
+      const cur = rolesById.get(row.user_id);
+      if (!cur || priority[r] > priority[cur]) rolesById.set(row.user_id, r);
+    }
+    const citiesBySup = new Map<string, string[]>();
+    for (const row of supCities ?? []) {
+      const list = citiesBySup.get(row.supervisor_id) ?? [];
+      list.push(row.city);
+      citiesBySup.set(row.supervisor_id, list);
     }
 
     return authUsers
@@ -98,21 +122,26 @@ export const listAdminUsers = createServerFn({ method: "GET" })
         return p?.provider_id && p.provider_id === actorProviderId;
       })
       .map((authUser) => {
-        const profile = profileById.get(authUser.id);
+        const profile = profileById.get(authUser.id) as
+          | { supervisor_id?: string | null }
+          | undefined;
+        const p = profileById.get(authUser.id);
         return {
           id: authUser.id,
-          email: profile?.email || authUser.email || "",
+          email: p?.email || authUser.email || "",
           full_name:
-            profile?.full_name || authUser.user_metadata?.full_name || "Usuário sem perfil",
-          phone: profile?.phone ?? null,
-          matricula: profile?.matricula ?? null,
-          city: profile?.city ?? null,
-          active: profile?.active ?? false,
+            p?.full_name || authUser.user_metadata?.full_name || "Usuário sem perfil",
+          phone: p?.phone ?? null,
+          matricula: p?.matricula ?? null,
+          city: p?.city ?? null,
+          active: p?.active ?? false,
           role: rolesById.get(authUser.id) ?? "tecnico",
-          created_at: profile?.created_at ?? authUser.created_at,
+          supervisor_id: profile?.supervisor_id ?? null,
+          supervisor_cities: citiesBySup.get(authUser.id) ?? [],
+          created_at: p?.created_at ?? authUser.created_at,
           last_sign_in_at: authUser.last_sign_in_at ?? null,
           email_confirmed_at: authUser.email_confirmed_at ?? null,
-          has_profile: Boolean(profile),
+          has_profile: Boolean(p),
         } satisfies AdminUserRecord;
       })
       .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"));
