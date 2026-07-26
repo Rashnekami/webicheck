@@ -371,6 +371,7 @@ function ChecklistDetail() {
                 os: header.os ?? null,
                 cliente: header.cliente ?? null,
                 cidade: header.cidade ?? null,
+                endereco: header.endereco ?? null,
                 modelo: header.modelo ?? null,
                 serial: header.serial ?? null,
                 cto_porta: header.cto_porta ?? null,
