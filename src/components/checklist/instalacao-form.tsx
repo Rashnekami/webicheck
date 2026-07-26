@@ -3,7 +3,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ShieldCheck,
+} from "lucide-react";
 import { useState } from "react";
 import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
 import {
@@ -11,6 +15,7 @@ import {
   readInstalacaoAnswer,
   type InstalacaoAnswer,
 } from "@/lib/instalacao-checklist";
+import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 
 type HeaderShape = Pick<
   ChecklistRow,
@@ -35,10 +40,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">
-          <span className="mr-2 text-primary">{n}.</span>
+    <Card className="overflow-hidden rounded-2xl border-cyan-500/35 bg-[#06152d] text-slate-100 shadow-[inset_0_0_32px_rgba(0,105,255,0.07),0_0_22px_rgba(0,105,255,0.08)]">
+      <CardHeader className="border-b border-blue-500/20 pb-3">
+        <CardTitle className="flex items-center text-base">
+          <span className="mr-2 grid h-7 w-7 place-items-center rounded-lg bg-blue-600 text-xs text-white shadow-[0_0_16px_rgba(0,119,255,0.35)]">
+            {n}
+          </span>
           {title}
         </CardTitle>
       </CardHeader>
@@ -78,7 +85,17 @@ export function InstalacaoForm({
   const showReview = current >= total;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 rounded-3xl border border-blue-500/30 bg-[#020817] p-3 text-slate-100 shadow-[inset_0_0_48px_rgba(0,105,255,0.08),0_0_28px_rgba(0,105,255,0.12)] sm:p-5 [&_input]:border-cyan-500/35 [&_input]:bg-[#041126] [&_input]:text-slate-100 [&_input]:placeholder:text-slate-500 [&_label]:text-slate-300 [&_textarea]:border-cyan-500/35 [&_textarea]:bg-[#041126] [&_textarea]:text-slate-100">
+      <div className="rounded-2xl border border-blue-500/35 bg-[radial-gradient(circle_at_top_right,rgba(0,170,255,.18),transparent_38%),linear-gradient(145deg,#06152d,#020817)] px-4 py-5 text-center">
+        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-400/50 bg-blue-600/20 text-cyan-300 shadow-[0_0_22px_rgba(0,200,255,.2)]">
+          <ShieldCheck className="h-7 w-7" />
+        </div>
+        <h2 className="text-xl font-black tracking-wide text-white">
+          CHECKLIST DO <span className="text-cyan-300">TÉCNICO</span>
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">Validação técnica do atendimento</p>
+      </div>
+
       <Section n={1} title="Identificação do atendimento">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -107,10 +124,11 @@ export function InstalacaoForm({
           </div>
           <div className="space-y-1.5">
             <Label>Cidade</Label>
-            <Input
-              value={header.cidade ?? ""}
+            <WebiCitySelect
+              value={header.cidade}
               disabled={readOnly}
-              onChange={(e) => onHeaderChange({ cidade: e.target.value })}
+              dark
+              onChange={(cidade) => onHeaderChange({ cidade })}
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
@@ -146,8 +164,8 @@ export function InstalacaoForm({
         </div>
       </Section>
 
-      <Section n={2} title="Checklist do técnico — Sim ou Não">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <Section n={2} title="Perguntas do técnico">
+        <div className="flex items-center justify-between text-xs text-slate-400">
           <span>
             {Math.min(current + 1, total)} de {total}
           </span>
@@ -155,18 +173,23 @@ export function InstalacaoForm({
             {answered} de {total} respondidas
           </span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div className="h-2 overflow-hidden rounded-full bg-slate-800">
           <div
-            className="h-full rounded-full bg-primary transition-all"
+            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-300 shadow-[0_0_12px_rgba(0,210,255,.45)] transition-all"
             style={{ width: `${(answered / total) * 100}%` }}
           />
         </div>
 
         {!showReview ? (
           <div className="space-y-4 pt-2">
-            <p className="min-h-16 text-sm font-medium leading-6">
+            <div className="flex items-start gap-3 rounded-2xl border border-blue-500/30 bg-[#041126] p-4">
+              <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-blue-600 text-sm font-black shadow-[0_0_16px_rgba(0,119,255,.3)]">
+                {String(current + 1).padStart(2, "0")}
+              </span>
+              <p className="min-h-16 text-sm font-medium leading-6 text-slate-100">
               {INSTALACAO_TECHNICIAN_QUESTIONS[current].question}
-            </p>
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {(["sim", "nao"] as const).map((ans) => {
                 const q = INSTALACAO_TECHNICIAN_QUESTIONS[current];
@@ -176,8 +199,14 @@ export function InstalacaoForm({
                     key={ans}
                     type="button"
                     disabled={readOnly}
-                    variant={selected ? "default" : "outline"}
-                    className={ans === "nao" && selected ? "bg-amber-600 hover:bg-amber-700" : ""}
+                    variant="outline"
+                    className={
+                      selected
+                        ? ans === "sim"
+                          ? "h-12 border-emerald-400 bg-emerald-600 text-white shadow-[0_0_16px_rgba(34,197,94,.25)] hover:bg-emerald-500"
+                          : "h-12 border-red-400 bg-red-600 text-white shadow-[0_0_16px_rgba(239,68,68,.25)] hover:bg-red-500"
+                        : "h-12 border-blue-500/40 bg-[#071b3a] text-slate-100 hover:bg-blue-900/60"
+                    }
                     onClick={() => {
                       setAnswer(q.id, ans);
                       // avança para a próxima não-respondida
@@ -189,7 +218,7 @@ export function InstalacaoForm({
                       setCurrent(nextUnanswered === -1 ? total : nextUnanswered);
                     }}
                   >
-                    {ans === "sim" ? "Sim" : "Não"}
+                    {ans === "sim" ? "✓ SIM" : "✕ NÃO"}
                   </Button>
                 );
               })}
@@ -218,7 +247,7 @@ export function InstalacaoForm({
         ) : (
           <div className="space-y-2 pt-1">
             {allAnswered && (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3 text-sm text-emerald-300">
                 <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
                 Todas as perguntas foram respondidas.
               </div>
@@ -230,20 +259,22 @@ export function InstalacaoForm({
                   key={q.id}
                   type="button"
                   disabled={readOnly}
-                  className="flex w-full items-start justify-between gap-3 rounded-md border p-2.5 text-left text-xs hover:bg-muted/50"
+                  className="flex w-full items-start justify-between gap-3 rounded-xl border border-blue-500/25 bg-[#041126] p-3 text-left text-xs text-slate-100 hover:bg-blue-950"
                   onClick={() => setCurrent(idx)}
                 >
                   <span className="leading-snug">
-                    <span className="mr-1.5 text-muted-foreground">{idx + 1}.</span>
+                    <span className="mr-2 rounded-md bg-blue-700 px-1.5 py-0.5 text-white">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
                     {q.question}
                   </span>
                   <b
                     className={
                       ans === "nao"
-                        ? "text-amber-700"
+                        ? "text-red-400"
                         : ans === "sim"
-                          ? "text-emerald-700"
-                          : "text-muted-foreground"
+                          ? "text-emerald-400"
+                          : "text-slate-500"
                     }
                   >
                     {ans === "sim" ? "Sim" : ans === "nao" ? "Não" : "—"}
@@ -255,7 +286,7 @@ export function InstalacaoForm({
         )}
       </Section>
 
-      <Section n={3} title="Medições do teste de velocidade">
+      <Section n={3} title="Teste de velocidade — realizado via Wi-Fi">
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1.5">
             <Label>Download (Mbps)</Label>
@@ -294,7 +325,7 @@ export function InstalacaoForm({
           disabled={readOnly}
           onChange={(e) => onDataChange((p) => ({ ...p, observacoes: e.target.value }))}
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-slate-400">
           A assinatura do cliente é coletada exclusivamente na Contra-Prova Digital, após a
           finalização do checklist.
         </p>
