@@ -54,7 +54,7 @@ export const createTechnicianCredential = createServerFn({ method: "POST" })
       matricula?: string | null;
       phone?: string | null;
       city?: string | null;
-      role: "tecnico" | "almoxarifado" | "admin";
+      role: "tecnico" | "almoxarifado" | "admin" | "supervisor" | "noc";
       linkToUserId?: string | null; // opcional: vincular ao usuário existente (que já logou com Google)
     }) => {
       const login = data.login.trim().toLowerCase();
@@ -64,7 +64,7 @@ export const createTechnicianCredential = createServerFn({ method: "POST" })
         throw new Error("A senha deve ter pelo menos 8 caracteres.");
       if (!data.fullName || data.fullName.trim().length < 2)
         throw new Error("Informe o nome completo.");
-      if (!["tecnico", "almoxarifado", "admin"].includes(data.role))
+      if (!["tecnico", "almoxarifado", "admin", "supervisor", "noc"].includes(data.role))
         throw new Error("Perfil inválido.");
       return {
         ...data,

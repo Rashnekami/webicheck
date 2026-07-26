@@ -48,7 +48,7 @@ function ChecklistsList() {
   const [tab, setTab] = useState<"todos" | "rascunho" | "finalizado">("todos");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const scope = user?.isAdmin ? "all" : "mine";
+  const scope = user?.isAdmin || user?.isSupervisor || user?.isNoc ? "all" : "mine";
 
   const query = useQuery({
     queryKey: ["checklists", scope, user?.id],
@@ -116,7 +116,13 @@ function ChecklistsList() {
             <div>
               <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Webifibra</p>
               <h1 className="text-lg font-semibold">
-                {user?.isAdmin ? "Todos os checklists" : "Meus checklists"}
+                {user?.isAdmin
+                  ? "Todos os checklists"
+                  : user?.isSupervisor
+                    ? "Checklists da equipe"
+                    : user?.isNoc
+                      ? "Checklists do provedor"
+                      : "Meus checklists"}
               </h1>
             </div>
           </div>
@@ -206,6 +212,21 @@ function ChecklistsList() {
                               </Badge>
                             ) : (
                               <Badge variant="secondary">Rascunho</Badge>
+                            )}
+                            {c.review_status === "aprovado" && (
+                              <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">
+                                Aprovado
+                              </Badge>
+                            )}
+                            {c.review_status === "reprovado" && (
+                              <Badge className="border-rose-400/30 bg-rose-500/10 text-rose-300">
+                                {c.locked_for_rework ? "Reprovado (refazer)" : "Reprovado"}
+                              </Badge>
+                            )}
+                            {c.review_status === "pendente" && c.status === "finalizado" && (
+                              <Badge className="border-amber-400/30 bg-amber-500/10 text-amber-300">
+                                Aguardando revisão
+                              </Badge>
                             )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">

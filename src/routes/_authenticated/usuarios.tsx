@@ -30,6 +30,7 @@ import {
   resetTechnicianPassword,
 } from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
+import { listProviderSupervisors } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -37,6 +38,14 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   }),
   component: UsersPage,
 });
+
+const ROLE_LABEL: Record<ManagedUserRole, string> = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  noc: "NOC",
+  almoxarifado: "Almoxarifado",
+  tecnico: "Técnico",
+};
 
 type UserDraft = {
   email: string;
@@ -46,6 +55,8 @@ type UserDraft = {
   city: string;
   active: boolean;
   role: ManagedUserRole;
+  supervisorId: string | null;
+  supervisorCities: string[];
 };
 
 function toDraft(user: AdminUserRecord): UserDraft {
@@ -57,6 +68,8 @@ function toDraft(user: AdminUserRecord): UserDraft {
     city: user.city ?? "",
     active: user.active,
     role: user.role,
+    supervisorId: user.supervisor_id,
+    supervisorCities: user.supervisor_cities ?? [],
   };
 }
 
@@ -85,6 +98,16 @@ function UsersPage() {
 
   const [credTarget, setCredTarget] = useState<AdminUserRecord | null>(null);
 
+  const supervisorsQuery = useQuery({
+    queryKey: ["provider-supervisors"],
+    queryFn: () => listProviderSupervisors(),
+    enabled: currentUser?.isAdmin === true,
+  });
+  const supervisorById = useMemo(
+    () => new Map((supervisorsQuery.data ?? []).map((s) => [s.id, s])),
+    [supervisorsQuery.data],
+  );
+
   const updateUser = useMutation({
     mutationFn: async ({ user, values }: { user: AdminUserRecord; values: UserDraft }) =>
       updateAdminUser({
@@ -97,6 +120,8 @@ function UsersPage() {
           city: values.city,
           active: values.active,
           role: values.role,
+          supervisorId: values.role === "tecnico" ? values.supervisorId : null,
+          supervisorCities: values.role === "supervisor" ? values.supervisorCities : [],
         },
       }),
     onSuccess: async () => {
@@ -104,6 +129,7 @@ function UsersPage() {
       setEditing(null);
       setDraft(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.invalidateQueries({ queryKey: ["provider-supervisors"] });
       await queryClient.invalidateQueries({ queryKey: ["current-user"] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -231,6 +257,16 @@ function UsersPage() {
                         <ShieldCheck className="mr-1 h-3 w-3" /> Admin
                       </Badge>
                     )}
+                    {user.role === "supervisor" && (
+                      <Badge className="border-blue-400/30 bg-blue-500/15 text-blue-300">
+                        Supervisor
+                      </Badge>
+                    )}
+                    {user.role === "noc" && (
+                      <Badge className="border-purple-400/30 bg-purple-500/15 text-purple-300">
+                        NOC
+                      </Badge>
+                    )}
                     {user.role === "almoxarifado" && (
                       <Badge variant="secondary">Almoxarifado</Badge>
                     )}
@@ -252,6 +288,12 @@ function UsersPage() {
                   {user.city && <p>Cidade: {user.city}</p>}
                   {user.phone && <p>Telefone: {user.phone}</p>}
                   <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
+                  {user.supervisor_id && (
+                    <p>Supervisor: {supervisorById.get(user.supervisor_id)?.full_name ?? "—"}</p>
+                  )}
+                  {user.role === "supervisor" && user.supervisor_cities.length > 0 && (
+                    <p>Cidades cobertas: {user.supervisor_cities.join(", ")}</p>
+                  )}
                   {accountByUserId.get(user.id) && (
                     <p className="font-mono text-cyan-400">
                       Login: {accountByUserId.get(user.id)!.login}
@@ -368,10 +410,69 @@ function UsersPage() {
                   }
                 >
                   <option value="tecnico">Técnico</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="noc">NOC (leitura)</option>
                   <option value="almoxarifado">Almoxarifado (somente trocas)</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
+
+              {draft.role === "tecnico" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="user-supervisor">Supervisor responsável</Label>
+                  <select
+                    id="user-supervisor"
+                    className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
+                    value={draft.supervisorId ?? ""}
+                    onChange={(e) => setDraft({ ...draft, supervisorId: e.target.value || null })}
+                  >
+                    <option value="">Sem supervisor</option>
+                    {(supervisorsQuery.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                        {s.cities.length ? ` — ${s.cities.join(", ")}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {draft.role === "supervisor" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Cidades cobertas</Label>
+                  <div className="flex flex-wrap gap-2 rounded-xl border border-blue-400/20 bg-slate-950/45 p-3">
+                    {PROFILE_CITIES.map((city) => {
+                      const checked = draft.supervisorCities.includes(city);
+                      return (
+                        <label
+                          key={city}
+                          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition ${
+                            checked
+                              ? "border-cyan-400/60 bg-cyan-500/15 text-cyan-200"
+                              : "border-blue-400/20 text-slate-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-3 w-3"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(draft.supervisorCities);
+                              if (e.target.checked) next.add(city);
+                              else next.delete(city);
+                              setDraft({ ...draft, supervisorCities: Array.from(next) });
+                            }}
+                          />
+                          {city}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    O supervisor verá e revisará checklists dos técnicos atribuídos e das cidades marcadas.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="user-active">Situação do acesso</Label>
                 <select

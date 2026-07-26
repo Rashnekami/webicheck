@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
-export type ManagedUserRole = "admin" | "tecnico" | "almoxarifado";
+export type ManagedUserRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc";
+const ALL_ROLES: ManagedUserRole[] = ["admin", "tecnico", "almoxarifado", "supervisor", "noc"];
 
 export interface AdminUserRecord {
   id: string;
@@ -14,6 +15,8 @@ export interface AdminUserRecord {
   city: string | null;
   active: boolean;
   role: ManagedUserRole;
+  supervisor_id: string | null;
+  supervisor_cities: string[];
   created_at: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
@@ -68,24 +71,48 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     const ids = authUsers.map((user) => user.id);
     if (ids.length === 0) return [];
 
-    const [{ data: profiles, error: profileError }, { data: roles, error: roleError }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("profiles")
-          .select("id, email, full_name, phone, matricula, city, active, created_at, provider_id")
-          .in("id", ids),
-        supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
-      ]);
+    const [
+      { data: profiles, error: profileError },
+      { data: roles, error: roleError },
+      { data: supCities, error: supCitiesError },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select(
+          "id, email, full_name, phone, matricula, city, active, created_at, provider_id, supervisor_id",
+        )
+        .in("id", ids),
+      supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
+      supabaseAdmin
+        .from("supervisor_cities")
+        .select("supervisor_id, city")
+        .in("supervisor_id", ids),
+    ]);
 
     if (profileError) throw new Error(profileError.message);
     if (roleError) throw new Error(roleError.message);
+    if (supCitiesError) throw new Error(supCitiesError.message);
 
     const profileById = new Map((profiles ?? []).map((row) => [row.id, row]));
     const rolesById = new Map<string, ManagedUserRole>();
     for (const row of roles ?? []) {
-      if (row.role === "admin" || !rolesById.has(row.user_id)) {
-        rolesById.set(row.user_id, row.role as ManagedUserRole);
-      }
+      const r = row.role as ManagedUserRole;
+      // preferência: admin > supervisor > noc > almoxarifado > tecnico
+      const priority: Record<ManagedUserRole, number> = {
+        admin: 5,
+        supervisor: 4,
+        noc: 3,
+        almoxarifado: 2,
+        tecnico: 1,
+      };
+      const cur = rolesById.get(row.user_id);
+      if (!cur || priority[r] > priority[cur]) rolesById.set(row.user_id, r);
+    }
+    const citiesBySup = new Map<string, string[]>();
+    for (const row of supCities ?? []) {
+      const list = citiesBySup.get(row.supervisor_id) ?? [];
+      list.push(row.city);
+      citiesBySup.set(row.supervisor_id, list);
     }
 
     return authUsers
@@ -95,21 +122,26 @@ export const listAdminUsers = createServerFn({ method: "GET" })
         return p?.provider_id && p.provider_id === actorProviderId;
       })
       .map((authUser) => {
-        const profile = profileById.get(authUser.id);
+        const profile = profileById.get(authUser.id) as
+          | { supervisor_id?: string | null }
+          | undefined;
+        const p = profileById.get(authUser.id);
         return {
           id: authUser.id,
-          email: profile?.email || authUser.email || "",
+          email: p?.email || authUser.email || "",
           full_name:
-            profile?.full_name || authUser.user_metadata?.full_name || "Usuário sem perfil",
-          phone: profile?.phone ?? null,
-          matricula: profile?.matricula ?? null,
-          city: profile?.city ?? null,
-          active: profile?.active ?? false,
+            p?.full_name || authUser.user_metadata?.full_name || "Usuário sem perfil",
+          phone: p?.phone ?? null,
+          matricula: p?.matricula ?? null,
+          city: p?.city ?? null,
+          active: p?.active ?? false,
           role: rolesById.get(authUser.id) ?? "tecnico",
-          created_at: profile?.created_at ?? authUser.created_at,
+          supervisor_id: profile?.supervisor_id ?? null,
+          supervisor_cities: citiesBySup.get(authUser.id) ?? [],
+          created_at: p?.created_at ?? authUser.created_at,
           last_sign_in_at: authUser.last_sign_in_at ?? null,
           email_confirmed_at: authUser.email_confirmed_at ?? null,
-          has_profile: Boolean(profile),
+          has_profile: Boolean(p),
         } satisfies AdminUserRecord;
       })
       .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"));
@@ -128,11 +160,13 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       city?: string | null;
       active: boolean;
       role: ManagedUserRole;
+      supervisorId?: string | null;
+      supervisorCities?: string[];
     }) => {
       if (!input.userId) throw new Error("Usuário inválido.");
       if (!/^\S+@\S+\.\S+$/.test(input.email.trim())) throw new Error("Informe um e-mail válido.");
       if (input.fullName.trim().length < 2) throw new Error("Informe o nome completo.");
-      if (!["admin", "tecnico", "almoxarifado"].includes(input.role))
+      if (!ALL_ROLES.includes(input.role))
         throw new Error("Perfil de acesso inválido.");
       return {
         ...input,
@@ -141,6 +175,8 @@ export const updateAdminUser = createServerFn({ method: "POST" })
         phone: input.phone?.trim() || null,
         matricula: input.matricula?.trim() || null,
         city: input.city?.trim() || null,
+        supervisorId: input.supervisorId?.trim() || null,
+        supervisorCities: (input.supervisorCities ?? []).map((c) => c.trim()).filter(Boolean),
       };
     },
   )
@@ -205,6 +241,7 @@ export const updateAdminUser = createServerFn({ method: "POST" })
     });
     if (authError) throw new Error(authError.message);
 
+    const providerIdForUser = targetProfile?.provider_id ?? actorProfile.provider_id;
     const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
       {
         id: data.userId,
@@ -214,12 +251,33 @@ export const updateAdminUser = createServerFn({ method: "POST" })
         matricula: data.matricula,
         city: data.city,
         active: data.active,
-        provider_id: targetProfile?.provider_id ?? actorProfile.provider_id,
+        provider_id: providerIdForUser,
+        supervisor_id: data.role === "tecnico" ? data.supervisorId : null,
         updated_at: new Date().toISOString(),
-      },
+      } as never,
       { onConflict: "id" },
     );
     if (profileError) throw new Error(profileError.message);
+
+    // Sincroniza cidades cobertas quando o papel é supervisor
+    if (data.role === "supervisor") {
+      const desired = new Set(data.supervisorCities);
+      await supabaseAdmin.from("supervisor_cities").delete().eq("supervisor_id", data.userId);
+      if (desired.size > 0 && providerIdForUser) {
+        const rows = Array.from(desired).map((city) => ({
+          supervisor_id: data.userId,
+          provider_id: providerIdForUser,
+          city,
+        }));
+        const { error: cErr } = await supabaseAdmin
+          .from("supervisor_cities")
+          .insert(rows as never);
+        if (cErr) throw new Error(cErr.message);
+      }
+    } else {
+      // Se deixou de ser supervisor, remove cidades
+      await supabaseAdmin.from("supervisor_cities").delete().eq("supervisor_id", data.userId);
+    }
 
     // Primeiro garante o novo papel e só depois remove os demais. Assim,
     // uma falha intermediária nunca deixa o usuário sem papel algum.
