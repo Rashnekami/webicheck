@@ -73,6 +73,18 @@ function UsersPage() {
     enabled: currentUser?.isAdmin === true,
   });
 
+  const accountsQuery = useQuery({
+    queryKey: ["provider-login-accounts"],
+    queryFn: () => listProviderLoginAccounts(),
+    enabled: currentUser?.isAdmin === true,
+  });
+  const accountByUserId = useMemo(
+    () => new Map((accountsQuery.data ?? []).map((a) => [a.user_id, a])),
+    [accountsQuery.data],
+  );
+
+  const [credTarget, setCredTarget] = useState<AdminUserRecord | null>(null);
+
   const updateUser = useMutation({
     mutationFn: async ({ user, values }: { user: AdminUserRecord; values: UserDraft }) =>
       updateAdminUser({
