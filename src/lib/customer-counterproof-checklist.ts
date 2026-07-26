@@ -1,4 +1,4 @@
-export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "3.0.0";
+export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "4.0.0";
 
 export type CustomerCounterproofAnswer = "sim" | "nao";
 
