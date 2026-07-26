@@ -451,3 +451,106 @@ function GoogleButton({ className }: { className?: string }) {
     </Button>
   );
 }
+
+function InternalLoginForm() {
+  const navigate = useNavigate();
+  const [providerSlug, setProviderSlug] = useState("webifibra");
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!providerSlug || !login || !password) {
+      toast.error("Preencha todos os campos.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await fetch("/api/public/auth/login-internal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider_slug: providerSlug, login, password }),
+      });
+      const body = (await resp.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+        error?: string;
+      };
+      if (!resp.ok || !body.access_token || !body.refresh_token) {
+        toast.error(body.error || "Login ou senha inválidos.");
+        return;
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: body.access_token,
+        refresh_token: body.refresh_token,
+      });
+      if (error) {
+        toast.error("Não foi possível iniciar a sessão.");
+        return;
+      }
+      const { data: session } = await supabase.auth.getUser();
+      if (!session.user) {
+        toast.error("Sessão inválida.");
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active, city")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      if (!profile?.active) {
+        await supabase.auth.signOut();
+        toast.error("Seu acesso está inativo.");
+        return;
+      }
+      if (!profile.city?.trim()) {
+        navigate({ to: "/completar-cadastro", replace: true });
+        return;
+      }
+      finishLogin();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="int-provider">Provedor</Label>
+        <Input
+          id="int-provider"
+          value={providerSlug}
+          onChange={(e) => setProviderSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+          placeholder="webifibra"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="int-login">Login</Label>
+        <Input
+          id="int-login"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+          placeholder="T0112"
+          autoComplete="username"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="int-password">Senha</Label>
+        <Input
+          id="int-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
+      </div>
+      <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Entrar
+      </Button>
+    </form>
+  );
+}
