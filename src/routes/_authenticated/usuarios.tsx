@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,11 @@ import {
   listAdminUsers,
   updateAdminUser,
 } from "@/lib/admin-users.functions";
+import {
+  createTechnicianCredential,
+  listProviderLoginAccounts,
+  resetTechnicianPassword,
+} from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
