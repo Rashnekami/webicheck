@@ -30,6 +30,7 @@ import {
   resetTechnicianPassword,
 } from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
+import { listProviderSupervisors } from "@/lib/supervisor.functions";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -37,6 +38,14 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   }),
   component: UsersPage,
 });
+
+const ROLE_LABEL: Record<ManagedUserRole, string> = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  noc: "NOC",
+  almoxarifado: "Almoxarifado",
+  tecnico: "Técnico",
+};
 
 type UserDraft = {
   email: string;
@@ -46,6 +55,8 @@ type UserDraft = {
   city: string;
   active: boolean;
   role: ManagedUserRole;
+  supervisorId: string | null;
+  supervisorCities: string[];
 };
 
 function toDraft(user: AdminUserRecord): UserDraft {
@@ -57,6 +68,8 @@ function toDraft(user: AdminUserRecord): UserDraft {
     city: user.city ?? "",
     active: user.active,
     role: user.role,
+    supervisorId: user.supervisor_id,
+    supervisorCities: user.supervisor_cities ?? [],
   };
 }
 
