@@ -5,6 +5,7 @@ import { FOTO_CATEGORIAS } from "@/lib/checklist-schema";
 import { signedFotoUrl } from "@/lib/checklists";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
+import { CustomerCounterproofPdfPage } from "@/components/checklist/customer-counterproof-pdf-page";
 
 const BRAND = "#1a53ff";
 const BRAND_DARK = "#0f3fd4";
@@ -540,6 +541,10 @@ function ChecklistDocument({
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>
+
+      {counterproof?.status === "validated" ? (
+        <CustomerCounterproofPdfPage counterproof={counterproof} logoUri={logoUri} />
+      ) : null}
 
       {fotos.map((f, index) => (
         <Page key={f.id} size="A4" style={styles.page}>
