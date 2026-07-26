@@ -401,8 +401,23 @@ function ChecklistDetail() {
               canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
               fotos={fotosQuery.data ?? []}
             />
+
+            {row.status === "rascunho" && row.tecnico_id === user?.id && (
+              <OntAiAnalysisCard
+                checklistId={id}
+                analysis={(data as ChecklistData).ai_analysis ?? null}
+                tipoManutencao={(data as ChecklistData).tipo_manutencao ?? null}
+                disabled={dirty || save.isPending}
+                disabledReason={
+                  dirty || save.isPending
+                    ? "Salvando alterações... aguarde antes de solicitar a análise."
+                    : undefined
+                }
+              />
+            )}
           </>
         )}
+
 
         {row.status === "finalizado" && (
           <>
