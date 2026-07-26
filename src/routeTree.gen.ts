@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
 import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDiagnosticoInteligenteRouteImport } from './routes/_authenticated/diagnostico-inteligente'
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
@@ -60,6 +61,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDiagnosticoInteligenteRoute =
+  AuthenticatedDiagnosticoInteligenteRouteImport.update({
+    id: '/diagnostico-inteligente',
+    path: '/diagnostico-inteligente',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedInformativosRoute =
   AuthenticatedInformativosRouteImport.update({
     id: '/informativos',
@@ -151,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/diagnostico-inteligente': typeof AuthenticatedDiagnosticoInteligenteRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
@@ -173,6 +181,7 @@ export interface FileRoutesByTo {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/diagnostico-inteligente': typeof AuthenticatedDiagnosticoInteligenteRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
@@ -197,6 +206,7 @@ export interface FileRoutesById {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/diagnostico-inteligente': typeof AuthenticatedDiagnosticoInteligenteRoute
   '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/dashboard'
+    | '/diagnostico-inteligente'
     | '/informativos'
     | '/integracoes'
     | '/painel'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/dashboard'
+    | '/diagnostico-inteligente'
     | '/informativos'
     | '/integracoes'
     | '/painel'
@@ -266,6 +278,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/_authenticated/dashboard'
+    | '/_authenticated/diagnostico-inteligente'
     | '/_authenticated/informativos'
     | '/_authenticated/integracoes'
     | '/_authenticated/painel'
@@ -340,6 +353,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/diagnostico-inteligente': {
+      id: '/_authenticated/diagnostico-inteligente'
+      path: '/diagnostico-inteligente'
+      fullPath: '/diagnostico-inteligente'
+      preLoaderRoute: typeof AuthenticatedDiagnosticoInteligenteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/informativos': {
@@ -452,6 +472,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDiagnosticoInteligenteRoute: typeof AuthenticatedDiagnosticoInteligenteRoute
   AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
@@ -464,6 +485,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDiagnosticoInteligenteRoute:
+    AuthenticatedDiagnosticoInteligenteRoute,
   AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
