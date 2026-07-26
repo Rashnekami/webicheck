@@ -290,7 +290,13 @@ function ChecklistDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div
+      className={
+        tipo === "instalacao"
+          ? "min-h-screen bg-[#020817] pb-24"
+          : "min-h-screen bg-background pb-24"
+      }
+    >
       <header className="brand-gradient sticky top-0 z-10 text-white shadow-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
