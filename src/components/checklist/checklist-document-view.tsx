@@ -364,10 +364,174 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
           <span>Webifibra · {payload.checklist_code || payload.numero_publico || "—"}</span>
           <span>Finalizado: {fmtDateTime(payload.finalizado_em)}</span>
         </div>
+
+        {counterproof?.status === "validated" ? (
+          <CustomerCounterproofDocumentSection counterproof={counterproof} />
+        ) : null}
       </div>
     );
   },
 );
+
+function CustomerCounterproofDocumentSection({
+  counterproof,
+}: {
+  counterproof: CounterproofDocumentInfo;
+}) {
+  const items = counterproof.client_checklist?.items ?? [];
+  return (
+    <div
+      style={{
+        marginTop: 36,
+        borderTop: "10px solid #e2e8f0",
+        paddingTop: 24,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          border: `1px solid ${BORDER}`,
+          borderRadius: 8,
+          overflow: "hidden",
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            width: 96,
+            padding: 10,
+            borderRight: `1px solid ${BORDER}`,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={logoAsset.url}
+            alt="Webifibra"
+            crossOrigin="anonymous"
+            style={{ width: 76, height: "auto", objectFit: "contain" }}
+          />
+        </div>
+        <div style={{ flex: 1, background: SOFT, padding: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: BRAND_DARK }}>
+            CHECKLIST DO CLIENTE
+          </div>
+          <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
+            Contra-Prova Digital vinculada ao atendimento técnico
+          </div>
+          <span
+            style={{
+              display: "inline-block",
+              marginTop: 6,
+              borderRadius: 4,
+              background: "#059669",
+              color: "white",
+              padding: "3px 8px",
+              fontSize: 11,
+              fontWeight: 700,
+            }}
+          >
+            VALIDADA PELO CLIENTE
+          </span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #86efac",
+          borderRadius: 6,
+          background: "#f0fdf4",
+          padding: 10,
+          marginBottom: 12,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 4,
+        }}
+      >
+        <div><span style={{ color: MUTED }}>Contra-Prova: </span><b>{counterproof.code}</b></div>
+        <div><span style={{ color: MUTED }}>Checklist técnico: </span><b>{counterproof.checklist_code}</b></div>
+        <div><span style={{ color: MUTED }}>Cliente: </span><b>{counterproof.client_name || "—"}</b></div>
+        <div><span style={{ color: MUTED }}>OS: </span><b>{counterproof.service_order || "—"}</b></div>
+        <div style={{ gridColumn: "1 / -1" }}><span style={{ color: MUTED }}>Data/hora: </span><b>{fmtDateTime(counterproof.validated_at)}</b></div>
+      </div>
+
+      <SectionTitle>Respostas do cliente - Sim ou Não</SectionTitle>
+      <SectionBox>
+        {items.length ? items.map((item, index) => (
+          <div
+            key={item.id}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "26px 1fr 58px",
+              gap: 8,
+              alignItems: "start",
+              padding: "8px 0",
+              borderBottom: index === items.length - 1 ? "none" : "1px solid #e2e8f0",
+            }}
+          >
+            <b style={{ color: MUTED }}>{index + 1}.</b>
+            <span>{item.question}</span>
+            <b
+              style={{
+                borderRadius: 4,
+                padding: "2px 4px",
+                textAlign: "center",
+                color: item.answer === "sim" ? "#166534" : "#92400e",
+                background: item.answer === "sim" ? "#dcfce7" : "#fef3c7",
+              }}
+            >
+              {item.answer === "sim" ? "SIM" : "NÃO"}
+            </b>
+          </div>
+        )) : (
+          <div style={{ color: MUTED }}>
+            Respostas não registradas. Esta Contra-Prova foi concluída antes da versão com
+            checklist do cliente.
+          </div>
+        )}
+      </SectionBox>
+
+      <div
+        style={{
+          marginTop: 12,
+          border: "1px solid #bfdbfe",
+          borderRadius: 6,
+          background: "#eff6ff",
+          padding: 10,
+        }}
+      >
+        <b style={{ color: BRAND_DARK }}>Evidência de identificação registrada</b>
+        <div style={{ marginTop: 3, color: MUTED, fontSize: 11 }}>
+          A foto com RG/CNH é privada e pode ser consultada somente pela administração autorizada.
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, maxWidth: 380 }}>
+        <SignBox
+          title="Assinatura digital do cliente"
+          name={counterproof.client_name || "—"}
+          image={counterproof.signature_data_url}
+        />
+      </div>
+
+      <div
+        style={{
+          marginTop: 14,
+          borderTop: `1px solid ${BORDER}`,
+          paddingTop: 6,
+          fontSize: 11,
+          color: MUTED,
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>Webifibra · Contra-Prova {counterproof.code}</span>
+        <span>Checklist {counterproof.checklist_code}</span>
+      </div>
+    </div>
+  );
+}
 
 function SignBox({ title, name, image }: { title: string; name: string; image?: string | null }) {
   return (
