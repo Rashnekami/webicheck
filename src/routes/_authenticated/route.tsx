@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated")({
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
     }
-    if (!profile.city?.trim()) {
+    if (!profile.city?.trim() || !profile.provider_id) {
       throw redirect({ to: "/completar-cadastro" });
     }
     const { data: provider } = await supabase
@@ -56,7 +56,7 @@ function AuthenticatedLayout() {
         navigate({ to: "/auth", replace: true });
         return;
       }
-      if (!profile.city?.trim()) {
+      if (!profile.city?.trim() || !profile.provider_id) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
