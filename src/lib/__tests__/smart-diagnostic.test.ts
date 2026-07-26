@@ -101,6 +101,18 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     expect(result.noc.eligible).toBe(false);
   });
 
+  it("apresenta respostas contextuais para isolar falha de serviço", () => {
+    const session = sessionWith(["streaming"], { all_devices: "yes" });
+    const question = getNextDiagnosticQuestion(session);
+
+    expect(question?.id).toBe("specific_service_only");
+    expect(question?.options?.map((option) => option.label)).toEqual([
+      "Somente neste aplicativo, site ou serviço",
+      "Também acontece em outros serviços",
+      "Não foi possível testar outros serviços",
+    ]);
+  });
+
   it("libera a simulação NOC para porta LAN somente após eliminar cabo e dispositivo", () => {
     const session = sessionWith(["porta_lan"], {
       other_lan_port: "yes",

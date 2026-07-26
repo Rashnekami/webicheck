@@ -219,6 +219,18 @@ const yesNoUnknown: DiagnosticOption[] = [
   { value: "unknown", label: "Não foi possível confirmar", tone: "warning" },
 ];
 
+const serviceScopeOptions: DiagnosticOption[] = [
+  { value: "yes", label: "Somente neste aplicativo, site ou serviço", tone: "positive" },
+  { value: "no", label: "Também acontece em outros serviços", tone: "negative" },
+  { value: "unknown", label: "Não foi possível testar outros serviços", tone: "warning" },
+];
+
+const otherServicesOptions: DiagnosticOption[] = [
+  { value: "yes", label: "Sim, os outros funcionam normalmente", tone: "positive" },
+  { value: "no", label: "Não, os outros também apresentam falha", tone: "negative" },
+  { value: "unknown", label: "Não foi possível comparar", tone: "warning" },
+];
+
 function answer(session: SmartDiagnosticSession, id: string): string | undefined {
   const value = session.answers[id];
   return typeof value === "string" ? value : undefined;
@@ -647,7 +659,11 @@ const CORE_QUESTIONS: Array<
     category: "Desempenho",
     prompt: "A lentidão acontece em vários aplicativos e serviços?",
     type: "single",
-    options: yesNoUnknown,
+    options: [
+      { value: "yes", label: "Sim, em vários aplicativos e serviços", tone: "positive" },
+      { value: "no", label: "Não, somente em um aplicativo ou serviço", tone: "negative" },
+      { value: "unknown", label: "Não foi possível comparar", tone: "warning" },
+    ],
     evidence: "Abrangência da lentidão",
     when: (s) => s.symptoms.includes("lentidao"),
   },
@@ -655,8 +671,9 @@ const CORE_QUESTIONS: Array<
     id: "specific_service_only",
     category: "Serviço",
     prompt: "A falha acontece somente em um aplicativo, site, jogo ou serviço?",
+    helper: "Compare o serviço afetado com outros aplicativos e sites antes de responder.",
     type: "single",
-    options: yesNoUnknown,
+    options: serviceScopeOptions,
     evidence: "Falha isolada em serviço",
     when: (s) => answer(s, "slowness_many_services") === "no" || isService(s),
   },
@@ -664,8 +681,9 @@ const CORE_QUESTIONS: Array<
     id: "other_services_normal",
     category: "Serviço",
     prompt: "Outros aplicativos e sites funcionam normalmente?",
+    helper: "Use esta confirmação para separar falha de internet de indisponibilidade do serviço.",
     type: "single",
-    options: yesNoUnknown,
+    options: otherServicesOptions,
     evidence: "Comparação com outros serviços",
     when: (s) => answer(s, "specific_service_only") === "yes" || isService(s),
   },
