@@ -19,6 +19,7 @@ import {
 } from "@/lib/checklist-schema";
 import { TIPO_MANUTENCAO_OPCOES } from "@/lib/ont-checklist-ai";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
+import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
 
 type Props = {
   header: Pick<
