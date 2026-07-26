@@ -5,11 +5,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   emptyChecklistData,
   type ChecklistData,
   type ChecklistRow,
   type YesNo,
 } from "@/lib/checklist-schema";
+import { TIPO_MANUTENCAO_OPCOES } from "@/lib/ont-checklist-ai";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 
 type Props = {
