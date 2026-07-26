@@ -3,6 +3,18 @@
 export type YesNo = "sim" | "nao" | null;
 export type TipoChecklist = "validacao_ont" | "instalacao";
 
+export interface StoredAiAnalysis {
+  diagnostico_provavel: string;
+  causa_raiz: string;
+  recomendacao: string;
+  justificativa: string;
+  inconsistencias: string[];
+  resumo_tecnico: string;
+  gerado_em: string;
+  modelo_ia: string;
+  tipo_manutencao: string | null;
+}
+
 // -------- ONT (validação) --------
 export interface ChecklistData {
   sintoma: {
