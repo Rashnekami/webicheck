@@ -93,7 +93,13 @@ function ValidarPage() {
   const payload = data.payload!;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-16">
+    <div
+      className={
+        payload.tipo === "instalacao"
+          ? "min-h-screen bg-[#020817] pb-16 text-slate-100"
+          : "min-h-screen bg-slate-50 pb-16"
+      }
+    >
       <header className="brand-gradient text-white shadow-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -148,7 +154,13 @@ function ValidarPage() {
         </div>
 
 
-        <div className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+        <div
+          className={
+            payload.tipo === "instalacao"
+              ? "overflow-x-auto rounded-2xl border border-blue-500/30 bg-[#020817] shadow-[0_0_26px_rgba(0,105,255,.1)]"
+              : "overflow-x-auto rounded-lg border bg-white shadow-sm"
+          }
+        >
           <ChecklistDocumentView
             ref={docRef}
             payload={payload}
