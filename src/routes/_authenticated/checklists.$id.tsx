@@ -60,6 +60,7 @@ import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
 import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
+import { OntAiAnalysisCard } from "@/components/checklist/ont-ai-analysis-card";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   ensureChecklistSnapshot,
