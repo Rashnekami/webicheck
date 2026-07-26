@@ -19,6 +19,7 @@ import {
 } from "@/lib/checklist-schema";
 import { TIPO_MANUTENCAO_OPCOES } from "@/lib/ont-checklist-ai";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
+import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
 
 type Props = {
   header: Pick<
@@ -26,6 +27,7 @@ type Props = {
     | "os"
     | "cliente"
     | "cidade"
+    | "endereco"
     | "modelo"
     | "serial"
     | "cto_porta"
@@ -117,6 +119,8 @@ function YesNoField({
 }
 
 export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataChange }: Props) {
+  useChecklistAutoFill({ header, readOnly, onHeaderChange });
+
   const set =
     <K extends keyof ChecklistData>(section: K) =>
     (patch: Partial<ChecklistData[K]>) =>

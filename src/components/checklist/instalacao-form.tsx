@@ -16,6 +16,8 @@ import {
   type InstalacaoAnswer,
 } from "@/lib/instalacao-checklist";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
+import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
+
 
 type HeaderShape = Pick<
   ChecklistRow,
@@ -61,7 +63,9 @@ export function InstalacaoForm({
   onHeaderChange,
   onDataChange,
 }: Props) {
+  useChecklistAutoFill({ header, readOnly, onHeaderChange });
   const respostas = data.respostas ?? {};
+
   const total = INSTALACAO_TECHNICIAN_QUESTIONS.length;
   const answered = INSTALACAO_TECHNICIAN_QUESTIONS.filter(
     (q) => readInstalacaoAnswer(respostas, q.id) !== null,
