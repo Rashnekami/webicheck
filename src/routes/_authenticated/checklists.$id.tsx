@@ -234,9 +234,7 @@ function ChecklistDetail() {
       }
       if (!d.relato?.trim()) errs.push("Relato do técnico");
     } else {
-      const d = data as InstalacaoData;
       if (!header.endereco?.trim()) errs.push("Endereço");
-      if (!d.assinatura_cliente) errs.push("Assinatura do cliente");
     }
     return errs;
   }, [header, data, tipo]);
