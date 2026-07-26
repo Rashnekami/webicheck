@@ -30,7 +30,7 @@ const s = StyleSheet.create({
     backgroundColor: C.page,
     color: C.text,
     fontFamily: "Helvetica",
-    fontSize: 7.4,
+    fontSize: 8.4,
   },
   frame: {
     borderWidth: 1,
@@ -77,33 +77,39 @@ const s = StyleSheet.create({
     backgroundColor: C.panel,
     marginTop: 5,
   },
-  panelTitle: { color: C.text, fontSize: 9.5, fontWeight: 700, marginBottom: 4 },
+  panelTitle: { color: C.text, fontSize: 11.5, fontWeight: 700, marginBottom: 6 },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: C.line,
-    paddingVertical: 2.2,
+    borderBottomWidth: 1.6,
+    borderBottomColor: "#1d5a9f",
+    paddingVertical: 7,
   },
-  firstItem: { borderTopWidth: 0 },
+  lastItem: { borderBottomWidth: 0 },
   itemNumber: {
-    width: 24,
+    width: 27,
     backgroundColor: "#0c45a5",
     color: "white",
     borderRadius: 4,
-    paddingVertical: 1.4,
+    paddingVertical: 2.2,
     textAlign: "center",
-    fontSize: 6.2,
+    fontSize: 8,
     fontWeight: 700,
   },
-  itemQuestion: { flex: 1, paddingHorizontal: 6, lineHeight: 1.2, color: C.text },
+  itemQuestion: {
+    flex: 1,
+    paddingHorizontal: 8,
+    lineHeight: 1.35,
+    color: C.text,
+    fontSize: 10,
+  },
   answer: {
-    width: 42,
+    width: 46,
     borderRadius: 8,
-    paddingVertical: 1.7,
+    paddingVertical: 2.8,
     textAlign: "center",
     color: "white",
-    fontSize: 6.3,
+    fontSize: 8.5,
     fontWeight: 700,
   },
   answerSim: { backgroundColor: "#25b62f" },
@@ -135,15 +141,17 @@ const s = StyleSheet.create({
   bottomTitle: { color: C.text, fontSize: 8.5, fontWeight: 700, marginBottom: 5 },
   obs: { color: C.muted, fontSize: 7, lineHeight: 1.4 },
   signBox: {
-    height: 48,
+    height: 58,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: C.border,
+    borderColor: C.cyan,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#ffffff",
+    padding: 4,
   },
-  signImage: { maxHeight: 42, maxWidth: "92%", objectFit: "contain" },
+  signImage: { maxHeight: 50, maxWidth: "92%", objectFit: "contain" },
   signName: { color: C.text, fontSize: 6.8, fontWeight: 700, marginTop: 3, textAlign: "center" },
   authenticity: {
     marginTop: 5,
@@ -174,6 +182,26 @@ const s = StyleSheet.create({
     fontWeight: 700,
     marginBottom: 7,
     letterSpacing: 0.8,
+  },
+  continuationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    paddingBottom: 8,
+    marginBottom: 7,
+  },
+  continuationTitle: {
+    color: C.cyan,
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: 0.7,
+  },
+  continuationMeta: {
+    color: C.muted,
+    fontSize: 7.5,
+    textAlign: "right",
   },
 });
 
@@ -219,7 +247,114 @@ function InfoCard({
   );
 }
 
-function TechnicianPdfPage({
+function TechnicianHeader({
+  row,
+  tecnicoNome,
+  logoUri,
+  counterproof,
+  number,
+}: {
+  row: ChecklistRow;
+  tecnicoNome: string;
+  logoUri: string;
+  counterproof?: CounterproofDocumentInfo | null;
+  number: string;
+}) {
+  return (
+    <>
+      <View style={s.header}>
+        {logoUri ? <Image src={logoUri} style={s.logo} /> : null}
+        <Text style={s.title}>
+          CHECKLIST DO <Text style={s.titleAccent}>TÉCNICO</Text>
+        </Text>
+        <Text style={s.subtitle}>Validação técnica do atendimento</Text>
+      </View>
+
+      <View style={s.grid}>
+        <InfoCard label="Cliente" value={row.cliente} wide />
+        <InfoCard label="OS" value={row.os} />
+        <InfoCard label="Checklist" value={number} />
+        <InfoCard label="Código de validação" value={row.codigo_validacao} wide />
+        <InfoCard label="Técnico" value={tecnicoNome} wide />
+        <InfoCard label="Cidade" value={row.cidade} />
+        <InfoCard label="Data" value={fmtDate(row.data_atendimento)} />
+        <InfoCard label="Hora" value={row.hora_atendimento} />
+        <InfoCard label="Status" value="VALIDADO" status />
+      </View>
+
+      {counterproof?.status === "validated" ? (
+        <Text style={s.validated}>
+          CONTRA-PROVA VALIDADA PELO CLIENTE · {counterproof.code} ·{" "}
+          {fmtDateTime(counterproof.validated_at)}
+        </Text>
+      ) : null}
+    </>
+  );
+}
+
+function TechnicianQuestions({
+  data,
+  start,
+  end,
+}: {
+  data: InstalacaoData;
+  start: number;
+  end: number;
+}) {
+  const questions = INSTALACAO_TECHNICIAN_QUESTIONS.slice(start, end);
+  return (
+    <View style={s.panel} wrap={false}>
+      <Text style={s.panelTitle}>
+        Perguntas do técnico · {start + 1} a {end}
+      </Text>
+      {questions.map((question, localIndex) => {
+        const absoluteIndex = start + localIndex;
+        const answer = readInstalacaoAnswer(data.respostas, question.id);
+        return (
+          <View
+            key={question.id}
+            style={[
+              s.itemRow,
+              localIndex === questions.length - 1 ? s.lastItem : {},
+            ]}
+            wrap={false}
+          >
+            <Text style={s.itemNumber}>
+              {String(absoluteIndex + 1).padStart(2, "0")}
+            </Text>
+            <Text style={s.itemQuestion}>{question.question}</Text>
+            <Text
+              style={[
+                s.answer,
+                answer === "sim"
+                  ? s.answerSim
+                  : answer === "nao"
+                    ? s.answerNao
+                    : { backgroundColor: "#334155" },
+              ]}
+            >
+              {answer === "sim" ? "SIM" : answer === "nao" ? "NÃO" : "N/A"}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function TechnicianFooter({ row }: { row: ChecklistRow }) {
+  return (
+    <View style={s.footer}>
+      <Text>Webifibra · Conectividade que aproxima</Text>
+      <Text>
+        Finalizado: {fmtDateTime(row.finalizado_em)} · Página{" "}
+        <Text render={({ pageNumber, totalPages }) => `${pageNumber}/${totalPages}`} />
+      </Text>
+    </View>
+  );
+}
+
+function TechnicianPdfPages({
   row,
   tecnicoNome,
   assinatura,
@@ -232,132 +367,99 @@ function TechnicianPdfPage({
   const number = `${row.numero_publico || "—"}${revision > 1 ? `-R${revision}` : ""}`;
 
   return (
-    <Page size="A4" style={s.page} wrap>
-      <View style={s.frame}>
-        <View style={s.header}>
-          {logoUri ? <Image src={logoUri} style={s.logo} /> : null}
-          <Text style={s.title}>
-            CHECKLIST DO <Text style={s.titleAccent}>TÉCNICO</Text>
-          </Text>
-          <Text style={s.subtitle}>Validação técnica do atendimento</Text>
+    <>
+      <Page size="A4" style={s.page}>
+        <View style={s.frame}>
+          <TechnicianHeader
+            row={row}
+            tecnicoNome={tecnicoNome}
+            logoUri={logoUri}
+            counterproof={counterproof}
+            number={number}
+          />
+          <TechnicianQuestions data={data} start={0} end={10} />
+          <TechnicianFooter row={row} />
         </View>
+      </Page>
 
-        <View style={s.grid}>
-          <InfoCard label="Cliente" value={row.cliente} wide />
-          <InfoCard label="OS" value={row.os} />
-          <InfoCard label="Checklist" value={number} />
-          <InfoCard label="Código de validação" value={row.codigo_validacao} wide />
-          <InfoCard label="Técnico" value={tecnicoNome} wide />
-          <InfoCard label="Cidade" value={row.cidade} />
-          <InfoCard label="Data" value={fmtDate(row.data_atendimento)} />
-          <InfoCard label="Hora" value={row.hora_atendimento} />
-          <InfoCard label="Status" value="VALIDADO" status />
-        </View>
+      <Page size="A4" style={s.page}>
+        <View style={s.frame}>
+          <View style={s.continuationHeader}>
+            <View>
+              <Text style={s.continuationTitle}>CHECKLIST DO TÉCNICO</Text>
+              <Text style={s.subtitle}>Continuação · perguntas 11 a 20</Text>
+            </View>
+            <Text style={s.continuationMeta}>
+              {number}
+              {"\n"}
+              {row.cliente || "—"}
+            </Text>
+          </View>
 
-        {counterproof?.status === "validated" ? (
-          <Text style={s.validated}>
-            CONTRA-PROVA VALIDADA PELO CLIENTE · {counterproof.code} ·{" "}
-            {fmtDateTime(counterproof.validated_at)}
-          </Text>
-        ) : null}
+          <TechnicianQuestions data={data} start={10} end={20} />
 
-        <View style={s.panel}>
-          <Text style={s.panelTitle}>Perguntas do técnico</Text>
-          {INSTALACAO_TECHNICIAN_QUESTIONS.map((question, index) => {
-            const answer = readInstalacaoAnswer(data.respostas, question.id);
-            return (
-              <View
-                key={question.id}
-                style={[s.itemRow, index === 0 ? s.firstItem : {}]}
-                wrap={false}
-              >
-                <Text style={s.itemNumber}>{String(index + 1).padStart(2, "0")}</Text>
-                <Text style={s.itemQuestion}>{question.question}</Text>
-                <Text
-                  style={[
-                    s.answer,
-                    answer === "sim"
-                      ? s.answerSim
-                      : answer === "nao"
-                        ? s.answerNao
-                        : { backgroundColor: "#334155" },
-                  ]}
-                >
-                  {answer === "sim" ? "SIM" : answer === "nao" ? "NÃO" : "N/A"}
+          <View style={s.panel} wrap={false}>
+            <View style={s.speedTitleRow}>
+              <Text style={s.panelTitle}>Teste de velocidade</Text>
+              <Text style={s.wifi}>Teste realizado via Wi-Fi</Text>
+            </View>
+            <View style={s.speedRow}>
+              {[
+                { label: "DOWNLOAD", value: data.velocidade?.download, unit: "Mbps" },
+                { label: "UPLOAD", value: data.velocidade?.upload, unit: "Mbps" },
+                { label: "PING", value: data.velocidade?.ping_ms, unit: "ms" },
+              ].map((metric) => (
+                <View key={metric.label} style={s.speedCol}>
+                  <View style={s.speedCard}>
+                    <Text style={s.speedLabel}>{metric.label}</Text>
+                    <Text style={s.speedValue}>
+                      {metric.value || "—"} <Text style={s.speedUnit}>{metric.unit}</Text>
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={s.bottomRow} wrap={false}>
+            <View style={s.bottomCol}>
+              <View style={s.bottomCard}>
+                <Text style={s.bottomTitle}>Observações adicionais</Text>
+                <Text style={s.obs}>
+                  {data.observacoes || "Nenhuma observação adicional registrada."}
                 </Text>
               </View>
-            );
-          })}
-        </View>
-
-        <View break>
-        <Text style={s.continuation}>CHECKLIST DO TÉCNICO · CONTINUAÇÃO</Text>
-        <View style={s.panel} wrap={false}>
-          <View style={s.speedTitleRow}>
-            <Text style={s.panelTitle}>Teste de velocidade</Text>
-            <Text style={s.wifi}>Teste realizado via Wi-Fi</Text>
-          </View>
-          <View style={s.speedRow}>
-            {[
-              { label: "DOWNLOAD", value: data.velocidade?.download, unit: "Mbps" },
-              { label: "UPLOAD", value: data.velocidade?.upload, unit: "Mbps" },
-              { label: "PING", value: data.velocidade?.ping_ms, unit: "ms" },
-            ].map((metric) => (
-              <View key={metric.label} style={s.speedCol}>
-                <View style={s.speedCard}>
-                  <Text style={s.speedLabel}>{metric.label}</Text>
-                  <Text style={s.speedValue}>
-                    {metric.value || "—"} <Text style={s.speedUnit}>{metric.unit}</Text>
-                  </Text>
+            </View>
+            <View style={s.bottomCol}>
+              <View style={s.bottomCard}>
+                <Text style={s.bottomTitle}>Assinatura do técnico</Text>
+                <View style={s.signBox}>
+                  {assinatura ? (
+                    <Image src={assinatura} style={s.signImage} />
+                  ) : (
+                    <Text style={{ color: "#475569", fontSize: 7 }}>
+                      (assinatura não cadastrada)
+                    </Text>
+                  )}
                 </View>
+                <Text style={s.signName}>{tecnicoNome || "—"}</Text>
               </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={s.bottomRow} wrap={false}>
-          <View style={s.bottomCol}>
-            <View style={s.bottomCard}>
-              <Text style={s.bottomTitle}>Observações adicionais</Text>
-              <Text style={s.obs}>
-                {data.observacoes || "Nenhuma observação adicional registrada."}
-              </Text>
             </View>
           </View>
-          <View style={s.bottomCol}>
-            <View style={s.bottomCard}>
-              <Text style={s.bottomTitle}>Assinatura do técnico</Text>
-              <View style={s.signBox}>
-                {assinatura ? (
-                  <Image src={assinatura} style={s.signImage} />
-                ) : (
-                  <Text style={s.obs}>(assinatura não cadastrada)</Text>
-                )}
-              </View>
-              <Text style={s.signName}>{tecnicoNome || "—"}</Text>
+
+          <View style={s.authenticity} wrap={false}>
+            {qrUri ? <Image src={qrUri} style={s.qr} /> : null}
+            <View>
+              <Text style={s.authTitle}>Autenticidade e validação</Text>
+              <Text style={s.authText}>Código: {row.codigo_validacao || "—"}</Text>
+              <Text style={s.authText}>Checklist: {number}</Text>
             </View>
           </View>
-        </View>
 
-        <View style={s.authenticity} wrap={false}>
-          {qrUri ? <Image src={qrUri} style={s.qr} /> : null}
-          <View>
-            <Text style={s.authTitle}>Autenticidade e validação</Text>
-            <Text style={s.authText}>Código: {row.codigo_validacao || "—"}</Text>
-            <Text style={s.authText}>Checklist: {number}</Text>
-          </View>
+          <TechnicianFooter row={row} />
         </View>
-
-        <View style={s.footer}>
-          <Text>Webifibra · Conectividade que aproxima</Text>
-          <Text>
-            Finalizado: {fmtDateTime(row.finalizado_em)} · Página{" "}
-            <Text render={({ pageNumber, totalPages }) => `${pageNumber}/${totalPages}`} />
-          </Text>
-        </View>
-        </View>
-      </View>
-    </Page>
+      </Page>
+    </>
   );
 }
 
@@ -372,7 +474,7 @@ function InstallationDocument({
 }: Params & { logoUri: string; qrUri: string }) {
   return (
     <Document>
-      <TechnicianPdfPage
+      <TechnicianPdfPages
         row={row}
         tecnicoNome={tecnicoNome}
         assinatura={assinatura}
