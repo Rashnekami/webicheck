@@ -248,6 +248,11 @@ export interface ChecklistRow {
   modelo_ont_instalada: string | null;
   serial_ont_instalada: string | null;
   exchange_ticket_code: string | null;
+  review_status?: "pendente" | "aprovado" | "reprovado" | null;
+  review_comment?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  locked_for_rework?: boolean | null;
 }
 
 export interface FotoRow {
