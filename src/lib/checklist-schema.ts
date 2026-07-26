@@ -174,42 +174,27 @@ export function emptyChecklistData(): ChecklistData {
 
 // -------- Instalação --------
 export interface InstalacaoData {
-  itens: {
-    velocidade_ok: boolean;
-    navegacao_ok: boolean;
-    wifi_orientado: boolean;
-    placa_orientado: boolean;
-    cabo_orientado: boolean;
-    posicionamento_ok: boolean;
-    downdetector: boolean;
-    duvidas_sanadas: boolean;
-  };
+  // Nova estrutura (v2): 20 perguntas sim/não indexadas por id (tq01..tq20)
+  respostas: Record<string, "sim" | "nao">;
   velocidade: {
     download: string;
     upload: string;
     ping_ms: string;
   };
   observacoes: string;
-  assinatura_cliente: string | null; // dataURL PNG
+  // Legado: mantidos como opcionais apenas para retrocompatibilidade de leitura
+  itens?: Record<string, boolean>;
+  assinatura_cliente?: string | null;
 }
 
 export function emptyInstalacaoData(): InstalacaoData {
   return {
-    itens: {
-      velocidade_ok: false,
-      navegacao_ok: false,
-      wifi_orientado: false,
-      placa_orientado: false,
-      cabo_orientado: false,
-      posicionamento_ok: false,
-      downdetector: false,
-      duvidas_sanadas: false,
-    },
+    respostas: {},
     velocidade: { download: "", upload: "", ping_ms: "" },
     observacoes: "",
-    assinatura_cliente: null,
   };
 }
+
 
 export function emptyDadosFor(tipo: TipoChecklist): ChecklistData | InstalacaoData {
   return tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();

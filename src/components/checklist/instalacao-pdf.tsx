@@ -4,6 +4,11 @@ import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 import { CustomerCounterproofPdfPage } from "@/components/checklist/customer-counterproof-pdf-page";
+import {
+  INSTALACAO_TECHNICIAN_QUESTIONS,
+  readInstalacaoAnswer,
+} from "@/lib/instalacao-checklist";
+
 
 const BRAND = "#1a53ff";
 const BRAND_DARK = "#0f3fd4";
@@ -292,38 +297,32 @@ function InstalacaoDocument({
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>2. Validação técnica e orientação ao cliente</Text>
+        <Text style={styles.sectionTitle}>2. Checklist do técnico (Sim / Não)</Text>
         <View style={styles.sectionBox}>
-          <Chk
-            v={d.itens.velocidade_ok}
-            label="Teste de velocidade realizado via cabo/roteador, comprovando a entrega da banda contratada."
-          />
-          <Chk
-            v={d.itens.navegacao_ok}
-            label="Navegação e estabilidade da conexão validadas no momento da instalação."
-          />
-          <Chk
-            v={d.itens.wifi_orientado}
-            label="Cliente orientado sobre a diferença das redes Wi-Fi: 5 GHz (maior velocidade, menor alcance) e 2,4 GHz (maior alcance, menor velocidade)."
-          />
-          <Chk
-            v={d.itens.placa_orientado}
-            label="Cliente orientado que a velocidade via Wi-Fi depende da capacidade da placa de rede do aparelho (celular, TV, console, etc.)."
-          />
-          <Chk
-            v={d.itens.cabo_orientado}
-            label="Orientado a utilizar cabo de rede em Smart TVs, videogames e equipamentos que exigem maior estabilidade."
-          />
-          <Chk
-            v={d.itens.posicionamento_ok}
-            label="Posicionamento do roteador validado e orientado sobre possíveis interferências físicas (paredes, móveis, espelhos, eletrodomésticos, etc.)."
-          />
-          <Chk
-            v={d.itens.downdetector}
-            label="Apresentado o site Downdetector ao cliente e orientado a verificar possíveis quedas globais de aplicativos antes de acionar o suporte."
-          />
-          <Chk v={d.itens.duvidas_sanadas} label="Dúvidas finais do cliente sanadas no local." />
+          {INSTALACAO_TECHNICIAN_QUESTIONS.map((q, idx) => {
+            const ans = readInstalacaoAnswer(d.respostas, q.id);
+            const label = `${idx + 1}. ${q.question}`;
+            return (
+              <View
+                key={q.id}
+                style={{ flexDirection: "row", alignItems: "flex-start", paddingVertical: 2 }}
+              >
+                <Text style={{ ...styles.checkboxLabel, flex: 1 }}>{label}</Text>
+                <Text
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    marginLeft: 6,
+                    color: ans === "nao" ? "#b45309" : ans === "sim" ? "#166534" : MUTED,
+                  }}
+                >
+                  {ans === "sim" ? "Sim" : ans === "nao" ? "Não" : "—"}
+                </Text>
+              </View>
+            );
+          })}
         </View>
+
 
         <Text style={styles.sectionTitle}>3. Medições do teste de velocidade</Text>
         <View style={styles.sectionBox}>
