@@ -90,6 +90,8 @@ export interface ChecklistData {
     executar_diagnostico_pos_troca: boolean;
   };
   relato: string;
+  tipo_manutencao?: string | null;
+  ai_analysis?: StoredAiAnalysis | null;
   noc: {
     autorizada: YesNo;
     analista: string;
