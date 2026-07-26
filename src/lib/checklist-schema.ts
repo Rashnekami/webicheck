@@ -176,6 +176,8 @@ export function emptyChecklistData(): ChecklistData {
       executar_diagnostico_pos_troca: false,
     },
     relato: "",
+    tipo_manutencao: null,
+    ai_analysis: null,
     noc: {
       autorizada: null,
       analista: "",
