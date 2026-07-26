@@ -1,38 +1,71 @@
-## Problema
+# Plano — Análise por IA no Checklist de ONT
 
-O Firefox bloqueia a página com `NS_ERROR_DOM_COOP_FAILED` porque:
+## 1. Remover o módulo "Diagnóstico Inteligente" (mantendo tabelas)
 
-1. A página do WebiCheck é servida com `Cross-Origin-Opener-Policy: same-origin` (padrão do preview Lovable / PWA).
-2. Ao clicar em "Enviar pelo WhatsApp", abrimos `https://wa.me/55...` numa nova aba.
-3. `wa.me` responde com um **redirect 301** para `https://api.whatsapp.com/send/?phone=...`.
-4. O Firefox compara o COOP entre o documento que iniciou a navegação e o destino final e, como diferem no meio do redirect, aborta a nova aba com o erro do print.
+Apagar do frontend/lib:
+- `src/routes/_authenticated/diagnostico-inteligente.tsx`
+- `src/components/smart-diagnostic/` (pasta inteira)
+- `src/lib/smart-diagnostic.ts`
+- `src/lib/smart-diagnostic-ai.ts`
+- `src/lib/smart-diagnostic-ai.functions.ts`
+- `src/lib/smart-diagnostic-ai.server.ts`
+- `src/lib/__tests__/smart-diagnostic*.test.ts`
+- Endpoints públicos usados só por esse fluxo (`src/routes/api/public/webi-diagnostic/*` avaliados um a um — remover os que só serviam ao módulo antigo; preservar os usados pelo agent externo).
 
-O `noopener` que já usamos não resolve esse caso específico do Firefox — o bloqueio acontece dentro da própria navegação da aba nova, não na relação com a janela mãe.
+Remover links/entradas no `painel.tsx` e qualquer import residual.  
+Não mexer em `checklist_diagnostic_reports` nem nas tabelas relacionadas (preservadas por sua escolha).
 
-## Correção
+## 2. Novo campo "Tipo de manutenção" no checklist de Validação de ONT
 
-Ir direto para o endpoint final do WhatsApp, eliminando o hop `wa.me → api.whatsapp.com` que dispara o bloqueio do Firefox. O `api.whatsapp.com/send` é o endpoint oficial de Click-to-Chat: no celular abre o app do WhatsApp normalmente; no PC mostra a tela "Abrir app / WhatsApp Web".
+Adicionar seletor no formulário (topo do checklist) com estas opções:
+- Corretiva — falha reportada pelo cliente
+- Preventiva — inspeção programada
+- Troca de ONT — substituição de equipamento
+- Reincidência — retorno ao mesmo cliente
+- Garantia — equipamento novo com defeito
+- Outro (texto livre)
 
-### Alterações em `src/components/checklist/customer-counterproof-card.tsx`
+Persistir em `checklists.dados.tipo_manutencao` (JSONB, sem migration). Exibir no PDF e no documento visual.
 
-1. Em `buildWhatsappPayload`, trocar a URL montada de:
-   ```
-   https://wa.me/55<digits>?text=<msg>
-   ```
-   para:
-   ```
-   https://api.whatsapp.com/send?phone=55<digits>&text=<msg>&type=phone_number&app_absent=0
-   ```
-   Renomear o campo `waMeUrl` para `whatsappUrl` (ou manter o nome por compatibilidade) e ajustar os dois consumidores: botão "Enviar pelo WhatsApp" e botão "Copiar".
+## 3. Botão "Solicitar análise da IA" no checklist de Validação
 
-2. Manter `window.open(url, "_blank", "noopener,noreferrer")` — sem o redirect intermediário, o Firefox não dispara mais o COOP.
+- Aparece só quando o checklist está preenchido (todas as seções obrigatórias respondidas) e antes/depois de finalizar.
+- Chama nova server function `requestOntChecklistAiAnalysis` (`src/lib/ont-checklist-ai.functions.ts`) protegida por `requireSupabaseAuth`.
+- Usa Lovable AI Gateway (`google/gemini-3.6-flash`) via `createLovableAiGatewayProvider` + `generateText` com `Output.object` (schema estrito e pequeno).
+- Envia payload sanitizado: sintomas, validação física, testes, resultado final, tipo de manutenção, dados de hardware (modelo/serial) — sem PII do cliente (nome, endereço, telefone).
+- Retorna e persiste em `checklists.dados.ai_analysis`:
+  - `diagnostico_provavel` + `causa_raiz`
+  - `recomendacao` (`trocar_ont` | `escalar_noc` | `orientar_cliente` | `retornar_ao_local`)
+  - `justificativa`
+  - `inconsistencias[]` (perguntas contraditórias ou faltantes detectadas)
+  - `resumo_tecnico` (2-3 linhas)
+  - `gerado_em`, `modelo_ia`
 
-3. Renomear o botão secundário de "Copiar wa.me" para "Copiar link do WhatsApp" (o link agora é `api.whatsapp.com`).
+## 4. UI da análise
 
-### Por que não usar `wa.me` mesmo
+Novo card `OntAiAnalysisCard` em `src/components/checklist/`:
+- Botão "Solicitar análise da IA" (loading spinner, desabilitado enquanto processa).
+- Exibe resultado formatado (badges para recomendação, lista de inconsistências, resumo).
+- Botão "Gerar novamente" para refazer.
+- Aviso: "Análise auxiliar — decisão final é do técnico/NOC."
 
-`wa.me` é apenas um encurtador que redireciona para `api.whatsapp.com`. Chamar o destino final é equivalente para o usuário e evita o problema do Firefox. Em celular o comportamento é idêntico — o app do WhatsApp intercepta o link `api.whatsapp.com/send` da mesma forma.
+## 5. Incorporar no PDF
 
-### Validação
+Atualizar `src/components/checklist/checklist-pdf.tsx` e `checklist-document-view.tsx`:
+- Nova seção "Análise assistida por IA" ao final, quando `ai_analysis` existir.
+- Inclui tipo de manutenção no cabeçalho do PDF.
 
-Após a alteração, verificar no Firefox desktop que clicar em "Enviar pelo WhatsApp" abre a página oficial do WhatsApp com os botões "Abrir app" / "Continuar para o WhatsApp Web" (como no segundo print que você enviou), sem o erro `NS_ERROR_DOM_COOP_FAILED`.
+## 6. Testes e verificação
+
+- Typecheck (`tsgo --noEmit`).
+- Remover imports órfãos.
+- Teste manual: preencher um checklist de validação, escolher tipo de manutenção, solicitar análise, verificar persistência e PDF.
+
+## Detalhes técnicos
+
+- Sem migrations: reaproveitamos o JSONB `dados`.
+- `LOVABLE_API_KEY` já existe (ai-gateway.server.ts em uso).
+- Rota `/diagnostico-inteligente` deixa de existir; qualquer link antigo redireciona ao painel.
+- Endpoints `webi-diagnostic/*` que ficarem sem consumidor (do módulo removido) serão apagados; os que atendem o agent externo (`device-start`, `device-token`, `resolve-checklist`, `upload-report`, `my-checklists`) permanecem.
+
+Confirma que posso remover também os endpoints `webi-diagnostic/*` que só atendiam ao módulo antigo, ou prefere que eu preserve todos por segurança?
