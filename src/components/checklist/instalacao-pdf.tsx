@@ -4,6 +4,11 @@ import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 import { CustomerCounterproofPdfPage } from "@/components/checklist/customer-counterproof-pdf-page";
+import {
+  INSTALACAO_TECHNICIAN_QUESTIONS,
+  readInstalacaoAnswer,
+} from "@/lib/instalacao-checklist";
+
 
 const BRAND = "#1a53ff";
 const BRAND_DARK = "#0f3fd4";
