@@ -160,11 +160,13 @@ export const updateAdminUser = createServerFn({ method: "POST" })
       city?: string | null;
       active: boolean;
       role: ManagedUserRole;
+      supervisorId?: string | null;
+      supervisorCities?: string[];
     }) => {
       if (!input.userId) throw new Error("Usuário inválido.");
       if (!/^\S+@\S+\.\S+$/.test(input.email.trim())) throw new Error("Informe um e-mail válido.");
       if (input.fullName.trim().length < 2) throw new Error("Informe o nome completo.");
-      if (!["admin", "tecnico", "almoxarifado"].includes(input.role))
+      if (!ALL_ROLES.includes(input.role))
         throw new Error("Perfil de acesso inválido.");
       return {
         ...input,
@@ -173,6 +175,8 @@ export const updateAdminUser = createServerFn({ method: "POST" })
         phone: input.phone?.trim() || null,
         matricula: input.matricula?.trim() || null,
         city: input.city?.trim() || null,
+        supervisorId: input.supervisorId?.trim() || null,
+        supervisorCities: (input.supervisorCities ?? []).map((c) => c.trim()).filter(Boolean),
       };
     },
   )
