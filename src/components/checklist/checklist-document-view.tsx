@@ -180,9 +180,6 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
     };
 
     const tecAssinatura = payload.tecnico.assinatura;
-    const clienteAssinatura = isInstal
-      ? ((d.assinatura_cliente as string | null | undefined) ?? null)
-      : null;
 
     return (
       <div ref={ref} style={containerStyle} data-checklist-document>

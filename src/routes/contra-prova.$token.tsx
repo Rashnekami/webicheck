@@ -61,14 +61,18 @@ function CounterproofPage() {
           },
         },
       }),
-    onSuccess: () => query.refetch(),
   });
 
   if (query.isLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
   const cp = query.data;
   if (!cp) return <div className="p-8 text-center">Link inválido ou indisponível.</div>;
-  if (cp.status === "validated") {
-    return <div className="flex min-h-screen items-center justify-center p-4"><div className="max-w-md rounded-xl border bg-white p-6 text-center shadow"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-3 text-xl font-bold">Contra-Prova validada</h1><p className="mt-2 text-sm text-muted-foreground">Código: <b>{cp.code}</b><br />Checklist: <b>{cp.checklist_code}</b><br />{cp.validated_at && new Date(cp.validated_at).toLocaleString("pt-BR")}</p></div></div>;
+  const validatedInfo = finish.data
+    ? { code: finish.data.code, validated_at: finish.data.validated_at, checklist_code: finish.data.checklist_code }
+    : cp.status === "validated"
+      ? { code: cp.code, validated_at: cp.validated_at, checklist_code: cp.checklist_code }
+      : null;
+  if (validatedInfo) {
+    return <div className="flex min-h-screen items-center justify-center p-4"><div className="max-w-md rounded-xl border bg-white p-6 text-center shadow"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-3 text-xl font-bold">Contra-Prova validada</h1><p className="mt-2 text-sm text-muted-foreground">Código: <b>{validatedInfo.code}</b><br />Checklist: <b>{validatedInfo.checklist_code}</b><br />{validatedInfo.validated_at && new Date(validatedInfo.validated_at).toLocaleString("pt-BR")}</p><p className="mt-3 text-xs text-muted-foreground">Você já pode fechar esta janela.</p></div></div>;
   }
   if (cp.status === "annulled") return <div className="p-8 text-center">Esta Contra-Prova foi anulada. Solicite um novo link à equipe.</div>;
 
