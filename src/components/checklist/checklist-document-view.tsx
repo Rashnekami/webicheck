@@ -816,39 +816,80 @@ function TrocaBox() {
 }
 
 function InstalacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
-  const itens = d.itens ?? {};
+  const respostas = (d.respostas ?? {}) as Record<string, unknown>;
   const vel = d.velocidade ?? {};
+  const legacyItens = (d.itens ?? {}) as Record<string, unknown>;
+  const hasNew = INSTALACAO_TECHNICIAN_QUESTIONS.some(
+    (q) => readInstalacaoAnswer(respostas, q.id) !== null,
+  );
   return (
     <>
-      <SectionTitle>2. Validação técnica e orientação ao cliente</SectionTitle>
+      <SectionTitle>2. Checklist do técnico (Sim / Não)</SectionTitle>
       <SectionBox>
-        <Chk
-          v={itens.velocidade_ok}
-          label="Teste de velocidade realizado via cabo, comprovando a entrega da banda contratada."
-        />
-        <Chk v={itens.navegacao_ok} label="Navegação e estabilidade da conexão validadas." />
-        <Chk
-          v={itens.wifi_orientado}
-          label="Cliente orientado sobre a diferença das redes Wi-Fi (2,4 GHz x 5 GHz)."
-        />
-        <Chk
-          v={itens.placa_orientado}
-          label="Cliente orientado que a velocidade via Wi-Fi depende da placa de rede do aparelho."
-        />
-        <Chk
-          v={itens.cabo_orientado}
-          label="Orientado a utilizar cabo em Smart TVs, videogames e equipamentos que exigem estabilidade."
-        />
-        <Chk
-          v={itens.posicionamento_ok}
-          label="Posicionamento do roteador validado e orientado sobre interferências."
-        />
-        <Chk
-          v={itens.downdetector}
-          label="Apresentado o Downdetector para verificar quedas globais antes de acionar o suporte."
-        />
-        <Chk v={itens.duvidas_sanadas} label="Dúvidas finais do cliente sanadas no local." />
+        {hasNew || Object.keys(legacyItens).length === 0 ? (
+          <div style={{ display: "grid", rowGap: 4 }}>
+            {INSTALACAO_TECHNICIAN_QUESTIONS.map((q, idx) => {
+              const ans = readInstalacaoAnswer(respostas, q.id);
+              return (
+                <div
+                  key={q.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "4px 0",
+                    borderBottom: `1px dashed ${BORDER}`,
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ flex: 1 }}>
+                    <span style={{ color: "#64748b", marginRight: 6 }}>{idx + 1}.</span>
+                    {q.question}
+                  </span>
+                  <b
+                    style={{
+                      color:
+                        ans === "nao" ? "#b45309" : ans === "sim" ? "#166534" : "#94a3b8",
+                    }}
+                  >
+                    {ans === "sim" ? "Sim" : ans === "nao" ? "Não" : "—"}
+                  </b>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            <Chk
+              v={legacyItens.velocidade_ok}
+              label="Teste de velocidade realizado via cabo, comprovando a entrega da banda contratada."
+            />
+            <Chk v={legacyItens.navegacao_ok} label="Navegação e estabilidade da conexão validadas." />
+            <Chk
+              v={legacyItens.wifi_orientado}
+              label="Cliente orientado sobre a diferença das redes Wi-Fi (2,4 GHz x 5 GHz)."
+            />
+            <Chk
+              v={legacyItens.placa_orientado}
+              label="Cliente orientado que a velocidade via Wi-Fi depende da placa de rede do aparelho."
+            />
+            <Chk
+              v={legacyItens.cabo_orientado}
+              label="Orientado a utilizar cabo em Smart TVs, videogames e equipamentos que exigem estabilidade."
+            />
+            <Chk
+              v={legacyItens.posicionamento_ok}
+              label="Posicionamento do roteador validado e orientado sobre interferências."
+            />
+            <Chk
+              v={legacyItens.downdetector}
+              label="Apresentado o Downdetector para verificar quedas globais antes de acionar o suporte."
+            />
+            <Chk v={legacyItens.duvidas_sanadas} label="Dúvidas finais do cliente sanadas no local." />
+          </>
+        )}
       </SectionBox>
+
 
       <SectionTitle>3. Medições do teste de velocidade</SectionTitle>
       <SectionBox>
