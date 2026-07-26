@@ -373,13 +373,27 @@ const CORE_QUESTIONS: Array<
       answer(s, "los_active") !== undefined,
   },
   {
+    id: "optical_consistency",
+    category: "Óptica",
+    prompt:
+      "Confirme: neste momento, com o nível óptico dentro do padrão, o LED LOS continua aceso ou piscando?",
+    helper:
+      "LOS ativo e potência normal são informações divergentes. Confirme o estado atual antes de continuar.",
+    type: "single",
+    options: yesNoUnknown,
+    evidence: "Consistência entre o LED LOS e a leitura óptica atual",
+    when: (s) => answer(s, "los_active") === "yes" && answer(s, "optical_in_range") === "yes",
+  },
+  {
     id: "optical_path_checked",
     category: "Óptica",
     prompt: "Drop, patch cord, conectores e acomodação da fibra foram verificados?",
     type: "single",
     options: yesNoUnknown,
     evidence: "Caminho óptico inspecionado",
-    when: (s) => answer(s, "optical_in_range") === "no" || answer(s, "los_active") === "yes",
+    when: (s) =>
+      answer(s, "optical_in_range") === "no" ||
+      (answer(s, "los_active") === "yes" && answer(s, "optical_consistency") !== "no"),
   },
   {
     id: "optical_fault_found",
@@ -799,16 +813,23 @@ export function getNextDiagnosticQuestion(
   }
 
   if (answer(session, "retest_performed") !== "yes") {
+    const waitingForRetest = answer(session, "retest_performed") === "no";
     return {
       id: "retest_performed",
       category: "Reteste obrigatório",
-      prompt: "Após a intervenção, o problema foi novamente testado?",
-      helper:
-        answer(session, "retest_performed") === "no"
-          ? "O atendimento não pode ser concluído como normalizado sem um novo teste."
-          : "Confirme o reteste do sintoma original.",
+      prompt: waitingForRetest
+        ? "Realize o reteste do sintoma original para continuar."
+        : "Após a intervenção, o problema foi novamente testado?",
+      helper: waitingForRetest
+        ? "Quando terminar o teste, toque no botão abaixo. Suas respostas permanecem salvas."
+        : "Confirme o reteste do sintoma original.",
       type: "single",
-      options: yesNoNa,
+      options: waitingForRetest
+        ? [{ value: "yes", label: "Reteste realizado — continuar", tone: "positive" }]
+        : [
+            { value: "yes", label: "Sim, o reteste foi realizado", tone: "positive" },
+            { value: "no", label: "Ainda não realizei o reteste", tone: "warning" },
+          ],
       evidence: "Reteste após a intervenção",
     };
   }
@@ -1031,19 +1052,36 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
     );
   }
 
-  if (answer(session, "los_active") === "yes" || answer(session, "optical_in_range") === "no") {
-    pushHypothesis(
-      hypotheses,
-      "Rede óptica",
-      96,
-      "reinforced",
-      "LOS ativo ou potência fora do padrão.",
-    );
+  const opticalInRange = answer(session, "optical_in_range");
+  const losActive = answer(session, "los_active");
+  const opticalConsistency = answer(session, "optical_consistency");
+
+  if (opticalInRange === "no") {
+    pushHypothesis(hypotheses, "Rede óptica", 96, "reinforced", "Potência óptica fora do padrão.");
     recommendations.push("Priorizar correção do caminho óptico antes de avaliar a ONT.");
   }
-  if (answer(session, "optical_in_range") === "yes") {
+  if (losActive === "yes" && opticalInRange !== "no" && opticalConsistency !== "no") {
+    pushHypothesis(
+      hypotheses,
+      "Estado óptico precisa de confirmação",
+      opticalConsistency === "yes" ? 72 : 55,
+      "reduced",
+      opticalConsistency === "yes"
+        ? "O LOS permanece ativo apesar da leitura normal; confirme a medição e o registro GPON."
+        : "LOS foi informado, mas a potência atual está normal. Confirme se o LED ainda permanece ativo.",
+    );
+    recommendations.push(
+      "Confirmar se o LOS é atual ou histórico e repetir a leitura óptica antes de concluir.",
+    );
+  }
+  if (opticalInRange === "yes") {
     validate(true, "Óptica dentro do padrão");
-    eliminate(true, "Falha óptica");
+    if (losActive !== "yes" || opticalConsistency === "no") {
+      eliminate(true, "Falha óptica atual");
+    }
+  }
+  if (opticalConsistency === "no") {
+    validate(true, "LOS não permanece ativo após nova conferência");
   }
   if (answer(session, "connection_after_optical") === "yes") {
     pushHypothesis(

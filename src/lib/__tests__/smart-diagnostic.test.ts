@@ -150,6 +150,40 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
 
     const result = evaluateSmartDiagnostic(session);
     expect(result.status).toBe("AGUARDANDO_TESTE");
-    expect(getNextDiagnosticQuestion(session)?.id).toBe("retest_performed");
+    const next = getNextDiagnosticQuestion(session);
+    expect(next?.id).toBe("retest_performed");
+    expect(next?.prompt).toBe("Realize o reteste do sintoma original para continuar.");
+    expect(next?.options?.map((item) => item.value)).toEqual(["yes"]);
+  });
+
+  it("não mantém hipótese óptica alta quando a potência foi informada dentro do padrão", () => {
+    const session = sessionWith(["sem_internet"], {
+      los_active: "yes",
+      optical_in_range: "yes",
+    });
+
+    const result = evaluateSmartDiagnostic(session);
+    expect(getNextDiagnosticQuestion(session)?.id).toBe("optical_consistency");
+    expect(result.hypotheses.some((item) => item.label === "Rede óptica" && item.score >= 90)).toBe(
+      false,
+    );
+    expect(result.hypotheses[0]?.label).toBe("Estado óptico precisa de confirmação");
+  });
+
+  it("descarta falha óptica atual quando o LOS não permanece ativo na conferência", () => {
+    const session = sessionWith(["sem_internet"], {
+      los_active: "yes",
+      optical_in_range: "yes",
+      optical_consistency: "no",
+      pon_stable: "yes",
+      provisioned: "yes",
+      corrective_action: "no_action_solved",
+      retest_performed: "no",
+    });
+
+    const result = evaluateSmartDiagnostic(session);
+    expect(result.eliminated).toContain("Falha óptica atual");
+    expect(result.validations).toContain("LOS não permanece ativo após nova conferência");
+    expect(result.hypotheses.some((item) => item.label === "Rede óptica")).toBe(false);
   });
 });
