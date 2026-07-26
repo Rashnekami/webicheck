@@ -353,10 +353,17 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
                 <Field label="Modelo" value={h.modelo as string} />
                 <Field label="Serial" value={h.serial as string} />
                 <Field label="CTO/Porta" value={h.cto_porta as string} />
+                <Field
+                  label="Tipo de manutenção"
+                  value={labelTipoManutencao(
+                    (d.tipo_manutencao as unknown as string | null | undefined) ?? null,
+                  )}
+                />
               </>
             )}
           </div>
         </SectionBox>
+
 
         {isInstal ? <InstalacaoBody d={d as never} /> : <ValidacaoBody d={d as never} />}
 
