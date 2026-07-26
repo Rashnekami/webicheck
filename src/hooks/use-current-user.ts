@@ -12,9 +12,12 @@ export interface CurrentUser {
   city: string | null;
   active: boolean;
   assinatura: string | null;
+  provider_id: string | null;
+  platform_admin: boolean;
   roles: AppRole[];
   isAdmin: boolean;
   isWarehouse: boolean;
+  isPlatformAdmin: boolean;
 }
 
 export function useCurrentUser() {
