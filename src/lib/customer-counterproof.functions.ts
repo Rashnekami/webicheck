@@ -17,6 +17,10 @@ export type CounterproofSummary = {
   client_checklist_version?: string | null;
   client_checklist?: CustomerCounterproofChecklist | null;
   admin_identity_reviewed_at?: string | null;
+  city?: string | null;
+  validation_code?: string | null;
+  attendance_date?: string | null;
+  attendance_time?: string | null;
 };
 export type CounterproofLookup = CounterproofSummary | { unavailable: true };
 export type CounterproofDocumentInfo = Pick<
@@ -31,6 +35,10 @@ export type CounterproofDocumentInfo = Pick<
   | "signature_data_url"
   | "client_checklist_version"
   | "client_checklist"
+  | "city"
+  | "validation_code"
+  | "attendance_date"
+  | "attendance_time"
 >;
 
 function normalizePhone(raw: string) {
@@ -58,6 +66,12 @@ function counterproofSummary(
   row: any,
   includeSignature = false,
   adminIdentityReviewedAt: string | null = null,
+  checklist?: {
+    cidade?: string | null;
+    codigo_validacao?: string | null;
+    data_atendimento?: string | null;
+    hora_atendimento?: string | null;
+  } | null,
 ): CounterproofSummary {
   return {
     id: row.id,
@@ -76,6 +90,10 @@ function counterproofSummary(
     client_checklist_version: row.client_checklist_version ?? null,
     client_checklist: row.client_checklist ?? null,
     admin_identity_reviewed_at: adminIdentityReviewedAt,
+    city: checklist?.cidade ?? null,
+    validation_code: checklist?.codigo_validacao ?? null,
+    attendance_date: checklist?.data_atendimento ?? null,
+    attendance_time: checklist?.hora_atendimento ?? null,
   };
 }
 
@@ -88,33 +106,45 @@ export const getChecklistCounterproof = createServerFn({ method: "POST" }).middl
       return { unavailable: true };
     }
     if (error) throw new Error(error.message); if (!row) return null;
-    const { data: adminReview } = await context.supabase
-      .from("customer_counterproof_events" as never)
-      .select("created_at")
-      .eq("counterproof_id", (row as any).id)
-      .eq("event_type", "validated")
-      .eq("actor_type", "admin")
-      .contains("metadata", { resource: "identity_evidence_review" })
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return counterproofSummary(row as any, true, (adminReview as any)?.created_at ?? null);
+    const [{ data: adminReview }, { data: checklist }] = await Promise.all([
+      context.supabase
+        .from("customer_counterproof_events" as never)
+        .select("created_at")
+        .eq("counterproof_id", (row as any).id)
+        .eq("event_type", "validated")
+        .eq("actor_type", "admin")
+        .contains("metadata", { resource: "identity_evidence_review" })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      context.supabase
+        .from("checklists")
+        .select("cidade, codigo_validacao, data_atendimento, hora_atendimento")
+        .eq("id", data.checklistId)
+        .maybeSingle(),
+    ]);
+    return counterproofSummary(
+      row as any,
+      true,
+      (adminReview as any)?.created_at ?? null,
+      checklist,
+    );
   });
 
 export const createCustomerCounterproof = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((d: { checklistId: string }) => d).handler(async ({ data, context }): Promise<CounterproofSummary> => {
-    const { data: checklist, error } = await context.supabase.from("checklists").select("id, provider_id, case_id, tecnico_id, status, numero_publico, codigo_validacao, revision_number, cliente, os").eq("id", data.checklistId).single();
+    const { data: checklist, error } = await context.supabase.from("checklists").select("id, provider_id, case_id, tecnico_id, status, numero_publico, codigo_validacao, revision_number, cliente, os, cidade, data_atendimento, hora_atendimento").eq("id", data.checklistId).single();
     if (error || !checklist) throw new Error("Checklist não encontrado.");
     if (checklist.status !== "finalizado") throw new Error("Finalize o checklist antes de gerar a Contra-Prova.");
     const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (checklist.tecnico_id !== context.userId && !admin) throw new Error("Sem permissão.");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const db = supabaseAdmin as any;
     const { data: active } = await db.from("customer_counterproofs").select("*").eq("checklist_id", data.checklistId).in("status", ["pending", "opened", "validated"]).maybeSingle();
-    if (active) return counterproofSummary(active, true);
+    if (active) return counterproofSummary(active, true, null, checklist);
     const { data: inserted, error: insertError } = await db.from("customer_counterproofs").insert({ provider_id: checklist.provider_id, checklist_id: checklist.id, case_id: checklist.case_id, tecnico_id: checklist.tecnico_id, created_by: context.userId, public_token: generatePublicToken(32), checklist_code: formatChecklistCode(checklist), client_name: checklist.cliente, service_order: checklist.os }).select("*").single();
     if (insertError) throw new Error(insertError.message);
     await db.from("customer_counterproof_events").insert({ counterproof_id: inserted.id, event_type: "created", actor_type: admin ? "admin" : "technician", actor_user_id: context.userId, metadata: { checklist_code: inserted.checklist_code } });
-    return counterproofSummary(inserted, true);
+    return counterproofSummary(inserted, true, null, checklist);
   });
 
 export const registerCounterproofPhone = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
@@ -131,9 +161,19 @@ export const registerCounterproofPhone = createServerFn({ method: "POST" }).midd
 export const getPublicCounterproof = createServerFn({ method: "POST" }).inputValidator((d: { token: string }) => d).handler(async ({ data }): Promise<CounterproofSummary | null> => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server"); const db = supabaseAdmin as any;
   const { data: cp } = await db.from("customer_counterproofs").select("*").eq("public_token", data.token.trim()).maybeSingle(); if (!cp) return null;
+  const { data: checklist } = await db
+    .from("checklists")
+    .select("cidade, codigo_validacao, data_atendimento, hora_atendimento")
+    .eq("id", cp.checklist_id)
+    .maybeSingle();
   if (cp.status === "pending") await db.from("customer_counterproofs").update({ status: "opened", first_opened_at: new Date().toISOString() }).eq("id", cp.id);
   const meta = requestMeta(); await db.from("customer_counterproof_events").insert({ counterproof_id: cp.id, event_type: "opened", actor_type: "client", ip_address: meta.ip, user_agent: meta.ua });
-  return counterproofSummary({ ...cp, status: cp.status === "pending" ? "opened" : cp.status });
+  return counterproofSummary(
+    { ...cp, status: cp.status === "pending" ? "opened" : cp.status },
+    false,
+    null,
+    checklist,
+  );
 });
 
 export const completePublicCounterproof = createServerFn({ method: "POST" }).inputValidator((d: {
