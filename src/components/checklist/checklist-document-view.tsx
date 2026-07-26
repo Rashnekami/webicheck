@@ -206,7 +206,20 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
       );
     }
 
-    const containerStyle: React.CSSProperties = {
+    return (
+      <ValidationDarkDocument
+        ref={ref}
+        payload={payload}
+        publicUrl={publicUrl}
+        shortHash={shortHash}
+        version={version}
+        fixedWidth={fixedWidth}
+        counterproof={counterproof}
+      />
+    );
+    // Legacy light layout below kept for reference but no longer rendered.
+    // eslint-disable-next-line no-unreachable
+    {
       width: fixedWidth ? `${fixedWidth}px` : "100%",
       maxWidth: fixedWidth ? `${fixedWidth}px` : "820px",
       background: "white",
