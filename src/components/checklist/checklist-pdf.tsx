@@ -8,12 +8,26 @@ import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.funct
 import { CustomerCounterproofPdfPage } from "@/components/checklist/customer-counterproof-pdf-page";
 import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
 
-const BRAND = "#1a53ff";
-const BRAND_DARK = "#0f3fd4";
-const BORDER = "#c9d3e6";
-const INK = "#0f172a";
-const MUTED = "#475569";
-const SOFT_BG = "#f4f7ff";
+const C = {
+  page: "#020817",
+  panel: "#06152d",
+  panelSoft: "#031027",
+  blue: "#1479ff",
+  cyan: "#19d8ff",
+  green: "#45e35f",
+  red: "#ff5268",
+  amber: "#ffb020",
+  border: "#1769db",
+  text: "#f8fbff",
+  muted: "#a9bad1",
+};
+
+const BRAND = C.blue;
+const BRAND_DARK = C.cyan;
+const BORDER = C.border;
+const INK = C.text;
+const MUTED = C.muted;
+const SOFT_BG = C.panel;
 
 const styles = StyleSheet.create({
   page: {
@@ -23,6 +37,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: "Helvetica",
     color: INK,
+    backgroundColor: C.page,
   },
   header: {
     flexDirection: "row",
@@ -32,6 +47,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 8,
     overflow: "hidden",
+    backgroundColor: C.panelSoft,
   },
   headerLogoBox: {
     width: 82,
@@ -65,15 +81,22 @@ const styles = StyleSheet.create({
   },
   warn: {
     borderLeftWidth: 3,
-    borderLeftColor: "#f59e0b",
-    backgroundColor: "#fffbeb",
+    borderLeftColor: C.amber,
+    backgroundColor: "#2a1d05",
     padding: 6,
     borderRadius: 3,
     marginBottom: 8,
     fontSize: 8.5,
-    color: "#78350f",
+    color: "#fde68a",
   },
-  counterproofBox: { borderWidth: 1, borderColor: "#86efac", backgroundColor: "#f0fdf4", padding: 6, borderRadius: 4, marginBottom: 8 },
+  counterproofBox: {
+    borderWidth: 1,
+    borderColor: C.green,
+    backgroundColor: "#0b2d25",
+    padding: 6,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
   sectionTitle: {
     backgroundColor: BRAND,
     color: "white",
@@ -95,6 +118,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
+    backgroundColor: C.panel,
   },
   subsectionLabel: {
     marginTop: 5,
@@ -112,7 +136,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   label: { color: MUTED, marginRight: 3 },
-  value: { fontWeight: 700 },
+  value: { fontWeight: 700, color: INK },
   checkboxRow: {
     width: "50%",
     flexDirection: "row",
@@ -124,14 +148,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: BRAND_DARK,
     borderRadius: 2,
     marginRight: 5,
     padding: 1,
+    backgroundColor: C.panelSoft,
   },
   checkboxInner: {
     flex: 1,
-    backgroundColor: BRAND,
+    backgroundColor: C.green,
     borderRadius: 1,
   },
   checkboxLabel: { fontSize: 9, color: INK },
@@ -141,8 +166,9 @@ const styles = StyleSheet.create({
     padding: 8,
     minHeight: 60,
     borderRadius: 3,
-    backgroundColor: "#fafbff",
+    backgroundColor: C.panelSoft,
     lineHeight: 1.4,
+    color: INK,
   },
   signRow: {
     marginTop: 14,
@@ -152,7 +178,8 @@ const styles = StyleSheet.create({
   signBox: {
     flex: 1,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderStyle: "dashed",
+    borderColor: BRAND_DARK,
     borderRadius: 4,
     padding: 6,
     minHeight: 90,
@@ -169,8 +196,8 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     alignItems: "center",
   },
-  signLabel: { fontSize: 8, color: MUTED },
-  signName: { fontSize: 9, fontWeight: 700, color: INK },
+  signLabel: { fontSize: 8, color: "#475569" },
+  signName: { fontSize: 9, fontWeight: 700, color: "#0f172a" },
   footer: {
     position: "absolute",
     bottom: 14,
@@ -193,7 +220,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: SOFT_BG,
+    backgroundColor: C.panelSoft,
   },
   numberLabel: { fontSize: 8, color: MUTED, letterSpacing: 0.6 },
   numberValue: {
@@ -209,7 +236,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     padding: 8,
     borderRadius: 5,
-    backgroundColor: "white",
+    backgroundColor: C.panel,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -220,7 +247,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   photoLabel: { fontSize: 9, marginTop: 6, color: MUTED, textAlign: "center" },
-  qrImage: { width: 56, height: 56, marginLeft: 8 },
+  qrImage: { width: 56, height: 56, marginLeft: 8, backgroundColor: "white", padding: 2, borderRadius: 3 },
 });
 
 const Chk = ({ v, label }: { v: boolean; label: string }) => (
@@ -229,6 +256,22 @@ const Chk = ({ v, label }: { v: boolean; label: string }) => (
     <Text style={styles.checkboxLabel}>{label}</Text>
   </View>
 );
+
+const Field = ({
+  label,
+  value,
+  w = "50%",
+}: {
+  label: string;
+  value?: string | null;
+  w?: string;
+}) => (
+  <View style={{ ...styles.cell, width: w }}>
+    <Text style={styles.label}>{label}:</Text>
+    <Text style={styles.value}>{value || "—"}</Text>
+  </View>
+);
+
 
 const Field = ({
   label,
