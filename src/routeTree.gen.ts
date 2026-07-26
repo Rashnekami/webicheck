@@ -30,6 +30,7 @@ import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './r
 import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
 import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
 import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
+import { Route as ApiPublicAuthLoginInternalRouteImport } from './routes/api/public/auth/login-internal'
 
 const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
   id: '/completar-cadastro',
@@ -144,6 +145,12 @@ const ApiPublicWebiDiagnosticDeviceStartRoute =
     path: '/api/public/webi-diagnostic/device-start',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAuthLoginInternalRoute =
+  ApiPublicAuthLoginInternalRouteImport.update({
+    id: '/api/public/auth/login-internal',
+    path: '/api/public/auth/login-internal',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -183,6 +191,7 @@ export interface FileRoutesByTo {
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -207,6 +216,7 @@ export interface FileRoutesById {
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists/'
+    | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
     | '/api/public/webi-diagnostic/my-checklists'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists'
+    | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
     | '/api/public/webi-diagnostic/my-checklists'
@@ -276,6 +288,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/checklists/'
+    | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
     | '/api/public/webi-diagnostic/my-checklists'
@@ -291,6 +304,7 @@ export interface RootRouteChildren {
   CompletarCadastroRoute: typeof CompletarCadastroRoute
   ContraProvaTokenRoute: typeof ContraProvaTokenRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
+  ApiPublicAuthLoginInternalRoute: typeof ApiPublicAuthLoginInternalRoute
   ApiPublicWebiDiagnosticDeviceStartRoute: typeof ApiPublicWebiDiagnosticDeviceStartRoute
   ApiPublicWebiDiagnosticDeviceTokenRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   ApiPublicWebiDiagnosticMyChecklistsRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -447,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/auth/login-internal': {
+      id: '/api/public/auth/login-internal'
+      path: '/api/public/auth/login-internal'
+      fullPath: '/api/public/auth/login-internal'
+      preLoaderRoute: typeof ApiPublicAuthLoginInternalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -485,6 +506,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompletarCadastroRoute: CompletarCadastroRoute,
   ContraProvaTokenRoute: ContraProvaTokenRoute,
   ValidarTokenRoute: ValidarTokenRoute,
+  ApiPublicAuthLoginInternalRoute: ApiPublicAuthLoginInternalRoute,
   ApiPublicWebiDiagnosticDeviceStartRoute:
     ApiPublicWebiDiagnosticDeviceStartRoute,
   ApiPublicWebiDiagnosticDeviceTokenRoute:
