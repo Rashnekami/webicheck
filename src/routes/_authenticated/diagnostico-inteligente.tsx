@@ -12,7 +12,6 @@ import {
   ChevronRight,
   CircleSlash2,
   ClipboardCheck,
-  ClipboardCopy,
   CloudOff,
   Database,
   FileDown,
@@ -23,7 +22,6 @@ import {
   LoaderCircle,
   LockKeyhole,
   MapPin,
-  MessageCircle,
   Network,
   RotateCcw,
   Route as RouteIcon,
@@ -52,7 +50,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { PROFILE_CITIES } from "@/lib/profile-cities";
 import {
-  buildNocWhatsAppPreview,
   createSmartDiagnosticSession,
   evaluateSmartDiagnostic,
   getDiagnosticProgress,
@@ -70,7 +67,6 @@ import {
 } from "@/lib/smart-diagnostic";
 import {
   getSmartDiagnosticAiStatus,
-  getSmartDiagnosticNocContact,
   healthCheckSmartDiagnosticAiGateway,
   compareSmartDiagnosticAiProviders,
   runSmartDiagnosticAiReview,
@@ -120,6 +116,18 @@ const opticalMetricFields = [
 ];
 
 type PersistenceState = "local" | "saving" | "saved" | "migration_pending" | "error";
+
+function locationDisplay(location: SmartDiagnosticSession["metadata"]["location"]) {
+  if (location?.status === "captured" || location?.status === "low_accuracy") {
+    const coordinates =
+      typeof location.latitude === "number" && typeof location.longitude === "number"
+        ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+        : "coordenadas registradas";
+    return `${coordinates} · precisão ${location.accuracyMeters ?? "—"} m${location.status === "low_accuracy" ? " (aproximada)" : ""}`;
+  }
+  if (location?.status === "denied") return "Permissão negada no navegador";
+  return "Não capturada · toque em Atualizar";
+}
 
 function loadStoredBeta(): StoredBeta {
   if (typeof window === "undefined") {
@@ -198,12 +206,6 @@ function SmartDiagnosticBetaPage() {
     queryFn: () => getSmartDiagnosticAiStatus(),
     enabled: typeof window !== "undefined",
     staleTime: 60_000,
-    retry: false,
-  });
-  const nocContact = useQuery({
-    queryKey: ["smart-diagnostic-noc-contact"],
-    queryFn: () => getSmartDiagnosticNocContact(),
-    staleTime: 300_000,
     retry: false,
   });
   const healthMutation = useMutation({
@@ -345,31 +347,39 @@ function SmartDiagnosticBetaPage() {
       }));
       return;
     }
+    const savePosition = (position: GeolocationPosition) => {
+      setSession((current) => ({
+        ...current,
+        metadata: {
+          ...current.metadata,
+          location: {
+            status: position.coords.accuracy <= 100 ? "captured" : "low_accuracy",
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracyMeters: Math.round(position.coords.accuracy),
+            capturedAt: new Date().toISOString(),
+          },
+        },
+        updatedAt: new Date().toISOString(),
+      }));
+    };
+    const saveFailure = (status: "denied" | "unavailable") => {
+      setSession((current) => ({
+        ...current,
+        metadata: { ...current.metadata, location: { status } },
+        updatedAt: new Date().toISOString(),
+      }));
+    };
+    const fallback = () => navigator.geolocation.getCurrentPosition(
+      savePosition,
+      (error) => saveFailure(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable"),
+      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 20_000 },
+    );
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setSession((current) => ({
-          ...current,
-          metadata: {
-            ...current.metadata,
-            location: {
-              status: position.coords.accuracy <= 100 ? "captured" : "low_accuracy",
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracyMeters: Math.round(position.coords.accuracy),
-              capturedAt: new Date().toISOString(),
-            },
-          },
-          updatedAt: new Date().toISOString(),
-        }));
-      },
+      savePosition,
       (error) => {
-        setSession((current) => ({
-          ...current,
-          metadata: {
-            ...current.metadata,
-            location: { status: error.code === error.PERMISSION_DENIED ? "denied" : "unavailable" },
-          },
-        }));
+        if (error.code === error.PERMISSION_DENIED) saveFailure("denied");
+        else fallback();
       },
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 12_000 },
     );
@@ -502,20 +512,6 @@ function SmartDiagnosticBetaPage() {
     recordAnswer(question.id, value);
   }
 
-  async function copyNocPreview() {
-    const text = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "", aiReview ? {
-      status: aiReview.status,
-      confianca: aiReview.confianca,
-      diagnostico: aiReview.diagnostico_provavel,
-    } : null);
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Mensagem de teste copiada.");
-    } catch {
-      toast.error("Não foi possível copiar a mensagem.");
-    }
-  }
-
   async function downloadReport() {
     try {
       const { downloadSmartDiagnosticReport } =
@@ -535,12 +531,15 @@ function SmartDiagnosticBetaPage() {
     aiMutation.mutate({ nextSession: session, mode });
   }
 
-  const nocPreview = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "", aiReview ? {
-    status: aiReview.status,
-    confianca: aiReview.confianca,
-    diagnostico: aiReview.diagnostico_provavel,
-  } : null);
   const StatusIcon = statusTone(evaluation.status).icon;
+  const maintenanceCounterproofBlockReason =
+    persistenceState === "migration_pending"
+      ? "A migration operacional da preview ainda não foi aplicada; nenhum link será criado."
+      : persistenceState !== "saved"
+        ? "Aguarde o diagnóstico ser salvo e vinculado ao checklist técnico."
+        : !linkedChecklistId
+          ? "Vincule um checklist técnico para liberar a Contra-Prova de manutenção."
+          : null;
 
   return (
     <div className="webi-page min-h-screen">
@@ -705,9 +704,6 @@ function SmartDiagnosticBetaPage() {
                     session={session}
                     evaluation={evaluation}
                     aiReview={aiReview}
-                    nocPreview={nocPreview}
-                    onCopyNocPreview={copyNocPreview}
-                    nocWhatsApp={nocContact.data?.phone ?? null}
                     linkedChecklistId={linkedChecklistId}
                     onBack={undoLastAnswer}
                     onReset={resetBeta}
@@ -715,6 +711,19 @@ function SmartDiagnosticBetaPage() {
                     onDownloadReport={downloadReport}
                     onUpdateOperation={updateOperation}
                     onCreateRevision={createRevision}
+                    onContinueMaintenance={() => {
+                      setSession((current) => ({
+                        ...current,
+                        metadata: {
+                          ...current.metadata,
+                          operation: {
+                            ...current.metadata.operation,
+                            decision: "continue_maintenance",
+                          },
+                        },
+                      }));
+                      createRevision();
+                    }}
                     onCaptureLocation={captureLocation}
                     onCreateMaintenanceCounterproof={() => maintenanceCounterproofMutation.mutate()}
                     onValidateLearning={() => learningMutation.mutate()}
@@ -722,6 +731,7 @@ function SmartDiagnosticBetaPage() {
                     aiPending={aiMutation.isPending}
                     learningPending={learningMutation.isPending}
                     maintenanceCounterproofPending={maintenanceCounterproofMutation.isPending}
+                    maintenanceCounterproofBlockReason={maintenanceCounterproofBlockReason}
                   />
                 )}
               </div>
@@ -1283,11 +1293,21 @@ function AiGatewayAdminCard({
                   "border text-[10px]",
                   provider.lastHealth?.ok
                     ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                    : provider.lastHealth
+                      ? "border-rose-400/30 bg-rose-400/10 text-rose-200"
                     : provider.configured
                       ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
                       : "border-slate-500/30 bg-slate-500/10 text-slate-400",
                 )}>
-                  {provider.lastHealth?.ok ? "OK" : provider.configured ? "Pendente" : "Sem chave"}
+                  {provider.lastHealth?.ok
+                    ? "OK"
+                    : provider.lastHealth
+                      ? "Falhou"
+                      : provider.configured && !provider.enabled
+                        ? "Bloqueado"
+                        : provider.configured
+                          ? "Pendente"
+                          : "Sem chave"}
                 </Badge>
               </div>
               <p className="mt-1 truncate text-xs text-slate-400">{provider.triageModel}</p>
@@ -1328,58 +1348,47 @@ function NocAuthorizationPanel({
   evaluation,
   operation,
   onUpdate,
-  nocPreview,
-  onCopy,
-  nocWhatsApp,
   linkedChecklistId,
 }: {
   evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
   operation: DiagnosticOperation;
   onUpdate: (next: Partial<DiagnosticOperation>) => void;
-  nocPreview: string;
-  onCopy: () => void;
-  nocWhatsApp: string | null;
   linkedChecklistId: string | null;
 }) {
-  const canRequest = evaluation.ontExchange.eligibleToRequest;
-  const authorized = operation.nocAuthorization === "authorized";
+  const technicalReady = evaluation.ontExchange.eligibleToRequest;
+  const reasonReady = !evaluation.ontExchange.reasonsMissing;
+  const codeReady = Boolean(operation.nocAuthorizationCode?.trim());
+  const authorized = operation.nocAuthorization === "authorized" && codeReady;
   return (
     <div className="space-y-3 rounded-xl border border-cyan-400/25 bg-cyan-950/10 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-white">Autorização NOC</p>
-          <p className="text-xs text-slate-400">A mensagem pode ser enviada pelo WhatsApp; o retorno é registrado aqui.</p>
+          <p className="text-sm font-semibold text-white">Código autorizado pelo NOC</p>
+          <p className="text-xs text-slate-400">
+            O NOC é acionado fora do Webi (WhatsApp/telefone). Este sistema não envia solicitação:
+            apenas registra o código que o técnico recebeu para identificar a ONT no almoxarifado.
+          </p>
         </div>
         <Badge className={cn(
           "border",
           authorized ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200",
         )}>
-          {authorized ? "Autorizada" : "Aguardando NOC"}
+          {authorized ? "Código registrado" : "Aguardando código externo"}
         </Badge>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button variant="outline" disabled={!canRequest} onClick={onCopy} className="border-cyan-400/35 text-cyan-100">
-          <ClipboardCopy className="mr-2 h-4 w-4" />
-          Copiar solicitação
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!canRequest || !nocWhatsApp}
-          onClick={() => window.open(`https://wa.me/${nocWhatsApp}?text=${encodeURIComponent(nocPreview)}`, "_blank", "noopener,noreferrer")}
-          className="border-emerald-400/35 text-emerald-100"
-        >
-          <MessageCircle className="mr-2 h-4 w-4" />
-          {nocWhatsApp ? "Abrir WhatsApp NOC" : "WhatsApp NOC não configurado"}
-        </Button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Input
-          placeholder="Analista NOC"
+          placeholder="Código de troca recebido do NOC *"
+          value={operation.nocAuthorizationCode ?? ""}
+          onChange={(event) => onUpdate({ nocAuthorizationCode: event.target.value.toUpperCase() })}
+        />
+        <Input
+          placeholder="Responsável que autorizou (opcional)"
           value={operation.nocAnalyst ?? ""}
           onChange={(event) => onUpdate({ nocAnalyst: event.target.value })}
         />
         <Input
-          placeholder="Protocolo NOC"
+          placeholder="Protocolo/observação (opcional)"
           value={operation.nocProtocol ?? ""}
           onChange={(event) => onUpdate({ nocProtocol: event.target.value })}
         />
@@ -1387,11 +1396,11 @@ function NocAuthorizationPanel({
       <div className="grid gap-2 sm:grid-cols-2">
         <Button
           variant={authorized ? "default" : "outline"}
-          disabled={!canRequest || !operation.nocAnalyst?.trim() || !operation.nocProtocol?.trim()}
+          disabled={!technicalReady || !reasonReady || !codeReady}
           onClick={() => onUpdate({ nocAuthorization: "authorized", nocAuthorizedAt: new Date().toISOString() })}
           className="border-emerald-400/40 text-emerald-100"
         >
-          Registrar autorizado
+          Registrar código autorizado
         </Button>
         <Button
           variant={operation.nocAuthorization === "denied" ? "destructive" : "outline"}
@@ -1408,8 +1417,8 @@ function NocAuthorizationPanel({
               : "Código de troca ainda bloqueado"}
           </p>
           <p className="text-xs text-slate-300">
-            O código TRC é emitido pelo fluxo oficial de troca de ONT do checklist técnico
-            vinculado, preservando a mesma numeração e histórico.
+            Código registrado: <strong>{operation.nocAuthorizationCode}</strong>. A troca continua
+            pelo fluxo oficial e preserva o histórico do checklist técnico vinculado.
           </p>
           {linkedChecklistId ? (
             <Button asChild variant="outline" className="w-full border-emerald-400/35 text-emerald-100">
@@ -1450,10 +1459,6 @@ function NocAuthorizationPanel({
           </div>
         </div>
       )}
-      <details className="rounded-lg border border-slate-700 bg-slate-950/30 p-3">
-        <summary className="cursor-pointer text-xs text-slate-400">Prévia da mensagem NOC</summary>
-        <pre className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-slate-300">{nocPreview}</pre>
-      </details>
     </div>
   );
 }
@@ -1555,9 +1560,6 @@ function DiagnosticSummary({
   session,
   evaluation,
   aiReview,
-  nocPreview,
-  onCopyNocPreview,
-  nocWhatsApp,
   linkedChecklistId,
   onBack,
   onReset,
@@ -1565,6 +1567,7 @@ function DiagnosticSummary({
   onDownloadReport,
   onUpdateOperation,
   onCreateRevision,
+  onContinueMaintenance,
   onCaptureLocation,
   onCreateMaintenanceCounterproof,
   onValidateLearning,
@@ -1572,13 +1575,11 @@ function DiagnosticSummary({
   aiPending,
   learningPending,
   maintenanceCounterproofPending,
+  maintenanceCounterproofBlockReason,
 }: {
   session: SmartDiagnosticSession;
   evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
   aiReview: AiDiagnosticReview | null;
-  nocPreview: string;
-  onCopyNocPreview: () => void;
-  nocWhatsApp: string | null;
   linkedChecklistId: string | null;
   onBack: () => void;
   onReset: () => void;
@@ -1586,6 +1587,7 @@ function DiagnosticSummary({
   onDownloadReport: () => void;
   onUpdateOperation: (next: Partial<DiagnosticOperation>) => void;
   onCreateRevision: () => void;
+  onContinueMaintenance: () => void;
   onCaptureLocation: () => void;
   onCreateMaintenanceCounterproof: () => void;
   onValidateLearning: () => void;
@@ -1593,6 +1595,7 @@ function DiagnosticSummary({
   aiPending: boolean;
   learningPending: boolean;
   maintenanceCounterproofPending: boolean;
+  maintenanceCounterproofBlockReason: string | null;
 }) {
   const tone = statusTone(evaluation.status);
   const Icon = tone.icon;
@@ -1626,7 +1629,10 @@ function DiagnosticSummary({
             ["Código do diagnóstico", diagnosticCode],
             ["Status", evaluation.statusLabel],
             ["Início", new Date(session.startedAt).toLocaleString("pt-BR")],
-            ["Localização", session.metadata.location?.status === "captured" ? `${session.metadata.location.accuracyMeters ?? "—"} m` : session.metadata.location?.status === "denied" ? "Permissão negada" : "Não disponível"],
+            [
+              "Localização",
+              locationDisplay(session.metadata.location),
+            ],
           ].map(([label, value]) => (
             <div key={label} className="rounded-xl border border-blue-400/15 bg-slate-950/45 p-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
@@ -1680,9 +1686,9 @@ function DiagnosticSummary({
           <div className="grid gap-3 sm:grid-cols-2">
             <Button
               variant={operation.decision === "continue_maintenance" ? "default" : "outline"}
-              onClick={() => onUpdateOperation({ decision: "continue_maintenance" })}
+              onClick={onContinueMaintenance}
             >
-              Continuar manutenção
+              Continuar em nova revisão
             </Button>
             <Button
               variant={operation.decision === "request_ont_exchange" ? "default" : "outline"}
@@ -1763,9 +1769,6 @@ function DiagnosticSummary({
                 evaluation={evaluation}
                 operation={operation}
                 onUpdate={onUpdateOperation}
-                nocPreview={nocPreview}
-                onCopy={onCopyNocPreview}
-                nocWhatsApp={nocWhatsApp}
                 linkedChecklistId={linkedChecklistId}
               />
             </div>
@@ -1906,10 +1909,13 @@ function DiagnosticSummary({
             <p className="mt-1 text-sm text-slate-400">
               Recomendável quando houver orientação ao cliente, troca de ONT, divergência ou resultado inconclusivo.
             </p>
+            {maintenanceCounterproofBlockReason && (
+              <p className="mt-2 text-xs text-amber-200">{maintenanceCounterproofBlockReason}</p>
+            )}
           </div>
           <Button
             variant="outline"
-            disabled={maintenanceCounterproofPending}
+            disabled={maintenanceCounterproofPending || Boolean(maintenanceCounterproofBlockReason)}
             onClick={onCreateMaintenanceCounterproof}
             className="border-emerald-400/35 text-emerald-100"
           >

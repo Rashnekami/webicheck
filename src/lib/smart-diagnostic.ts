@@ -81,6 +81,8 @@ export interface DiagnosticOperation {
   nocAuthorization?: OntExchangeAuthorization;
   nocAnalyst?: string;
   nocProtocol?: string;
+  /** Código informado pelo NOC no atendimento externo (WhatsApp/telefone). Nunca é gerado pelo Webi. */
+  nocAuthorizationCode?: string;
   nocAuthorizedAt?: string;
   removedSerial?: string;
   installedSerial?: string;
@@ -142,7 +144,7 @@ export interface HypothesisView {
 
 export interface NocReadiness {
   eligible: boolean;
-  profile: "ont_power" | "ont_restart" | "radio_5" | "lan" | null;
+  profile: "ont_power" | "ont_restart" | "pon_registration" | "radio_5" | "lan" | null;
   title: string;
   completed: string[];
   missing: string[];
@@ -1154,6 +1156,27 @@ function buildNocReadiness(session: SmartDiagnosticSession): NocReadiness {
       ],
     },
     {
+      profile: "pon_registration",
+      active:
+        session.symptoms.includes("perde_provisionamento") ||
+        session.symptoms.includes("pon_instavel") ||
+        answer(session, "pon_stable") === "no" ||
+        answer(session, "los_active") === "pon_blinking",
+      title: "PON/registro da ONT não normalizou após a intervenção",
+      checks: [
+        [answer(session, "optical_in_range") === "yes", "Óptica dentro do padrão"],
+        [
+          answer(session, "pon_stable") === "no" || answer(session, "los_active") === "pon_blinking",
+          "PON instável confirmado",
+        ],
+        [
+          answer(session, "provisioned") === "no" || answer(session, "provisioned") === "unknown",
+          "Registro/provisionamento não normalizou",
+        ],
+        [persisted, "Intervenção e reteste concluídos; falha persiste"],
+      ],
+    },
+    {
       profile: "radio_5",
       active:
         session.symptoms.includes("wifi_5_desaparece") ||
@@ -1227,7 +1250,9 @@ export function getOntExchangeReadiness(
   const reasons = session.metadata.operation?.exchangeReasons ?? [];
   const reasonsMissing = reasons.length === 0;
   const eligibilityMissing = [...noc.missing, ...(reasonsMissing ? ["Motivo da troca informado"] : [])];
-  const authorized = session.metadata.operation?.nocAuthorization === "authorized";
+  const authorized =
+    session.metadata.operation?.nocAuthorization === "authorized" &&
+    Boolean(session.metadata.operation?.nocAuthorizationCode?.trim());
   const missingForCode = [
     ...eligibilityMissing,
     ...(authorized ? [] : ["Autorização do NOC registrada"]),
@@ -1235,7 +1260,9 @@ export function getOntExchangeReadiness(
   return {
     ...noc,
     reasonsMissing,
-    eligibleToRequest: noc.eligible && !reasonsMissing,
+    // Abrir o pedido nunca pode depender do motivo: o técnico precisa enxergar e selecionar
+    // o motivo antes de o pedido ficar apto para conclusão.
+    eligibleToRequest: noc.eligible,
     eligibleForCode: noc.eligible && !reasonsMissing && authorized,
     missingForCode,
   };
@@ -1484,6 +1511,23 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
       90,
       "reinforced",
       "ONT não estava provisionada corretamente.",
+    );
+  }
+  if (
+    (answer(session, "pon_stable") === "no" || answer(session, "los_active") === "pon_blinking") &&
+    answer(session, "optical_in_range") === "yes" &&
+    (answer(session, "provisioned") === "no" || answer(session, "provisioned") === "unknown") &&
+    answer(session, "symptom_persists") === "yes"
+  ) {
+    pushHypothesis(
+      hypotheses,
+      "Registro PON / GPON da ONT",
+      94,
+      "reinforced",
+      "A óptica está dentro do padrão, mas PON/registro não normalizou após a intervenção e o reteste.",
+    );
+    recommendations.push(
+      "Registrar o código de autorização recebido do NOC e seguir o fluxo oficial de troca de ONT.",
     );
   }
   if (answer(session, "problem_after_reprovision") === "no") {

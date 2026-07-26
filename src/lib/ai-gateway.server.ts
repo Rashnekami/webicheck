@@ -58,9 +58,21 @@ type ChatPayload = {
 
 const FREE_ONLY = (process.env.AI_COST_MODE?.trim() || "free_only") === "free_only";
 const REQUEST_TIMEOUT_MS = 25_000;
+const PROVIDER_FAILURE_COOLDOWN_MS = 5 * 60_000;
+const providerCooldowns = new Map<AiGatewayProvider, number>();
 
 function configuredValue(name: string, fallback = ""): string {
   return process.env[name]?.trim() || fallback;
+}
+
+function openRouterFreeModel(name: string): string {
+  const configured = process.env[name]?.trim();
+  // Compatibilidade com a configuração beta anterior: esse slug deixou de ter
+  // oferta free e faz o provider falhar mesmo com a chave correta.
+  if (!configured || configured === "meta-llama/llama-3.3-70b-instruct:free") {
+    return "openrouter/free";
+  }
+  return configured;
 }
 
 function definitions(): ProviderDefinition[] {
@@ -79,8 +91,9 @@ function definitions(): ProviderDefinition[] {
       label: "OpenRouter",
       apiKey: configuredValue("OPENROUTER_API_KEY"),
       endpoint: "https://openrouter.ai/api/v1/chat/completions",
-      triageModel: configuredValue("OPENROUTER_MODEL_TRIAGE", "meta-llama/llama-3.3-70b-instruct:free"),
-      reviewModel: configuredValue("OPENROUTER_MODEL_REVIEW", "meta-llama/llama-3.3-70b-instruct:free"),
+      // O roteador gratuito evita fixar um modelo free descontinuado/indisponível.
+      triageModel: openRouterFreeModel("OPENROUTER_MODEL_TRIAGE"),
+      reviewModel: openRouterFreeModel("OPENROUTER_MODEL_REVIEW"),
       costClass: configuredValue("OPENROUTER_COST_CLASS", "free") === "free" ? "free" : "unknown",
       headers: { "HTTP-Referer": configuredValue("APP_ORIGIN", "https://checktecnico.life"), "X-Title": "WebiCheck" },
     },
@@ -153,7 +166,10 @@ function orderedProviders(sessionId: string, allowPaid: boolean, requested?: AiG
   if (!free.length) throw new Error("Nenhum provider gratuito está configurado no ambiente.");
   const hash = [...sessionId].reduce((total, char) => total + char.charCodeAt(0), 0);
   const start = hash % free.length;
-  return [...free.slice(start), ...free.slice(0, start)];
+  const rotated = [...free.slice(start), ...free.slice(0, start)];
+  const available = rotated.filter((item) => (providerCooldowns.get(item.provider) ?? 0) <= Date.now());
+  // Se todos estiverem em cooldown, tenta novamente em vez de bloquear o atendimento.
+  return available.length ? available : rotated;
 }
 
 function outputText(payload: ChatPayload | null): string {
@@ -244,12 +260,14 @@ export async function runAiGateway(input: {
   for (let index = 0; index < candidates.length; index += 1) {
     try {
       const result = await invoke(candidates[index], input.mode, input.instructions, input.payload);
+      providerCooldowns.delete(candidates[index].provider);
       return {
         ...result,
         fallbackUsed: index > 0,
         fallbackReason: index > 0 ? errors.join(" | ").slice(0, 500) : null,
       };
     } catch (error) {
+      providerCooldowns.set(candidates[index].provider, Date.now() + PROVIDER_FAILURE_COOLDOWN_MS);
       errors.push(`${candidates[index].label}: ${error instanceof Error ? error.message : "falha"}`);
     }
   }
@@ -266,8 +284,10 @@ export async function healthCheckAiGateway(allowPaid = false): Promise<AiGateway
       const started = Date.now();
       try {
         await invoke(definition, "triage", "Responda somente JSON válido: {\"ok\":true}", { operation: "health_check" });
+        providerCooldowns.delete(definition.provider);
         return { ...status, lastHealth: { ok: true, latencyMs: Date.now() - started, checkedAt: new Date().toISOString() } };
       } catch (error) {
+        providerCooldowns.set(definition.provider, Date.now() + PROVIDER_FAILURE_COOLDOWN_MS);
         return {
           ...status,
           lastHealth: {

@@ -66,7 +66,7 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     expect(result.noc.profile).toBe("ont_power");
   });
 
-  it("exige motivo e autorização humana antes de liberar a etapa do ticket de troca", () => {
+  it("abre a etapa de troca quando a evidência técnica está completa e exige motivo/código externo para concluí-la", () => {
     const session = sessionWith(["ont_nao_liga"], {
       ont_powered_now: "no",
       outlet_has_power: "yes",
@@ -78,7 +78,7 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     });
 
     let result = evaluateSmartDiagnostic(session);
-    expect(result.ontExchange.eligibleToRequest).toBe(false);
+    expect(result.ontExchange.eligibleToRequest).toBe(true);
     expect(result.ontExchange.missingForCode).toContain("Motivo da troca informado");
 
     session.metadata.operation = { exchangeReasons: ["ONT não liga"], nocAuthorization: "pending" };
@@ -87,8 +87,27 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     expect(result.ontExchange.eligibleForCode).toBe(false);
 
     session.metadata.operation.nocAuthorization = "authorized";
+    session.metadata.operation.nocAuthorizationCode = "TRC-EXTERNO-123";
     result = evaluateSmartDiagnostic(session);
     expect(result.ontExchange.eligibleForCode).toBe(true);
+  });
+
+  it("encaminha PON/registro que não normaliza para troca após óptica, intervenção e reteste", () => {
+    const session = sessionWith(["pon_instavel", "perde_provisionamento"], {
+      los_active: "pon_blinking",
+      optical_in_range: "yes",
+      pon_stable: "no",
+      provisioned: "unknown",
+      corrective_action: "no_action_solved",
+      retest_performed: "yes",
+      symptom_persists: "yes",
+    });
+
+    const result = evaluateSmartDiagnostic(session);
+    expect(result.noc.profile).toBe("pon_registration");
+    expect(result.noc.eligible).toBe(true);
+    expect(result.ontExchange.eligibleToRequest).toBe(true);
+    expect(result.hypotheses[0]?.label).toBe("Registro PON / GPON da ONT");
   });
 
   it("descarta falha geral da ONT quando outro dispositivo funciona normalmente", () => {

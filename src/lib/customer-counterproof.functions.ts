@@ -183,7 +183,13 @@ export const createMaintenanceCounterproof = createServerFn({ method: "POST" })
       .select("id, provider_id, technician_id, checklist_id, case_id, checklist_code, service_order, client_name, city, deterministic_evaluation, operation_snapshot")
       .eq("id", data.sessionId)
       .maybeSingle();
-    if (sessionError || !session) throw new Error("Diagnóstico não encontrado.");
+    if (sessionError) {
+      if (sessionError.code === "PGRST205" || /smart_diagnostic_sessions|schema cache/i.test(sessionError.message ?? "")) {
+        throw new Error("A Contra-Prova de manutenção está pronta no preview, mas depende da migration operacional ainda não aplicada. Nenhum dado foi criado.");
+      }
+      throw new Error(sessionError.message || "Não foi possível localizar o diagnóstico.");
+    }
+    if (!session) throw new Error("Este diagnóstico ainda não foi salvo. Aguarde a auditoria sincronizar e tente novamente.");
     const { data: admin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (session.technician_id !== context.userId && !admin) throw new Error("Sem permissão.");
     if (!session.checklist_id) throw new Error("Vincule um checklist técnico antes de gerar a Contra-Prova de manutenção.");

@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- componentes exclusivos do renderizador de PDF */
 import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 
-import type { DiagnosticEvaluation, SmartDiagnosticSession } from "@/lib/smart-diagnostic";
+import type { DiagnosticEvaluation, DiagnosticOperation, SmartDiagnosticSession } from "@/lib/smart-diagnostic";
 import { getDiagnosticDecisionTrail } from "@/lib/smart-diagnostic";
 import type { AiDiagnosticReview } from "@/lib/smart-diagnostic-ai";
 
@@ -24,7 +24,7 @@ const s = StyleSheet.create({
     backgroundColor: C.page,
     color: C.text,
     fontFamily: "Helvetica",
-    fontSize: 8.5,
+    fontSize: 9.2,
   },
   frame: {
     borderWidth: 1,
@@ -63,12 +63,12 @@ const s = StyleSheet.create({
     padding: 8,
     backgroundColor: C.panel,
   },
-  panelTitle: { color: C.cyan, fontSize: 10.5, fontWeight: 700, marginBottom: 5 },
+  panelTitle: { color: C.cyan, fontSize: 11.5, fontWeight: 700, marginBottom: 6 },
   row: {
     flexDirection: "row",
     borderBottomWidth: 1.4,
     borderBottomColor: "#1d5a9f",
-    paddingVertical: 5.5,
+    paddingVertical: 6.5,
     alignItems: "flex-start",
   },
   lastRow: { borderBottomWidth: 0 },
@@ -79,19 +79,19 @@ const s = StyleSheet.create({
     textAlign: "center",
     backgroundColor: "#0c45a5",
     color: C.text,
-    fontSize: 7.5,
+    fontSize: 8.2,
     fontWeight: 700,
   },
-  question: { flex: 1, paddingHorizontal: 7, color: C.text, lineHeight: 1.35, fontSize: 9 },
+  question: { flex: 1, paddingHorizontal: 8, color: C.text, lineHeight: 1.4, fontSize: 10.2 },
   answer: {
-    width: 90,
+    width: 112,
     color: C.green,
-    fontSize: 7.8,
+    fontSize: 8.6,
     fontWeight: 700,
     textAlign: "right",
   },
-  detail: { marginTop: 3, color: C.muted, fontSize: 7.3, lineHeight: 1.4 },
-  bullet: { color: C.text, marginBottom: 3.5, lineHeight: 1.4 },
+  detail: { marginTop: 3, color: C.muted, fontSize: 7.8, lineHeight: 1.4 },
+  bullet: { color: C.text, marginBottom: 4, lineHeight: 1.45 },
   warning: {
     borderWidth: 1,
     borderColor: C.amber,
@@ -159,6 +159,13 @@ function Header({
   session: SmartDiagnosticSession;
   evaluation: DiagnosticEvaluation;
 }) {
+  const location = session.metadata.location;
+  const locationValue =
+    location?.status === "captured" || location?.status === "low_accuracy"
+      ? `${typeof location.latitude === "number" && typeof location.longitude === "number" ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)} · ` : ""}precisão ${location.accuracyMeters ?? "—"} m`
+      : location?.status === "denied"
+        ? "permissão negada no navegador"
+        : "não capturada";
   return (
     <>
       <Text style={s.brand}>WEBI FIBRA // WEBI NOC</Text>
@@ -176,18 +183,32 @@ function Header({
         <Info label="Revisão" value={`R${session.metadata.revision?.revisionNumber ?? 1}`} />
         <Info
           label="Localização"
-          value={
-            session.metadata.location?.status === "captured"
-              ? `capturada · precisão ${session.metadata.location.accuracyMeters ?? "—"} m`
-              : session.metadata.location?.status === "denied"
-                ? "permissão negada"
-                : "não disponível"
-          }
+          value={locationValue}
         />
         <Info label="Status" value={evaluation.statusLabel} wide status />
       </View>
     </>
   );
+}
+
+function operationDecisionLabel(value: DiagnosticOperation["decision"]) {
+  if (value === "continue_maintenance") return "Manutenção continuada em nova revisão";
+  if (value === "request_ont_exchange") return "Solicitação de troca de ONT registrada";
+  return "Não informada";
+}
+
+function authorizationLabel(operation: DiagnosticOperation | undefined) {
+  if (operation?.nocAuthorization === "authorized" && operation.nocAuthorizationCode) {
+    return `Código externo registrado: ${operation.nocAuthorizationCode}`;
+  }
+  if (operation?.nocAuthorization === "denied") return "Não autorizada pelo NOC";
+  return "Código externo ainda não registrado";
+}
+
+function postExchangeRetestLabel(value: DiagnosticOperation["postExchangeRetest"]) {
+  if (value === "resolved") return "Realizado — problema resolvido";
+  if (value === "persists") return "Realizado — problema permanece";
+  return "Pendente / não realizado";
 }
 
 function DiagnosticDocument({
@@ -269,13 +290,13 @@ function DiagnosticDocument({
                       : "não liberada pelo motor de regras"}
                   </Text>
                   <Text style={s.bullet}>
-                    Decisão operacional: {session.metadata.operation?.decision || "NÃO INFORMADA"}
+                    Decisão operacional: {operationDecisionLabel(session.metadata.operation?.decision)}
                   </Text>
                   <Text style={s.bullet}>
-                    Autorização NOC: {session.metadata.operation?.nocAuthorization || "PENDENTE"}
+                    Autorização externa: {authorizationLabel(session.metadata.operation)}
                   </Text>
                   <Text style={s.bullet}>
-                    Reteste pós-troca: {session.metadata.operation?.postExchangeRetest || "NÃO REALIZADO"}
+                    Reteste pós-troca: {postExchangeRetestLabel(session.metadata.operation?.postExchangeRetest)}
                   </Text>
                 </View>
                 {evaluation.divergences.length ? (
