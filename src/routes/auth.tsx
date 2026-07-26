@@ -452,9 +452,33 @@ function GoogleButton({ className }: { className?: string }) {
   );
 }
 
+const RESERVED_SUBDOMAINS = new Set([
+  "www",
+  "checktecnico",
+  "webicheck",
+  "app",
+  "id-preview",
+  "localhost",
+  "preview",
+]);
+
+function detectProviderSlugFromHost(): string {
+  if (typeof window === "undefined") return "webifibra";
+  const host = window.location.hostname;
+  const parts = host.split(".");
+  // Ex.: webifibra.checktecnico.life -> ["webifibra","checktecnico","life"]
+  if (parts.length >= 3) {
+    const first = parts[0].toLowerCase();
+    if (!RESERVED_SUBDOMAINS.has(first) && /^[a-z0-9-]{2,40}$/.test(first)) {
+      return first;
+    }
+  }
+  return "webifibra";
+}
+
 function InternalLoginForm() {
   const navigate = useNavigate();
-  const [providerSlug, setProviderSlug] = useState("webifibra");
+  const [providerSlug, setProviderSlug] = useState(() => detectProviderSlugFromHost());
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
