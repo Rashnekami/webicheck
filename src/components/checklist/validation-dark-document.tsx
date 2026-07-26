@@ -502,7 +502,7 @@ export const ValidationDarkDocument = forwardRef<HTMLDivElement, Props>(
     const rf = d.resultado_final ?? ({} as ChecklistData["resultado_final"]);
     const noc = d.noc ?? ({} as ChecklistData["noc"]);
 
-    const trocaFeita = payload.troca_realizada === true;
+    const trocaFeita = (h as { troca_realizada?: boolean | null }).troca_realizada === true;
 
     return (
       <div
