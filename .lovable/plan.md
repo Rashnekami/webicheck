@@ -1,61 +1,56 @@
-# Plano — Permissões, Multi-provedor com Branding e Login Interno
+# Supervisores, NOC e Castro
 
-## 1. Restaurar exclusão de checklists finalizados (só para você)
+## 1. Cidades
+- Adicionar **Castro** em `src/lib/profile-cities.ts` (agora 6 cidades).
 
-- Nova policy RLS em `public.checklists`: `DELETE` permitido quando `profiles.platform_admin = true` do usuário atual (via função `SECURITY DEFINER` `is_platform_admin(auth.uid())` para evitar recursão).
-- Cascata segura: apagar em ordem — `checklist_fotos`, `checklist_diagnostic_reports`, `checklist_document_snapshots`, `checklist_public_access_logs`, `customer_counterproof_events`, `customer_counterproofs`, `ont_exchange_tickets` → depois `checklists`. Feito via server fn `deleteChecklistCascade` usando `supabaseAdmin` após checar `platform_admin`.
-- UI: em `src/routes/_authenticated/checklists.$id.tsx` e na lista, botão "Excluir" volta a aparecer para você (mesmo se `status = finalizado`), com confirmação dupla.
+## 2. Banco (uma migration)
+- Enum `app_role`: adicionar `'supervisor'` e `'noc'`.
+- `profiles`: nova coluna `supervisor_id uuid REFERENCES auth.users(id)` (técnico → supervisor).
+- Nova tabela `supervisor_cities (supervisor_id, city, provider_id)` — cidades que cada supervisor supervisiona (M2M).
+- `checklists`: colunas de revisão de supervisor:
+  - `review_status text` (`pendente`, `aprovado`, `reprovado`) — default `pendente` quando finalizado.
+  - `review_comment text`, `reviewed_by uuid`, `reviewed_at timestamptz`.
+  - `locked_for_rework bool` — quando true, técnico é obrigado a criar revisão (Rn) antes de novo envio.
+- Funções `SECURITY DEFINER`:
+  - `is_supervisor_of(_supervisor uuid, _tecnico uuid) → bool`
+  - `supervisor_covers_city(_supervisor uuid, _city text) → bool`
+  - `review_checklist(_id uuid, _decision text, _comment text)` — só supervisor do técnico, seta review_status/locked_for_rework, cria evento.
+- RLS atualizada:
+  - **checklists SELECT**: acrescenta `supervisor` (vê checklists dos técnicos atribuídos OU dentro das cidades cobertas) e `noc` (vê tudo do provedor, read-only).
+  - **checklists UPDATE**: bloqueia edição quando `locked_for_rework=true` (só destrava via `create_checklist_revision`).
+  - **profiles**: supervisor lê/edita perfis dos seus técnicos; NOC lê perfis do provedor.
+  - **provider_login_accounts**: supervisor pode gerenciar credenciais dos técnicos do seu escopo.
+- Trigger em `checklists`: ao finalizar, seta `review_status='pendente'`.
+- GRANTs para `authenticated` em todas as novas tabelas/colunas.
 
-## 2. Cadastro de provedores com branding
+## 3. Server functions
+- `src/lib/supervisor.functions.ts`
+  - `listSupervisorScope()` — cidades cobertas + técnicos vinculados.
+  - `reviewChecklist({ id, decision, comment })` — chama RPC.
+  - `assignTechnicianToSupervisor({ tecnicoId, supervisorId })` — admin/platform.
+- `src/lib/admin-users.functions.ts` (existente): estender criação/edição para escolher **papel** (`tecnico | supervisor | noc | admin | almoxarifado`), cidades cobertas (supervisor) e supervisor vinculado (técnico).
+- `src/lib/technician-credentials.functions.ts`: permitir supervisor criar login dos seus técnicos.
 
-- Migration em `public.providers`:
-  - `logo_url text`, `primary_color text`, `accent_color text`, `pdf_template text default 'dark-neon'` (valores: `'dark-neon'` | `'light-classic'`).
-- Novo bucket `provider-branding` (público-leitura, upload restrito a platform_admin).
-- Server fns em `src/lib/platform-admin.functions.ts` (só `platform_admin = true`):
-  - `createProvider({ name, slug, logo, primary_color, accent_color, pdf_template })`
-  - `updateProviderBranding(...)`
-  - `listAllProviders()`
-- Nova página `src/routes/_authenticated/plataforma.tsx` (visível só para você): lista todos provedores + form "Novo provedor" com upload de logo, seletor de cores, seletor de template PDF (preview lado a lado dos 2 layouts).
-- Em `src/routes/_authenticated/provedor.tsx`: admin do próprio provedor pode trocar logo/cores/template, mas não pode criar outro provedor.
+## 4. UI
+- **Usuários** (`src/routes/_authenticated/usuarios.tsx`):
+  - Novo seletor de papel no diálogo de criação/edição.
+  - Se papel = `supervisor`: multi-select de cidades cobertas.
+  - Se papel = `tecnico`: dropdown "Supervisor responsável" (lista supervisores do provedor).
+  - Badge visual do papel em cada card.
+- **Checklist detalhe** (`src/routes/_authenticated/checklists.$id.tsx`):
+  - Novo card **Revisão do Supervisor** (visível quando finalizado): botões Aprovar/Reprovar + textarea de comentário; mostra status atual e histórico.
+  - Se `locked_for_rework=true` e o usuário for o técnico: banner vermelho "Reprovado por supervisor — crie uma nova revisão" + botão que abre o fluxo de revisão existente.
+- **Lista de checklists** (`src/routes/_authenticated/checklists.index.tsx`):
+  - Badge de `review_status` (Pendente/Aprovado/Reprovado).
+  - Filtro rápido para supervisores: "Aguardando minha revisão".
+- **Dashboard**: sem mudança de UI, RLS já dá acesso ao NOC.
 
-## 3. Aplicar branding nos PDFs e na UI
+## 5. Detalhes técnicos
+- `handle_new_user`: mantém `renan.rash@gmail.com` / `renanparkofthedeath@gmail.com` como platform_admin.
+- Notificação ao técnico = banner in-app + toast na próxima abertura (sem email nesta iteração).
+- Supervisor NÃO consegue apagar checklists finalizados (só platform admin e admin do provedor).
+- NOC: policies só SELECT — nenhuma policy de INSERT/UPDATE/DELETE.
 
-- Contexto `ProviderBrandingContext` carregado no `_authenticated/route.tsx` (logo, cores, template).
-- Cabeçalho do app e `WebifibraLogo` passam a usar logo do provedor.
-- PDFs (`checklist-pdf.tsx`, `instalacao-pdf.tsx`, `dossie-pdf.ts`, `customer-counterproof-pdf-page.tsx`, `validation-dark-document.tsx`, `installation-dark-document.tsx`):
-  - Se `pdf_template = 'dark-neon'` → layout atual, cores do provedor substituem azul/cyan.
-  - Se `pdf_template = 'light-classic'` → segundo template (fundo claro, cabeçalho colorido com logo, mesmo conteúdo).
-  - Logo do provedor no header do PDF (fallback: Webifibra).
-
-## 4. Login usuário+senha coexistindo com Google
-
-- Migration `public.provider_login_accounts`:
-  - `user_id uuid → auth.users`, `provider_id uuid`, `login text`, `password_hash text` (bcrypt), `active bool`, `created_by uuid`, timestamps.
-  - Unique `(provider_id, lower(login))`.
-- Server fns:
-  - `createTechnicianCredential({ provider_id, login, password, full_name, matricula, phone, city, role })` — só admin do provedor. Cria auth user com email sintético `login@<slug-provedor>.webicheck.local`, salva hash bcrypt em `provider_login_accounts`, popula `profiles` e `user_roles`.
-  - `resetTechnicianPassword({ account_id, new_password })`.
-  - `deactivateTechnicianCredential({ account_id })`.
-- Login: server route `src/routes/api/public/auth/login-internal.ts` — recebe `{ provider_slug, login, password }`, valida bcrypt em `provider_login_accounts`, gera magic link/token do Supabase e devolve para o front chamar `supabase.auth.setSession`.
-- UI `src/routes/auth.tsx` ganha duas abas: **Login interno** (dropdown provedor + login + senha) e **Google** (mantido).
-- Vínculo com histórico: técnicos que já logaram por Google mantêm o mesmo `user_id`; supervisor pode adicionar credencial interna ao mesmo `profiles.id` via botão "Adicionar login/senha" no `usuarios.tsx`. Os checklists ficam intactos (já são atrelados por `tecnico_id = user_id`).
-- Preparação para Webi Diagnostic: o `provider_login_accounts` já expõe `provider_id` + `login`, então o agente futuro poderá usar as mesmas credenciais via endpoint dedicado (fora do escopo agora, só deixar a base pronta).
-
-## 5. Ordem de execução
-
-1. Migration 1 — RLS de delete + função `is_platform_admin`.
-2. Migration 2 — colunas de branding em `providers` + bucket.
-3. Migration 3 — tabela `provider_login_accounts` + índices + RLS.
-4. Server fns: `deleteChecklistCascade`, `platform-admin.functions.ts`, `technician-credentials.functions.ts`.
-5. Server route de login interno + hook no `auth.tsx`.
-6. Contexto de branding + aplicação nos PDFs (dois templates).
-7. Página `/plataforma`, ajustes em `/provedor` e `/usuarios`.
-8. Restaurar botão de excluir na tela do checklist.
-
-## Notas técnicas
-
-- Senha em bcrypt (`bcryptjs`, roda no worker). Nunca em texto puro; nunca retornada por API.
-- Google continua ativo — não vou chamar `configure_social_auth` para desabilitar.
-- Emails sintéticos (`login@slug.webicheck.local`) nunca são exibidos ao usuário; a UI mostra apenas `login` e nome do provedor.
-- `platform_admin` continua sendo você (`renan.rash@gmail.com`); apenas você vê `/plataforma` e o botão de deletar checklist finalizado.
-- Sem mudança de domínio nem republicação forçada — tudo aplicado em preview primeiro.
+## 6. Verificação
+- `supabase--linter` após a migration.
+- Teste manual: criar supervisor SUP-PG cobrindo Ponta Grossa, vincular técnico T0113, finalizar checklist como T0113, aprovar/reprovar como SUP-PG, tentar editar após reprovação (deve travar), criar revisão.
