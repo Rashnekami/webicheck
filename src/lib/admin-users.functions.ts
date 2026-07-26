@@ -35,6 +35,16 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     await ensureAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    // Isolamento: admin comum só vê usuários do próprio provedor.
+    // Dono da plataforma (platform_admin) vê todos.
+    const { data: actor } = await supabaseAdmin
+      .from("profiles")
+      .select("provider_id, platform_admin")
+      .eq("id", context.userId)
+      .maybeSingle();
+    const isPlatformAdmin = Boolean(actor?.platform_admin);
+    const actorProviderId = actor?.provider_id ?? null;
+
     const authUsers: Array<{
       id: string;
       email?: string;
@@ -62,7 +72,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
       await Promise.all([
         supabaseAdmin
           .from("profiles")
-          .select("id, email, full_name, phone, matricula, city, active, created_at")
+          .select("id, email, full_name, phone, matricula, city, active, created_at, provider_id")
           .in("id", ids),
         supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids),
       ]);
@@ -79,6 +89,11 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     }
 
     return authUsers
+      .filter((authUser) => {
+        if (isPlatformAdmin) return true;
+        const p = profileById.get(authUser.id) as { provider_id?: string | null } | undefined;
+        return p?.provider_id && p.provider_id === actorProviderId;
+      })
       .map((authUser) => {
         const profile = profileById.get(authUser.id);
         return {
@@ -99,6 +114,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
       })
       .sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR"));
   });
+
 
 export const updateAdminUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

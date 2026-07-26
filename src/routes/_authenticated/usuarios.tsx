@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,11 @@ import {
   listAdminUsers,
   updateAdminUser,
 } from "@/lib/admin-users.functions";
+import {
+  createTechnicianCredential,
+  listProviderLoginAccounts,
+  resetTechnicianPassword,
+} from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
@@ -67,6 +72,18 @@ function UsersPage() {
     queryFn: () => listAdminUsers(),
     enabled: currentUser?.isAdmin === true,
   });
+
+  const accountsQuery = useQuery({
+    queryKey: ["provider-login-accounts"],
+    queryFn: () => listProviderLoginAccounts(),
+    enabled: currentUser?.isAdmin === true,
+  });
+  const accountByUserId = useMemo(
+    () => new Map((accountsQuery.data ?? []).map((a) => [a.user_id, a])),
+    [accountsQuery.data],
+  );
+
+  const [credTarget, setCredTarget] = useState<AdminUserRecord | null>(null);
 
   const updateUser = useMutation({
     mutationFn: async ({ user, values }: { user: AdminUserRecord; values: UserDraft }) =>
@@ -235,6 +252,11 @@ function UsersPage() {
                   {user.city && <p>Cidade: {user.city}</p>}
                   {user.phone && <p>Telefone: {user.phone}</p>}
                   <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
+                  {accountByUserId.get(user.id) && (
+                    <p className="font-mono text-cyan-400">
+                      Login: {accountByUserId.get(user.id)!.login}
+                    </p>
+                  )}
                   {!user.has_profile && (
                     <p className="font-medium text-amber-400">
                       Perfil incompleto — revise antes de ativar.
@@ -242,13 +264,20 @@ function UsersPage() {
                   )}
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
-                <Pencil className="mr-1.5 h-4 w-4" /> Editar
-              </Button>
+              <div className="flex flex-col gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
+                  <Pencil className="mr-1.5 h-4 w-4" /> Editar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setCredTarget(user)}>
+                  <KeyRound className="mr-1.5 h-4 w-4" />
+                  {accountByUserId.get(user.id) ? "Redefinir" : "Login/Senha"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
 
       {!usersQuery.isLoading && filteredUsers.length === 0 && (
         <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
@@ -389,6 +418,126 @@ function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CredentialDialog
+        user={credTarget}
+        existingLogin={credTarget ? accountByUserId.get(credTarget.id)?.login ?? null : null}
+        onClose={() => setCredTarget(null)}
+        onSaved={() => {
+          setCredTarget(null);
+          queryClient.invalidateQueries({ queryKey: ["provider-login-accounts"] });
+        }}
+      />
     </div>
   );
 }
+
+function CredentialDialog({
+  user,
+  existingLogin,
+  onClose,
+  onSaved,
+}: {
+  user: AdminUserRecord | null;
+  existingLogin: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const isReset = Boolean(existingLogin);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Usuário inválido.");
+      if (isReset) {
+        const accounts = await listProviderLoginAccounts();
+        const acc = accounts.find((a) => a.user_id === user.id);
+        if (!acc) throw new Error("Credencial não encontrada.");
+        return resetTechnicianPassword({ data: { accountId: acc.id, newPassword: password } });
+      }
+      return createTechnicianCredential({
+        data: {
+          login,
+          password,
+          fullName: user.full_name || user.email,
+          matricula: user.matricula,
+          phone: user.phone,
+          city: user.city,
+          role: user.role,
+          linkToUserId: user.id,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success(isReset ? "Senha redefinida." : "Login criado.");
+      setLogin("");
+      setPassword("");
+      onSaved();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <Dialog
+      open={Boolean(user)}
+      onOpenChange={(open) => {
+        if (!open && !mutation.isPending) {
+          setLogin("");
+          setPassword("");
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isReset ? "Redefinir senha" : "Criar login e senha"}</DialogTitle>
+          <DialogDescription>
+            {isReset
+              ? `Nova senha para o login ${existingLogin}.`
+              : `Criando credencial interna para ${user?.full_name ?? ""}.`}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {!isReset && (
+            <div className="space-y-1.5">
+              <Label>Login</Label>
+              <Input
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                placeholder="ex.: t0112"
+                autoComplete="off"
+              />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Senha (mín. 8 caracteres)</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={
+              mutation.isPending ||
+              password.length < 8 ||
+              (!isReset && !/^[a-z0-9._-]{3,40}$/.test(login.trim().toLowerCase()))
+            }
+          >
+            {mutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {isReset ? "Redefinir" : "Salvar credencial"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
