@@ -898,32 +898,85 @@ export type Database = {
           },
         ]
       }
+      provider_login_accounts: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          login: string
+          password_hash: string
+          provider_id: string
+          supabase_email: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          login: string
+          password_hash: string
+          provider_id: string
+          supabase_email: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          login?: string
+          password_hash?: string
+          provider_id?: string
+          supabase_email?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_login_accounts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       providers: {
         Row: {
+          accent_color: string | null
           created_at: string
           id: string
           logo_url: string | null
           name: string
+          pdf_template: string
           primary_color: string | null
           slug: string
           status: string
           updated_at: string
         }
         Insert: {
+          accent_color?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
           name: string
+          pdf_template?: string
           primary_color?: string | null
           slug: string
           status?: string
           updated_at?: string
         }
         Update: {
+          accent_color?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
           name?: string
+          pdf_template?: string
           primary_color?: string | null
           slug?: string
           status?: string
@@ -1106,6 +1159,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       link_diagnostic_report: {
         Args: {
           _agent_version: string
