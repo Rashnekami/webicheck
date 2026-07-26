@@ -1,220 +1,340 @@
-import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
-const BRAND_DARK = "#0f3fd4";
-const BORDER = "#c9d3e6";
-const INK = "#0f172a";
-const MUTED = "#475569";
+const C = {
+  page: "#020817",
+  panel: "#06152d",
+  panel2: "#071c3b",
+  blue: "#1479ff",
+  cyan: "#19d8ff",
+  green: "#45e35f",
+  red: "#ff5268",
+  amber: "#ffb020",
+  border: "#1769db",
+  text: "#f8fbff",
+  muted: "#a9bad1",
+  line: "#17365d",
+};
 
 const s = StyleSheet.create({
-  page: { padding: 32, fontSize: 10, color: INK, fontFamily: "Helvetica" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 6,
-    marginBottom: 10,
-    overflow: "hidden",
-  },
-  logoBox: {
-    width: 80,
-    padding: 8,
-    borderRightWidth: 1,
-    borderRightColor: BORDER,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logo: { width: 60, height: 30, objectFit: "contain" },
-  headerText: { flex: 1, padding: 10, backgroundColor: "#f4f7ff" },
-  title: { fontSize: 13, fontWeight: 700, color: BRAND_DARK },
-  subtitle: { fontSize: 9, color: MUTED, marginTop: 2 },
-  badge: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    backgroundColor: "#059669",
-    color: "white",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  page: {
+    paddingTop: 14,
+    paddingBottom: 14,
+    paddingHorizontal: 14,
+    backgroundColor: C.page,
+    color: C.text,
+    fontFamily: "Helvetica",
     fontSize: 8,
-    fontWeight: 700,
-    borderRadius: 3,
   },
-  info: {
+  frame: {
     borderWidth: 1,
-    borderColor: "#86efac",
-    backgroundColor: "#f0fdf4",
-    borderRadius: 4,
-    padding: 8,
-    marginBottom: 10,
+    borderColor: C.border,
+    borderRadius: 14,
+    padding: 10,
+    backgroundColor: "#031027",
   },
-  infoRow: { flexDirection: "row", marginBottom: 2 },
-  infoLabel: { color: MUTED, marginRight: 3 },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: BRAND_DARK,
-    marginBottom: 6,
+  header: { alignItems: "center", marginBottom: 6 },
+  logo: { width: 52, height: 36, objectFit: "cover", borderRadius: 8 },
+  title: { marginTop: 4, fontSize: 18, fontWeight: 700, color: C.text },
+  titleAccent: { color: C.cyan },
+  subtitle: { marginTop: 2, color: C.muted, fontSize: 8 },
+  grid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -2, marginBottom: 4 },
+  infoCard: {
+    width: "25%",
+    paddingHorizontal: 2,
+    paddingBottom: 4,
+  },
+  infoCardWide: { width: "50%" },
+  infoInner: {
+    minHeight: 31,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    padding: 4.5,
+    backgroundColor: C.panel,
+  },
+  infoLabel: { color: C.muted, fontSize: 6.8, marginBottom: 2 },
+  infoValue: { color: C.text, fontSize: 8, fontWeight: 700 },
+  infoStatus: { color: C.green },
+  panel: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    padding: 7,
+    backgroundColor: C.panel,
     marginTop: 4,
   },
+  panelTitle: { color: C.text, fontSize: 9.5, fontWeight: 700, marginBottom: 4 },
   itemRow: {
     flexDirection: "row",
-    paddingVertical: 5,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: C.line,
+    paddingVertical: 3,
   },
-  itemNumber: { width: 18, color: MUTED, fontWeight: 700 },
-  itemQuestion: { flex: 1, paddingRight: 6 },
-  answer: {
-    width: 40,
-    textAlign: "center",
-    fontSize: 9,
-    fontWeight: 700,
+  firstItem: { borderTopWidth: 0 },
+  itemNumber: {
+    width: 28,
+    backgroundColor: "#0c45a5",
+    color: "white",
+    borderRadius: 5,
     paddingVertical: 2,
-    borderRadius: 3,
+    textAlign: "center",
+    fontSize: 7,
+    fontWeight: 700,
   },
-  answerSim: { color: "#166534", backgroundColor: "#dcfce7" },
-  answerNao: { color: "#92400e", backgroundColor: "#fef3c7" },
-  note: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#bfdbfe",
-    backgroundColor: "#eff6ff",
-    borderRadius: 4,
-    padding: 8,
+  itemQuestion: { flex: 1, paddingHorizontal: 7, lineHeight: 1.25, color: C.text },
+  answer: {
+    width: 45,
+    borderRadius: 8,
+    paddingVertical: 2.5,
+    textAlign: "center",
+    color: "white",
+    fontSize: 7,
+    fontWeight: 700,
   },
-  sign: {
-    marginTop: 12,
+  answerSim: { backgroundColor: "#25b62f" },
+  answerNao: { backgroundColor: "#d82e49" },
+  identityRow: { flexDirection: "row", marginHorizontal: -4 },
+  identityCol: { width: "42%", paddingHorizontal: 4 },
+  signCol: { width: "58%", paddingHorizontal: 4 },
+  subCard: {
+    minHeight: 67,
     borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 4,
-    padding: 8,
-    minHeight: 90,
+    borderColor: C.border,
+    borderRadius: 8,
+    padding: 6,
+    backgroundColor: "#041126",
+  },
+  privacyTitle: { color: C.cyan, fontWeight: 700, fontSize: 8.5, marginBottom: 5 },
+  privacyText: { color: C.muted, lineHeight: 1.45, fontSize: 7.3 },
+  signTitle: { color: C.cyan, fontWeight: 700, fontSize: 8.5, textAlign: "center" },
+  signImageBox: {
+    height: 38,
+    marginTop: 5,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: C.border,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    width: 260,
   },
-  signImg: { maxHeight: 60, objectFit: "contain" },
-  signTitle: { fontSize: 8, color: MUTED, marginTop: 4 },
+  signImage: { maxHeight: 34, maxWidth: "90%", objectFit: "contain" },
+  signName: { marginTop: 4, color: C.text, fontSize: 7.5, fontWeight: 700, textAlign: "center" },
+  summaryRow: { flexDirection: "row", marginHorizontal: -4 },
+  summaryCol: { width: "33.333%", paddingHorizontal: 4 },
+  summaryCard: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 8,
+    padding: 6,
+    backgroundColor: "#041126",
+  },
+  summaryLabel: { color: C.muted, fontSize: 6.5 },
+  summaryValue: { color: C.text, fontWeight: 700, fontSize: 16, marginTop: 2 },
+  summaryGreen: { color: C.green, fontSize: 12 },
+  summaryDetail: { color: C.cyan, fontSize: 6.5, marginTop: 2 },
+  warning: {
+    color: C.amber,
+    borderWidth: 1,
+    borderColor: C.amber,
+    borderRadius: 7,
+    padding: 5,
+    marginBottom: 6,
+    fontWeight: 700,
+  },
   footer: {
-    marginTop: 14,
-    paddingTop: 6,
+    marginTop: 6,
+    paddingTop: 5,
     borderTopWidth: 1,
-    borderTopColor: BORDER,
+    borderTopColor: C.border,
     flexDirection: "row",
     justifyContent: "space-between",
-    fontSize: 8,
-    color: MUTED,
+    color: C.muted,
+    fontSize: 6.5,
   },
 });
 
-function fmt(d?: string | null) {
-  if (!d) return "—";
-  try {
-    return new Date(d).toLocaleString("pt-BR");
-  } catch {
-    return d;
-  }
+function fmt(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pt-BR");
+}
+
+function InfoCard({
+  label,
+  value,
+  wide,
+  status,
+}: {
+  label: string;
+  value?: string | null;
+  wide?: boolean;
+  status?: boolean;
+}) {
+  return (
+    <View style={[s.infoCard, wide ? s.infoCardWide : {}]}>
+      <View style={s.infoInner}>
+        <Text style={s.infoLabel}>{label}</Text>
+        <Text style={[s.infoValue, status ? s.infoStatus : {}]}>{value || "—"}</Text>
+      </View>
+    </View>
+  );
 }
 
 export function CustomerCounterproofPdfPage({
   counterproof,
   logoUri,
+  city,
+  validationCode,
 }: {
   counterproof: CounterproofDocumentInfo;
   logoUri?: string | null;
+  city?: string | null;
+  validationCode?: string | null;
 }) {
   const items = counterproof.client_checklist?.items ?? [];
+  const confirmed = items.filter((item) => item.answer === "sim").length;
+  const divergences = items.filter((item) => item.answer === "nao").length;
+  const validated = counterproof.validated_at ? new Date(counterproof.validated_at) : null;
+
   return (
-    <Page size="A4" style={s.page}>
-      <View style={s.header}>
-        <View style={s.logoBox}>
+    <Page size="A4" style={s.page} wrap>
+      <View style={s.frame}>
+        <View style={s.header}>
           {logoUri ? <Image src={logoUri} style={s.logo} /> : null}
-        </View>
-        <View style={s.headerText}>
-          <Text style={s.title}>CHECKLIST DO CLIENTE</Text>
-          <Text style={s.subtitle}>Contra-Prova Digital vinculada ao atendimento técnico</Text>
-          <Text style={s.badge}>VALIDADA PELO CLIENTE</Text>
-        </View>
-      </View>
-
-      <View style={s.info}>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>Contra-Prova:</Text>
-          <Text style={{ fontWeight: 700 }}>{counterproof.code}</Text>
-        </View>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>Checklist técnico:</Text>
-          <Text style={{ fontWeight: 700 }}>{counterproof.checklist_code}</Text>
-        </View>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>Cliente:</Text>
-          <Text style={{ fontWeight: 700 }}>{counterproof.client_name || "—"}</Text>
-        </View>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>OS:</Text>
-          <Text style={{ fontWeight: 700 }}>{counterproof.service_order || "—"}</Text>
-        </View>
-        <View style={s.infoRow}>
-          <Text style={s.infoLabel}>Data/hora:</Text>
-          <Text style={{ fontWeight: 700 }}>{fmt(counterproof.validated_at)}</Text>
-        </View>
-      </View>
-
-      <Text style={s.sectionTitle}>Respostas do cliente — Sim ou Não</Text>
-      <View>
-        {items.length ? (
-          items.map((item, index) => (
-            <View key={item.id} style={s.itemRow}>
-              <Text style={s.itemNumber}>{index + 1}.</Text>
-              <Text style={s.itemQuestion}>{item.question}</Text>
-              <Text
-                style={[s.answer, item.answer === "sim" ? s.answerSim : s.answerNao]}
-              >
-                {item.answer === "sim" ? "SIM" : "NÃO"}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text style={{ color: MUTED }}>
-            Respostas não registradas. Esta Contra-Prova foi concluída antes da versão com
-            checklist do cliente.
+          <Text style={s.title}>
+            CHECKLIST DO <Text style={s.titleAccent}>CLIENTE</Text>
           </Text>
-        )}
-      </View>
+          <Text style={s.subtitle}>Contra-prova digital do atendimento</Text>
+        </View>
 
-      <View style={s.note}>
-        <Text style={{ fontWeight: 700, color: BRAND_DARK }}>
-          Evidência de identificação registrada
-        </Text>
-        <Text style={{ marginTop: 2, color: MUTED, fontSize: 9 }}>
-          A foto com RG/CNH é privada e pode ser consultada somente pela administração autorizada.
-        </Text>
-      </View>
+        <View style={s.grid}>
+          <InfoCard label="Cliente" value={counterproof.client_name} wide />
+          <InfoCard label="OS" value={counterproof.service_order} />
+          <InfoCard label="Contra-Prova" value={counterproof.code} />
+          <InfoCard label="Checklist técnico" value={counterproof.checklist_code} wide />
+          <InfoCard
+            label="Código de validação"
+            value={validationCode || counterproof.validation_code}
+            wide
+          />
+          <InfoCard label="Cidade" value={city || counterproof.city} />
+          <InfoCard
+            label="Data"
+            value={validated ? validated.toLocaleDateString("pt-BR") : "—"}
+          />
+          <InfoCard
+            label="Hora"
+            value={
+              validated
+                ? validated.toLocaleTimeString("pt-BR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—"
+            }
+          />
+          <InfoCard label="Status" value="VALIDADO PELO CLIENTE" status />
+        </View>
 
-      <View style={s.sign}>
-        {counterproof.signature_data_url ? (
-          <Image src={counterproof.signature_data_url} style={s.signImg} />
-        ) : (
-          <Text style={{ color: MUTED, fontSize: 9 }}>(assinatura não registrada)</Text>
-        )}
-        <Text style={s.signTitle}>
-          Assinatura digital do cliente — {counterproof.client_name || "—"}
-        </Text>
-      </View>
+        <View style={s.panel}>
+          <Text style={s.panelTitle}>Perguntas do cliente</Text>
+          {items.length ? (
+            items.map((item, index) => (
+              <View key={item.id} style={[s.itemRow, index === 0 ? s.firstItem : {}]} wrap={false}>
+                <Text style={s.itemNumber}>{String(index + 1).padStart(2, "0")}</Text>
+                <Text style={s.itemQuestion}>{item.question}</Text>
+                <Text
+                  style={[s.answer, item.answer === "sim" ? s.answerSim : s.answerNao]}
+                >
+                  {item.answer === "sim" ? "SIM" : "NÃO"}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={{ color: C.muted }}>
+              Respostas não registradas nesta versão histórica da Contra-Prova.
+            </Text>
+          )}
+        </View>
 
-      <View style={s.footer}>
-        <Text>Webifibra · Contra-Prova {counterproof.code}</Text>
-        <Text>Checklist {counterproof.checklist_code}</Text>
+        <View style={s.panel} wrap={false}>
+          <Text style={s.panelTitle}>Identificação e assinatura</Text>
+          <View style={s.identityRow}>
+            <View style={s.identityCol}>
+              <View style={s.subCard}>
+                <Text style={s.privacyTitle}>Evidência de identificação registrada</Text>
+                <Text style={s.privacyText}>
+                  A foto com RG/CNH é privada e pode ser consultada somente pela administração
+                  autorizada.
+                </Text>
+              </View>
+            </View>
+            <View style={s.signCol}>
+              <View style={s.subCard}>
+                <Text style={s.signTitle}>Assinatura digital do cliente</Text>
+                <View style={s.signImageBox}>
+                  {counterproof.signature_data_url ? (
+                    <Image src={counterproof.signature_data_url} style={s.signImage} />
+                  ) : (
+                    <Text style={{ color: C.muted }}>(assinatura não registrada)</Text>
+                  )}
+                </View>
+                <Text style={s.signName}>
+                  {counterproof.client_name || "—"} · {fmt(counterproof.validated_at)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={s.panel} wrap={false}>
+          <Text style={s.panelTitle}>Validação final</Text>
+          {divergences > 0 ? (
+            <Text style={s.warning}>DIVERGÊNCIA IDENTIFICADA</Text>
+          ) : null}
+          <View style={s.summaryRow}>
+            <View style={s.summaryCol}>
+              <View style={s.summaryCard}>
+                <Text style={s.summaryLabel}>CLIENTE</Text>
+                <Text style={s.summaryValue}>
+                  {confirmed}/{items.length || 10}
+                </Text>
+                <Text style={s.summaryDetail}>Itens confirmados</Text>
+              </View>
+            </View>
+            <View style={s.summaryCol}>
+              <View style={s.summaryCard}>
+                <Text style={s.summaryLabel}>DIVERGÊNCIAS</Text>
+                <Text style={s.summaryValue}>{divergences}</Text>
+                <Text style={s.summaryDetail}>Respostas negativas</Text>
+              </View>
+            </View>
+            <View style={s.summaryCol}>
+              <View style={s.summaryCard}>
+                <Text style={s.summaryLabel}>STATUS FINAL</Text>
+                <Text style={[s.summaryValue, s.summaryGreen]}>VALIDADO</Text>
+                <Text style={s.summaryDetail}>Pelo cliente</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={s.footer}>
+          <Text>Webifibra · Contra-Prova {counterproof.code}</Text>
+          <Text>Checklist {counterproof.checklist_code}</Text>
+        </View>
       </View>
     </Page>
   );
 }
 
-// Also export the Document wrapper in case needed elsewhere.
 export function CustomerCounterproofPdfDocument(props: {
   counterproof: CounterproofDocumentInfo;
   logoUri?: string | null;
+  city?: string | null;
+  validationCode?: string | null;
 }) {
   return (
     <Document>
