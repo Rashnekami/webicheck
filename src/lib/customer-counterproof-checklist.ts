@@ -1,4 +1,4 @@
-export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "1.0.0";
+export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "2.0.0";
 
 export type CustomerCounterproofAnswer = "sim" | "nao";
 
@@ -19,13 +19,14 @@ export type CustomerCounterproofChecklist = {
 };
 
 export const CUSTOMER_COUNTERPROOF_QUESTIONS: CustomerCounterproofQuestion[] = [
-  { id: "atendimento_realizado", question: "O atendimento técnico foi realizado no local?" },
-  { id: "tecnico_identificado", question: "O técnico se identificou adequadamente?" },
-  { id: "servico_explicado", question: "O técnico explicou o serviço executado?" },
-  { id: "internet_funcionando", question: "A conexão de internet está funcionando corretamente após o atendimento?" },
-  { id: "ambiente_organizado", question: "O ambiente foi mantido organizado ao final do atendimento?" },
-  { id: "duvidas_esclarecidas", question: "Suas dúvidas foram esclarecidas pelo técnico?" },
-  { id: "satisfeito_atendimento", question: "Você está satisfeito(a) com o atendimento prestado?" },
+  { id: "velocidade_ok", question: "O técnico realizou o teste de velocidade via cabo, comprovando a entrega da banda contratada?" },
+  { id: "navegacao_ok", question: "A navegação e a estabilidade da conexão foram validadas no momento do atendimento?" },
+  { id: "wifi_orientado", question: "Você foi orientado(a) sobre a diferença das redes Wi-Fi 5 GHz (mais velocidade e menor alcance) e 2,4 GHz (mais alcance e menor velocidade)?" },
+  { id: "placa_orientado", question: "Foi explicado que a velocidade via Wi-Fi depende da capacidade da placa de rede dos seus aparelhos (celular, TV, console, etc.)?" },
+  { id: "cabo_orientado", question: "Você foi orientado(a) a utilizar cabo de rede em Smart TVs, videogames e equipamentos que exigem maior estabilidade?" },
+  { id: "posicionamento_ok", question: "O posicionamento do roteador foi validado e foram explicadas as possíveis interferências (paredes, móveis, espelhos, eletrodomésticos)?" },
+  { id: "downdetector", question: "O técnico apresentou o site Downdetector e orientou a verificar quedas globais de aplicativos antes de acionar o suporte?" },
+  { id: "duvidas_sanadas", question: "Suas dúvidas finais foram sanadas no local pelo técnico?" },
 ];
 
 export function normalizeCustomerCounterproofChecklist(

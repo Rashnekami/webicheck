@@ -358,17 +358,6 @@ function InstalacaoDocument({
               <Text style={styles.signLabel}>Assinatura do técnico</Text>
             </View>
           </View>
-          <View style={styles.signBox}>
-            {d.assinatura_cliente ? (
-              <Image src={d.assinatura_cliente} style={styles.signImage} />
-            ) : (
-              <Text style={{ color: MUTED, fontSize: 8 }}>(cliente não assinou)</Text>
-            )}
-            <View style={styles.signLine}>
-              <Text style={styles.signName}>{row.cliente || "—"}</Text>
-              <Text style={styles.signLabel}>Assinatura do cliente</Text>
-            </View>
-          </View>
         </View>
 
         <View style={styles.footer} fixed>

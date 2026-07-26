@@ -3,18 +3,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { SignaturePad } from "@/components/signature-pad";
-import { PenLine } from "lucide-react";
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
 
 type HeaderShape = Pick<
@@ -83,9 +71,6 @@ export function InstalacaoForm({
   onHeaderChange,
   onDataChange,
 }: Props) {
-  const [sigOpen, setSigOpen] = useState(false);
-  const [sigDraft, setSigDraft] = useState<string | null>(null);
-
   const setItens = (patch: Partial<InstalacaoData["itens"]>) =>
     onDataChange((p) => ({ ...p, itens: { ...p.itens, ...patch } }));
   const setVel = (patch: Partial<InstalacaoData["velocidade"]>) =>
@@ -252,61 +237,11 @@ export function InstalacaoForm({
           disabled={readOnly}
           onChange={(e) => onDataChange((p) => ({ ...p, observacoes: e.target.value }))}
         />
+        <p className="text-xs text-muted-foreground">
+          A assinatura do cliente é coletada exclusivamente na Contra-Prova Digital, após a
+          finalização do checklist.
+        </p>
       </Section>
-
-      <Section n={5} title="Assinatura do cliente">
-        <div className="rounded-lg border bg-muted/30 p-3">
-          {data.assinatura_cliente ? (
-            <img
-              src={data.assinatura_cliente}
-              alt="Assinatura do cliente"
-              className="mx-auto h-28 object-contain"
-            />
-          ) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Cliente ainda não assinou.
-            </p>
-          )}
-        </div>
-        {!readOnly && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSigDraft(data.assinatura_cliente ?? null);
-              setSigOpen(true);
-            }}
-          >
-            <PenLine className="mr-1.5 h-4 w-4" />
-            {data.assinatura_cliente ? "Refazer assinatura" : "Coletar assinatura do cliente"}
-          </Button>
-        )}
-      </Section>
-
-      <Dialog open={sigOpen} onOpenChange={setSigOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assinatura do cliente</DialogTitle>
-            <DialogDescription>
-              Peça ao cliente para assinar com o dedo ou caneta.
-            </DialogDescription>
-          </DialogHeader>
-          <SignaturePad value={sigDraft} onChange={setSigDraft} height={180} />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSigOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                onDataChange((p) => ({ ...p, assinatura_cliente: sigDraft }));
-                setSigOpen(false);
-              }}
-              disabled={!sigDraft}
-            >
-              Confirmar assinatura
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

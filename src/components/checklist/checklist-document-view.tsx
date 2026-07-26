@@ -325,12 +325,12 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
 
         {isInstal ? <InstalacaoBody d={d as never} /> : <ValidacaoBody d={d as never} />}
 
-        {/* Assinaturas + Autenticidade */}
+        {/* Assinatura do técnico + Autenticidade */}
         <div
           style={{
             marginTop: 18,
             display: "grid",
-            gridTemplateColumns: isInstal ? "1fr 1fr 220px" : "1fr 220px",
+            gridTemplateColumns: "1fr 220px",
             gap: 12,
             alignItems: "stretch",
           }}
@@ -340,13 +340,6 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
             name={payload.tecnico.full_name}
             image={tecAssinatura}
           />
-          {isInstal && (
-            <SignBox
-              title="Assinatura do cliente"
-              name={(h.cliente as string) || "—"}
-              image={clienteAssinatura}
-            />
-          )}
           <AuthBox qr={qr} publicUrl={publicUrl} shortHash={shortHash} />
         </div>
 
