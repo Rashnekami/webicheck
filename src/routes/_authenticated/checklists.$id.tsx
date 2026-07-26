@@ -58,6 +58,7 @@ import {
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
+import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-card";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
 import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
 import { OntAiAnalysisCard } from "@/components/checklist/ont-ai-analysis-card";
@@ -438,6 +439,11 @@ function ChecklistDetail() {
               fotos={fotosQuery.data ?? []}
               tecnicoNome={tecnicoNome}
               tecnicoAssinatura={tecnicoAssinatura}
+            />
+
+            <SupervisorReviewCard
+              row={row as ChecklistRow}
+              canReview={!!(user?.isSupervisor || user?.isAdmin || user?.isPlatformAdmin)}
             />
 
             <Card>
