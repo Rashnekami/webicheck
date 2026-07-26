@@ -1,9 +1,16 @@
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChevronLeft, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
 import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
+import {
+  INSTALACAO_TECHNICIAN_QUESTIONS,
+  readInstalacaoAnswer,
+  type InstalacaoAnswer,
+} from "@/lib/instalacao-checklist";
 
 type HeaderShape = Pick<
   ChecklistRow,
@@ -40,30 +47,6 @@ function Section({
   );
 }
 
-function Cb({
-  checked,
-  onCheckedChange,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onCheckedChange: (v: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-input bg-background p-2.5 text-sm hover:bg-accent/40">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={(v) => onCheckedChange(!!v)}
-        disabled={disabled}
-        className="mt-0.5"
-      />
-      <span className="leading-snug">{label}</span>
-    </label>
-  );
-}
-
 export function InstalacaoForm({
   header,
   data,
@@ -71,10 +54,28 @@ export function InstalacaoForm({
   onHeaderChange,
   onDataChange,
 }: Props) {
-  const setItens = (patch: Partial<InstalacaoData["itens"]>) =>
-    onDataChange((p) => ({ ...p, itens: { ...p.itens, ...patch } }));
+  const respostas = data.respostas ?? {};
+  const total = INSTALACAO_TECHNICIAN_QUESTIONS.length;
+  const answered = INSTALACAO_TECHNICIAN_QUESTIONS.filter(
+    (q) => readInstalacaoAnswer(respostas, q.id) !== null,
+  ).length;
+  const firstUnanswered = INSTALACAO_TECHNICIAN_QUESTIONS.findIndex(
+    (q) => readInstalacaoAnswer(respostas, q.id) === null,
+  );
+  const [current, setCurrent] = useState<number>(firstUnanswered === -1 ? total : firstUnanswered);
+
+  const setAnswer = (id: string, answer: InstalacaoAnswer) => {
+    onDataChange((p) => ({
+      ...p,
+      respostas: { ...(p.respostas ?? {}), [id]: answer },
+    }));
+  };
+
   const setVel = (patch: Partial<InstalacaoData["velocidade"]>) =>
     onDataChange((p) => ({ ...p, velocidade: { ...p.velocidade, ...patch } }));
+
+  const allAnswered = answered === total;
+  const showReview = current >= total;
 
   return (
     <div className="space-y-4">
@@ -145,57 +146,113 @@ export function InstalacaoForm({
         </div>
       </Section>
 
-      <Section n={2} title="Validação técnica e orientação ao cliente">
-        <div className="grid grid-cols-1 gap-2">
-          <Cb
-            checked={data.itens.velocidade_ok}
-            onCheckedChange={(v) => setItens({ velocidade_ok: v })}
-            label="Teste de velocidade realizado via cabo/roteador, comprovando a entrega da banda contratada."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.navegacao_ok}
-            onCheckedChange={(v) => setItens({ navegacao_ok: v })}
-            label="Navegação e estabilidade da conexão validadas no momento da instalação."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.wifi_orientado}
-            onCheckedChange={(v) => setItens({ wifi_orientado: v })}
-            label="Cliente orientado sobre a diferença das redes Wi-Fi: 5 GHz (maior velocidade, menor alcance) e 2,4 GHz (maior alcance, menor velocidade)."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.placa_orientado}
-            onCheckedChange={(v) => setItens({ placa_orientado: v })}
-            label="Cliente orientado que a velocidade via Wi-Fi depende da capacidade da placa de rede do aparelho (celular, TV, console, etc.)."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.cabo_orientado}
-            onCheckedChange={(v) => setItens({ cabo_orientado: v })}
-            label="Orientado a utilizar cabo de rede em Smart TVs, videogames e equipamentos que exigem maior estabilidade."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.posicionamento_ok}
-            onCheckedChange={(v) => setItens({ posicionamento_ok: v })}
-            label="Posicionamento do roteador validado e orientado sobre possíveis interferências físicas (paredes, móveis, espelhos, eletrodomésticos, etc.)."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.downdetector}
-            onCheckedChange={(v) => setItens({ downdetector: v })}
-            label="Apresentado o site Downdetector ao cliente e orientado a verificar possíveis quedas globais de aplicativos antes de acionar o suporte."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.duvidas_sanadas}
-            onCheckedChange={(v) => setItens({ duvidas_sanadas: v })}
-            label="Dúvidas finais do cliente sanadas no local."
-            disabled={readOnly}
+      <Section n={2} title="Checklist do técnico — Sim ou Não">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {Math.min(current + 1, total)} de {total}
+          </span>
+          <span>
+            {answered} de {total} respondidas
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${(answered / total) * 100}%` }}
           />
         </div>
+
+        {!showReview ? (
+          <div className="space-y-4 pt-2">
+            <p className="min-h-16 text-sm font-medium leading-6">
+              {INSTALACAO_TECHNICIAN_QUESTIONS[current].question}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {(["sim", "nao"] as const).map((ans) => {
+                const q = INSTALACAO_TECHNICIAN_QUESTIONS[current];
+                const selected = readInstalacaoAnswer(respostas, q.id) === ans;
+                return (
+                  <Button
+                    key={ans}
+                    type="button"
+                    disabled={readOnly}
+                    variant={selected ? "default" : "outline"}
+                    className={ans === "nao" && selected ? "bg-amber-600 hover:bg-amber-700" : ""}
+                    onClick={() => {
+                      setAnswer(q.id, ans);
+                      // avança para a próxima não-respondida
+                      const nextUnanswered = INSTALACAO_TECHNICIAN_QUESTIONS.findIndex(
+                        (qq, idx) =>
+                          idx !== current &&
+                          readInstalacaoAnswer({ ...respostas, [q.id]: ans }, qq.id) === null,
+                      );
+                      setCurrent(nextUnanswered === -1 ? total : nextUnanswered);
+                    }}
+                  >
+                    {ans === "sim" ? "Sim" : "Não"}
+                  </Button>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={current === 0}
+                onClick={() => setCurrent((i) => Math.max(0, i - 1))}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={current >= total - 1}
+                onClick={() => setCurrent((i) => Math.min(total - 1, i + 1))}
+              >
+                Pular
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            {allAnswered && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
+                Todas as perguntas foram respondidas.
+              </div>
+            )}
+            {INSTALACAO_TECHNICIAN_QUESTIONS.map((q, idx) => {
+              const ans = readInstalacaoAnswer(respostas, q.id);
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  disabled={readOnly}
+                  className="flex w-full items-start justify-between gap-3 rounded-md border p-2.5 text-left text-xs hover:bg-muted/50"
+                  onClick={() => setCurrent(idx)}
+                >
+                  <span className="leading-snug">
+                    <span className="mr-1.5 text-muted-foreground">{idx + 1}.</span>
+                    {q.question}
+                  </span>
+                  <b
+                    className={
+                      ans === "nao"
+                        ? "text-amber-700"
+                        : ans === "sim"
+                          ? "text-emerald-700"
+                          : "text-muted-foreground"
+                    }
+                  >
+                    {ans === "sim" ? "Sim" : ans === "nao" ? "Não" : "—"}
+                  </b>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </Section>
 
       <Section n={3} title="Medições do teste de velocidade">
