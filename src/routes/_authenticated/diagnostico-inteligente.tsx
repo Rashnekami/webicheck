@@ -60,6 +60,7 @@ import {
   SMART_DIAGNOSTIC_STORAGE_KEY,
   SYMPTOM_GROUPS,
   createDiagnosticDecisionEvent,
+  DIAGNOSTIC_FAST_TRACK_AFTER,
   type DiagnosticAnswer,
   type DiagnosticOption,
   type SmartDiagnosticSession,
@@ -248,6 +249,7 @@ function SmartDiagnosticBetaPage() {
   const progress = useMemo(() => getDiagnosticProgress(session), [session]);
   const finished = stage === "diagnosis" && question === null;
   const answeredCount = Object.keys(session.answers).length;
+  const fastTrack = answeredCount >= DIAGNOSTIC_FAST_TRACK_AFTER;
 
   useEffect(() => {
     try {
@@ -545,6 +547,11 @@ function SmartDiagnosticBetaPage() {
                 <Badge className="border-blue-400/35 bg-blue-400/10 text-blue-200 hover:bg-blue-400/10">
                   {progress}% analisado
                 </Badge>
+                {fastTrack && (
+                  <Badge className="border-emerald-400/30 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/10">
+                    Fluxo objetivo
+                  </Badge>
+                )}
               </div>
               <Progress
                 value={progress}

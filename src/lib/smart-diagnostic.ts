@@ -231,6 +231,24 @@ const otherServicesOptions: DiagnosticOption[] = [
   { value: "unknown", label: "Não foi possível comparar", tone: "warning" },
 ];
 
+/** Após a triagem inicial, perguntas complementares só aparecem quando agregam valor. */
+export const DIAGNOSTIC_FAST_TRACK_AFTER = 10;
+
+const FAST_TRACK_OPTIONAL_QUESTIONS = new Set([
+  "wifi5_recurrent",
+  "wifi5_recurred_confirmed",
+  "wifi_power_stable",
+  "near_ont_works",
+  "distant_only",
+  "ont_position_ok",
+  "device_capacity",
+]);
+
+function shouldSkipInFastTrack(session: SmartDiagnosticSession, questionId: string): boolean {
+  if (session.history.length < DIAGNOSTIC_FAST_TRACK_AFTER) return false;
+  return FAST_TRACK_OPTIONAL_QUESTIONS.has(questionId);
+}
+
 function answer(session: SmartDiagnosticSession, id: string): string | undefined {
   const value = session.answers[id];
   return typeof value === "string" ? value : undefined;
@@ -878,7 +896,11 @@ export function getNextDiagnosticQuestion(
   session: SmartDiagnosticSession,
 ): DiagnosticQuestion | null {
   for (const question of CORE_QUESTIONS) {
-    if (question.when(session) && session.answers[question.id] === undefined) {
+    if (
+      question.when(session) &&
+      session.answers[question.id] === undefined &&
+      !shouldSkipInFastTrack(session, question.id)
+    ) {
       const { when: _when, ...view } = question;
       return view;
     }
@@ -1387,6 +1409,9 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
   } else if (answer(session, "symptom_persists") === "no") {
     status = "NORMALIZADO";
     statusLabel = "Atendimento normalizado — ONT mantida";
+  } else if (answer(session, "symptom_persists") === "unknown") {
+    status = "REVISAO_NOC";
+    statusLabel = "Resultado inconclusivo — revisão necessária";
   } else if (!next && noc.eligible) {
     status = "POSSIVEL_DEFEITO_ONT";
     statusLabel = "Possível defeito da ONT — validações concluídas";
