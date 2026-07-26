@@ -4,6 +4,7 @@ export const PROFILE_CITIES = [
   "Ponta Grossa",
   "Carambeí",
   "Tibagi",
+  "Castro",
 ] as const;
 
 export function isKnownProfileCity(value: string): boolean {

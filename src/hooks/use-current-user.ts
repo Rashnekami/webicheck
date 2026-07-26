@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "tecnico" | "almoxarifado";
+export type AppRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc";
 
 export interface CurrentUser {
   id: string;
@@ -13,10 +13,13 @@ export interface CurrentUser {
   active: boolean;
   assinatura: string | null;
   provider_id: string | null;
+  supervisor_id: string | null;
   platform_admin: boolean;
   roles: AppRole[];
   isAdmin: boolean;
   isWarehouse: boolean;
+  isSupervisor: boolean;
+  isNoc: boolean;
   isPlatformAdmin: boolean;
 }
 
@@ -36,6 +39,7 @@ export function useCurrentUser() {
             assinatura?: string | null;
             platform_admin?: boolean | null;
             provider_id?: string | null;
+            supervisor_id?: string | null;
           })
         | null;
       const platformAdmin = Boolean(p?.platform_admin);
@@ -49,10 +53,13 @@ export function useCurrentUser() {
         active: p?.active ?? true,
         assinatura: p?.assinatura ?? null,
         provider_id: p?.provider_id ?? null,
+        supervisor_id: p?.supervisor_id ?? null,
         platform_admin: platformAdmin,
         roles: roleList,
         isAdmin: roleList.includes("admin"),
         isWarehouse: roleList.includes("almoxarifado"),
+        isSupervisor: roleList.includes("supervisor"),
+        isNoc: roleList.includes("noc"),
         isPlatformAdmin: platformAdmin,
       };
     },
