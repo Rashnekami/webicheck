@@ -56,7 +56,7 @@ function AuthenticatedLayout() {
         navigate({ to: "/auth", replace: true });
         return;
       }
-      if (!profile.city?.trim()) {
+      if (!profile.city?.trim() || !profile.provider_id) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
