@@ -213,6 +213,21 @@ function ChecklistsList() {
                             ) : (
                               <Badge variant="secondary">Rascunho</Badge>
                             )}
+                            {c.review_status === "aprovado" && (
+                              <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">
+                                Aprovado
+                              </Badge>
+                            )}
+                            {c.review_status === "reprovado" && (
+                              <Badge className="border-rose-400/30 bg-rose-500/10 text-rose-300">
+                                {c.locked_for_rework ? "Reprovado (refazer)" : "Reprovado"}
+                              </Badge>
+                            )}
+                            {c.review_status === "pendente" && c.status === "finalizado" && (
+                              <Badge className="border-amber-400/30 bg-amber-500/10 text-amber-300">
+                                Aguardando revisão
+                              </Badge>
+                            )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {c.os ? `OS ${c.os} · ` : ""}
