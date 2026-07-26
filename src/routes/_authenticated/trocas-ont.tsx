@@ -115,15 +115,18 @@ function OntExchangesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-      <div>
+    <div className="webi-page mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="webi-header p-5 sm:p-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
           <Link to="/painel">
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
           </Link>
         </Button>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <PackageSearch className="h-6 w-6 text-primary" /> Trocas de ONT
+        <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+          <span className="webi-icon h-11 w-11">
+            <PackageSearch className="h-5 w-5" />
+          </span>
+          Trocas de ONT
         </h1>
         <p className="text-sm text-muted-foreground">
           Pesquise pelo código do adesivo, serial, OS, cliente ou motivo.
@@ -151,11 +154,11 @@ function OntExchangesPage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {items.map((item) => (
-          <Card key={item.id}>
+          <Card key={item.id} className="webi-nav-card">
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xl font-bold text-primary">{item.ticket_code}</p>
+                  <p className="text-xl font-bold text-cyan-400">{item.ticket_code}</p>
                   <p className="text-sm font-medium">
                     {item.client_name || "Cliente não informado"}
                   </p>

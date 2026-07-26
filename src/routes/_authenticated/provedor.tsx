@@ -43,19 +43,22 @@ function ProviderPage() {
     );
   const provider = query.data?.provider;
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-      <div>
+    <div className="webi-page mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="webi-header p-5 sm:p-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
           <Link to="/painel">
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
           </Link>
         </Button>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Building2 className="h-6 w-6 text-primary" /> Provedor e dispositivos
+        <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+          <span className="webi-icon h-11 w-11">
+            <Building2 className="h-5 w-5" />
+          </span>
+          Provedor e dispositivos
         </h1>
       </div>
       {provider && (
-        <Card>
+        <Card className="webi-surface">
           <CardContent className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-lg font-semibold">{provider.name}</h2>
@@ -97,7 +100,7 @@ function ProviderPage() {
           <Laptop className="h-5 w-5" /> Dispositivos autorizados
         </h2>
         {query.data?.devices.map((device) => (
-          <Card key={device.id}>
+          <Card key={device.id} className="webi-nav-card">
             <CardContent className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center">
               <div>
                 <p className="font-medium">{device.name}</p>

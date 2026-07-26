@@ -2,17 +2,22 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Copy, Download, Loader2, ShieldCheck, ShieldAlert, ShieldX, ArrowRight } from "lucide-react";
+import {
+  Copy,
+  Download,
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  ArrowRight,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { getPublicChecklist } from "@/lib/public-checklist.functions";
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
 import { Button } from "@/components/ui/button";
 import { WebifibraLogo } from "@/components/webifibra-logo";
-import {
-  buildImageFilename,
-  exportNodeAsPng,
-} from "@/services/checklist-image-export";
+import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-export";
 
 export const Route = createFileRoute("/validar/$token")({
   head: () => ({
@@ -73,7 +78,7 @@ function ValidarPage() {
 
   if (q.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-screen items-center justify-center bg-[#020817]">
         <WebifibraLogo size={56} className="animate-pulse" />
       </div>
     );
@@ -97,7 +102,7 @@ function ValidarPage() {
       className={
         payload.tipo === "instalacao"
           ? "min-h-screen bg-[#020817] pb-16 text-slate-100"
-          : "min-h-screen bg-slate-50 pb-16"
+          : "webi-page min-h-screen bg-[#020817] pb-16 text-slate-100"
       }
     >
       <header className="brand-gradient text-white shadow-md">
@@ -105,9 +110,7 @@ function ValidarPage() {
           <div className="flex items-center gap-3">
             <WebifibraLogo size={40} />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">
-                Consulta pública
-              </p>
+              <p className="text-xs uppercase tracking-wider opacity-80">Consulta pública</p>
               <h1 className="text-base font-semibold">Checklist validado</h1>
             </div>
           </div>
@@ -120,7 +123,7 @@ function ValidarPage() {
 
       <main className="mx-auto max-w-3xl px-3 py-4">
         {data.latest_public_token ? (
-          <div className="mb-3 flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-3 flex flex-col gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-200 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium">Existe uma versão mais recente deste checklist.</p>
               {data.latest_checklist_code ? (
@@ -153,12 +156,11 @@ function ValidarPage() {
           </Button>
         </div>
 
-
         <div
           className={
             payload.tipo === "instalacao"
               ? "overflow-x-auto rounded-2xl border border-blue-500/30 bg-[#020817] shadow-[0_0_26px_rgba(0,105,255,.1)]"
-              : "overflow-x-auto rounded-lg border bg-white shadow-sm"
+              : "overflow-x-auto rounded-2xl border border-blue-400/25 bg-[#06152d] shadow-[0_0_26px_rgba(0,105,255,.1)]"
           }
         >
           <ChecklistDocumentView
@@ -203,9 +205,9 @@ function StatusScreen({
     },
   }[kind];
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="max-w-md rounded-xl border bg-white p-6 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+    <div className="flex min-h-screen items-center justify-center bg-[#020817] px-4 text-slate-100">
+      <div className="webi-header max-w-md p-6 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-blue-400/25 bg-blue-500/10">
           {cfg.icon}
         </div>
         <h1 className="text-lg font-semibold">{cfg.title}</h1>

@@ -44,15 +44,18 @@ function InformativosPage() {
   });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 px-4 py-6">
-      <div>
+    <div className="webi-page mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="webi-header p-5 sm:p-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
           <Link to="/painel">
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
           </Link>
         </Button>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold">
-          <Megaphone className="h-6 w-6 text-primary" /> Informativos
+        <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+          <span className="webi-icon h-11 w-11">
+            <Megaphone className="h-5 w-5" />
+          </span>
+          Informativos
         </h1>
         <p className="text-sm text-muted-foreground">
           Avisos operacionais, plantões e comunicados da equipe.
@@ -60,7 +63,7 @@ function InformativosPage() {
       </div>
 
       {user?.isAdmin && (
-        <Card>
+        <Card className="webi-surface">
           <CardContent className="grid gap-3 p-4">
             <div>
               <Label htmlFor="notice-title">Título</Label>
@@ -85,7 +88,7 @@ function InformativosPage() {
                 <Label htmlFor="notice-severity">Prioridade</Label>
                 <select
                   id="notice-severity"
-                  className="flex h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  className="flex h-11 rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15"
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as typeof severity)}
                 >
@@ -111,19 +114,21 @@ function InformativosPage() {
             key={notice.id}
             className={
               !notice.active
-                ? "opacity-60"
+                ? "opacity-55 grayscale-[.25]"
                 : notice.severity === "critical"
-                  ? "border-destructive/50"
+                  ? "webi-announcement border-rose-400/50 bg-rose-950/15"
                   : notice.severity === "warning"
-                    ? "border-amber-400/60"
-                    : ""
+                    ? "webi-announcement border-amber-400/50 bg-amber-950/15"
+                    : "webi-announcement border-cyan-400/35 bg-blue-950/25"
             }
           >
             <CardContent className="flex items-start justify-between gap-4 p-4">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Bell className="h-4 w-4" />
-                  <h2 className="font-semibold">{notice.title}</h2>
+                  <span className="webi-icon h-8 w-8 rounded-lg">
+                    <Bell className="h-4 w-4" />
+                  </span>
+                  <h2 className="font-semibold text-white">{notice.title}</h2>
                   <Badge variant={notice.active ? "default" : "secondary"}>
                     {notice.active ? "Ativo" : "Arquivado"}
                   </Badge>

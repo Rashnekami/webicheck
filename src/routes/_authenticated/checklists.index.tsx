@@ -95,20 +95,20 @@ function ChecklistsList() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="webi-page min-h-screen">
       <header className="brand-gradient text-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Link
               to="/painel"
-              className="rounded-full bg-white/15 p-2 hover:bg-white/25"
+              className="webi-icon h-10 w-10 rounded-full hover:border-cyan-300/70"
               aria-label="Voltar"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <WebifibraLogo size={40} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
+              <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Webifibra</p>
               <h1 className="text-lg font-semibold">
                 {user?.isAdmin ? "Todos os checklists" : "Meus checklists"}
               </h1>
@@ -121,7 +121,7 @@ function ChecklistsList() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="bg-white/15 text-white hover:bg-white/25"
+                    className="border-blue-400/30 bg-blue-500/10 text-cyan-100 hover:bg-blue-500/20"
                   >
                     <BarChart3 className="mr-1 h-3.5 w-3.5" /> Dashboard
                   </Button>
@@ -135,7 +135,7 @@ function ChecklistsList() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-5 space-y-4">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             placeholder="Buscar por OS, cliente, cidade, serial, código..."
@@ -170,7 +170,7 @@ function ChecklistsList() {
               <ul className="space-y-2">
                 {items.map((c) => (
                   <li key={c.id}>
-                    <Card className="transition hover:border-primary/40">
+                    <Card className="webi-nav-card">
                       <CardContent className="flex items-start justify-between gap-3 p-4">
                         <Link to="/checklists/$id" params={{ id: c.id }} className="flex-1">
                           <p className="mb-1 flex items-center gap-1 text-xs font-medium text-primary">
@@ -195,7 +195,7 @@ function ChecklistsList() {
                               {TIPO_LABEL[c.tipo]}
                             </Badge>
                             {c.status === "finalizado" ? (
-                              <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15">
+                              <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15">
                                 Finalizado
                               </Badge>
                             ) : (
@@ -217,7 +217,7 @@ function ChecklistsList() {
                               : `Atualizado em ${new Date(c.updated_at).toLocaleString("pt-BR")}`}
                           </p>
                           {c.exchange_ticket_code && (
-                            <p className="mt-1 text-xs font-semibold text-amber-700">
+                            <p className="mt-1 text-xs font-semibold text-amber-400">
                               Ticket da troca: {c.exchange_ticket_code}
                             </p>
                           )}

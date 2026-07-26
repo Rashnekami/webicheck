@@ -151,16 +151,18 @@ function UsersPage() {
   const activeCount = usersQuery.data?.filter((user) => user.active).length ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="webi-page mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="webi-header flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center sm:p-6">
         <div>
           <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
             <Link to="/painel">
               <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
             </Link>
           </Button>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <UserCog className="h-6 w-6 text-primary" />
+          <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+            <span className="webi-icon h-11 w-11">
+              <UserCog className="h-5 w-5" />
+            </span>
             Usuários
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -169,7 +171,9 @@ function UsersPage() {
         </div>
         <div className="flex gap-2 text-sm">
           <Badge variant="secondary">{usersQuery.data?.length ?? 0} cadastrados</Badge>
-          <Badge className="bg-emerald-500/15 text-emerald-700">{activeCount} ativos</Badge>
+          <Badge className="border-emerald-400/30 bg-emerald-500/15 text-emerald-400">
+            {activeCount} ativos
+          </Badge>
         </div>
       </div>
 
@@ -199,7 +203,7 @@ function UsersPage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {filteredUsers.map((user) => (
-          <Card key={user.id} className={!user.active ? "opacity-70" : ""}>
+          <Card key={user.id} className={`webi-nav-card ${!user.active ? "opacity-65" : ""}`}>
             <CardContent className="flex items-start justify-between gap-3 p-4">
               <div className="min-w-0 space-y-2">
                 <div>
@@ -215,7 +219,11 @@ function UsersPage() {
                     )}
                     <Badge
                       variant={user.active ? "default" : "secondary"}
-                      className={user.active ? "bg-emerald-500/15 text-emerald-700" : undefined}
+                      className={
+                        user.active
+                          ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-400"
+                          : undefined
+                      }
                     >
                       {user.active ? "Ativo" : "Inativo"}
                     </Badge>
@@ -228,7 +236,7 @@ function UsersPage() {
                   {user.phone && <p>Telefone: {user.phone}</p>}
                   <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
                   {!user.has_profile && (
-                    <p className="font-medium text-amber-700">
+                    <p className="font-medium text-amber-400">
                       Perfil incompleto — revise antes de ativar.
                     </p>
                   )}
@@ -302,7 +310,7 @@ function UsersPage() {
                 <Label htmlFor="user-city">Cidade</Label>
                 <select
                   id="user-city"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
                   value={draft.city}
                   onChange={(event) => setDraft({ ...draft, city: event.target.value })}
                 >
@@ -321,7 +329,7 @@ function UsersPage() {
                 <Label htmlFor="user-role">Perfil</Label>
                 <select
                   id="user-role"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
                   value={draft.role}
                   onChange={(event) =>
                     setDraft({
@@ -339,7 +347,7 @@ function UsersPage() {
                 <Label htmlFor="user-active">Situação do acesso</Label>
                 <select
                   id="user-active"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
                   value={draft.active ? "active" : "inactive"}
                   onChange={(event) =>
                     setDraft({
@@ -352,7 +360,7 @@ function UsersPage() {
                   <option value="inactive">Inativo</option>
                 </select>
                 {!draft.active && (
-                  <p className="text-xs text-amber-700">
+                  <p className="text-xs text-amber-400">
                     O login será bloqueado e as chaves de integração ativas serão revogadas.
                   </p>
                 )}

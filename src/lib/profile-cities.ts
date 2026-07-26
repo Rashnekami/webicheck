@@ -1,12 +1,10 @@
 export const PROFILE_CITIES = [
   "Telêmaco Borba",
-  "Imbaú",
   "Tibagi",
-  "Ortigueira",
-  "Reserva",
-  "Curiúva",
-  "São Jerônimo da Serra",
-  "Ventania",
+  "Imbaú",
+  "Ponta Grossa",
+  "Castro",
+  "Carambeí",
 ] as const;
 
 export function isKnownProfileCity(value: string): boolean {

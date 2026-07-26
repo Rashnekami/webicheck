@@ -254,7 +254,10 @@ function ChecklistDetail() {
       const publicUrl = publicUrlHint || (await resolveValidationUrl());
       const merged = { ...row, ...header, dados: data } as ChecklistRow;
       const counterproof = await getChecklistCounterproof({ data: { checklistId: id } });
-      const counterproofDocument = counterproof && "status" in counterproof && counterproof.status === "validated" ? counterproof : null;
+      const counterproofDocument =
+        counterproof && "status" in counterproof && counterproof.status === "validated"
+          ? counterproof
+          : null;
       if (tipo === "instalacao") {
         await generateInstalacaoPdf({
           row: merged,
@@ -293,22 +296,22 @@ function ChecklistDetail() {
     <div
       className={
         tipo === "instalacao"
-          ? "min-h-screen bg-[#020817] pb-24"
-          : "min-h-screen bg-background pb-24"
+          ? "webi-page min-h-screen bg-[#020817] pb-24"
+          : "webi-page min-h-screen pb-24"
       }
     >
       <header className="brand-gradient sticky top-0 z-10 text-white shadow-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               to="/checklists"
-              className="rounded-full bg-white/15 p-2 hover:bg-white/25"
+              className="webi-icon h-10 w-10 rounded-full hover:border-cyan-300/70"
               aria-label="Voltar"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="min-w-0">
-              <p className="truncate text-xs uppercase tracking-wider opacity-80">
+              <p className="truncate text-xs uppercase tracking-[.16em] text-cyan-400">
                 {TIPO_LABEL[tipo]} · {row.status === "finalizado" ? "Finalizado" : "Rascunho"}
               </p>
               <h1 className="truncate text-base font-semibold">
@@ -337,7 +340,7 @@ function ChecklistDetail() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+      <main className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:px-6">
         {tipo === "instalacao" ? (
           <InstalacaoForm
             header={{
@@ -445,8 +448,8 @@ function ChecklistDetail() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-blue-400/20 bg-[#030d21]/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
           <Button variant="outline" onClick={() => navigate({ to: "/checklists" })}>
             Voltar
           </Button>
