@@ -221,15 +221,15 @@ export function DocumentActions({
 
   const statusBadge =
     snap?.public_status === "active" ? (
-      <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20">
+      <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20">
         <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Link ativo
       </Badge>
     ) : snap?.public_status === "revoked" ? (
-      <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/20">
+      <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/20">
         <ShieldOff className="mr-1 h-3.5 w-3.5" /> Desativado
       </Badge>
     ) : snap?.public_status === "replaced" ? (
-      <Badge className="bg-slate-500/15 text-slate-700 hover:bg-slate-500/20">Substituído</Badge>
+      <Badge className="bg-slate-500/15 text-slate-300 hover:bg-slate-500/20">Substituído</Badge>
     ) : (
       <Badge variant="secondary">Preparando…</Badge>
     );
@@ -286,27 +286,50 @@ export function DocumentActions({
                 Imagem do cliente
               </Button>
             ) : null}
-            <Button onClick={copyLink} disabled={!publicUrl} size="sm" variant="outline">
+            <Button
+              onClick={copyLink}
+              disabled={!publicUrl}
+              size="sm"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
+            >
               <Link2 className="mr-1.5 h-4 w-4" /> Copiar link
             </Button>
-            <Button onClick={copyTextOs} disabled={!publicUrl} size="sm" variant="outline">
+            <Button
+              onClick={copyTextOs}
+              disabled={!publicUrl}
+              size="sm"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
+            >
               <Copy className="mr-1.5 h-4 w-4" /> Copiar texto para OS
             </Button>
-            <Button onClick={share} disabled={!publicUrl} size="sm" variant="outline">
+            <Button
+              onClick={share}
+              disabled={!publicUrl}
+              size="sm"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
+            >
               <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar
             </Button>
-            <Button onClick={() => setPreviewOpen(true)} size="sm" variant="ghost">
+            <Button
+              onClick={() => setPreviewOpen(true)}
+              size="sm"
+              variant="ghost"
+              className="text-slate-100 hover:bg-slate-800 hover:text-white"
+            >
               <Eye className="mr-1.5 h-4 w-4" /> Visualizar
             </Button>
           </div>
 
           {snap && (
-            <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+            <div className="rounded-md border border-slate-600/70 bg-slate-800/80 p-3 text-xs text-slate-300">
               <div className="flex flex-wrap gap-x-4 gap-y-1">
                 <span>Versão v{snap.version}</span>
                 <span>
                   Integridade{" "}
-                  <b className="text-foreground">{snap.document_hash.slice(0, 8).toUpperCase()}</b>
+                  <b className="text-white">{snap.document_hash.slice(0, 8).toUpperCase()}</b>
                 </span>
                 <span>Acessos: {snap.view_count ?? 0}</span>
                 {snap.last_viewed_at && (
@@ -317,19 +340,20 @@ export function DocumentActions({
               </div>
               {publicUrl && (
                 <div className="mt-2 truncate">
-                  <span className="text-foreground/70">Link:</span>{" "}
-                  <span className="font-mono text-[11px]">{publicUrl}</span>
+                  <span className="text-slate-300">Link:</span>{" "}
+                  <span className="font-mono text-[11px] text-slate-200">{publicUrl}</span>
                 </div>
               )}
             </div>
           )}
 
           {isAdmin && snap && (
-            <div className="flex flex-wrap gap-2 border-t pt-3">
+            <div className="flex flex-wrap gap-2 border-t border-slate-700 pt-3">
               {snap.public_status === "active" ? (
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
                   onClick={() => revokeMut.mutate(snap.id)}
                   disabled={revokeMut.isPending}
                 >
@@ -339,6 +363,7 @@ export function DocumentActions({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
                   onClick={() => reactivateMut.mutate(snap.id)}
                   disabled={reactivateMut.isPending}
                 >
@@ -348,6 +373,7 @@ export function DocumentActions({
               <Button
                 size="sm"
                 variant="outline"
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
                 onClick={() => setConfirmRegen(true)}
                 disabled={ensureMut.isPending}
               >
