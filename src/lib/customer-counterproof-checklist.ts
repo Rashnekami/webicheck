@@ -1,4 +1,4 @@
-export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "3.0.0";
+export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "4.0.0";
 
 export type CustomerCounterproofAnswer = "sim" | "nao";
 
@@ -19,27 +19,18 @@ export type CustomerCounterproofChecklist = {
 };
 
 export const CUSTOMER_COUNTERPROOF_QUESTIONS: CustomerCounterproofQuestion[] = [
-  { id: "cq01", question: "O atendimento técnico foi realizado no seu endereço?" },
-  { id: "cq02", question: "O técnico se identificou antes de iniciar o atendimento?" },
-  { id: "cq03", question: "O técnico explicou o que seria realizado?" },
-  { id: "cq04", question: "O técnico explicou o serviço executado ao finalizar o atendimento?" },
-  { id: "cq05", question: "A sua internet estava funcionando quando o técnico terminou o atendimento?" },
-  { id: "cq06", question: "O técnico realizou testes na sua conexão após concluir o serviço?" },
-  { id: "cq07", question: "O técnico realizou um teste de velocidade da internet?" },
-  { id: "cq08", question: "O resultado do teste foi mostrado para você?" },
-  { id: "cq09", question: "Você conseguiu utilizar a internet normalmente após o atendimento?" },
-  { id: "cq10", question: "O técnico explicou a diferença entre as redes Wi-Fi 2,4 GHz e 5 GHz?" },
-  { id: "cq11", question: "O técnico explicou qual rede Wi-Fi é mais indicada em cada situação?" },
-  { id: "cq12", question: "O técnico explicou que a velocidade do Wi-Fi pode variar conforme o celular, TV, computador ou outro aparelho utilizado?" },
-  { id: "cq13", question: "O técnico explicou que distância e paredes podem reduzir o sinal Wi-Fi?" },
-  { id: "cq14", question: "O técnico explicou que outros equipamentos e redes próximas podem causar interferências?" },
-  { id: "cq15", question: "O técnico orientou sobre o melhor posicionamento do roteador?" },
-  { id: "cq16", question: "O técnico demonstrou que a conexão estava funcionando antes de deixar o local?" },
-  { id: "cq17", question: "O técnico explicou como verificar se uma possível falha está acontecendo de forma geral antes de acionar o suporte?" },
-  { id: "cq18", question: "O ambiente foi deixado limpo e organizado?" },
-  { id: "cq19", question: "Suas dúvidas foram esclarecidas pelo técnico?" },
-  { id: "cq20", question: "Você está satisfeito(a) com o atendimento realizado?" },
+  { id: "cq01", question: "O técnico foi até o local, se identificou e explicou o que seria feito?" },
+  { id: "cq02", question: "Ao finalizar, o técnico explicou o serviço realizado e mostrou que a internet estava funcionando?" },
+  { id: "cq03", question: "A internet ficou funcionando normalmente após o atendimento?" },
+  { id: "cq04", question: "O técnico realizou um teste de velocidade e mostrou o resultado para você?" },
+  { id: "cq05", question: "O técnico explicou a diferença entre as redes Wi-Fi 2,4 GHz e 5 GHz?" },
+  { id: "cq06", question: "O técnico explicou que o sinal e a velocidade do Wi-Fi podem variar conforme o aparelho, a distância, as paredes e outras interferências?" },
+  { id: "cq07", question: "O técnico orientou sobre o melhor posicionamento do roteador?" },
+  { id: "cq08", question: "O técnico explicou como usar o Downdetector para verificar se existe alguma falha geral antes de entrar em contato com o suporte?" },
+  { id: "cq09", question: "O local ficou organizado e suas dúvidas foram esclarecidas?" },
+  { id: "cq10", question: "Você confirma que o serviço foi concluído e está satisfeito(a) com o atendimento?" },
 ];
+
 
 export function normalizeCustomerCounterproofChecklist(
   input: unknown,
