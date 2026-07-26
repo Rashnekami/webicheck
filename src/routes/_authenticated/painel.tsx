@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   FileClock,
   Wifi,
-  BrainCircuit,
+  
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
