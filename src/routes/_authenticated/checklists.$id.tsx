@@ -398,7 +398,7 @@ function ChecklistDetail() {
 
         {row.status === "finalizado" && (
           <>
-            <CustomerCounterproofCard checklistId={id} />
+            <CustomerCounterproofCard checklistId={id} isAdmin={!!user?.isAdmin} />
             <DocumentActions
               row={{ ...row, ...header, dados: data } as ChecklistRow}
               tecnicoNome={tecnicoNome}
