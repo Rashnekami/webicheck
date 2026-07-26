@@ -60,9 +60,10 @@ export function DocumentActions({
 }: Props) {
   const qc = useQueryClient();
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [busyImg, setBusyImg] = useState(false);
+  const [busyImg, setBusyImg] = useState<"technician" | "customer" | null>(null);
   const [confirmRegen, setConfirmRegen] = useState(false);
-  const docRef = useRef<HTMLDivElement>(null);
+  const technicianDocRef = useRef<HTMLDivElement>(null);
+  const customerDocRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const snapQuery = useQuery({
@@ -191,22 +192,28 @@ export function DocumentActions({
     await copyLink();
   }
 
-  async function baixarImagem() {
-    const node = docRef.current;
+  async function baixarImagem(part: "technician" | "customer" = "technician") {
+    const node = part === "customer" ? customerDocRef.current : technicianDocRef.current;
     if (!node) return;
     try {
-      setBusyImg(true);
+      setBusyImg(part);
       const filename = buildImageFilename({
         os: row.os,
         numero: row.numero_publico,
+        part,
+        counterproofCode: counterproof?.code,
       });
       await exportNodeAsPng(node, filename);
-      toast.success("Imagem gerada. Agora anexe na OS do Hubsoft.");
+      toast.success(
+        part === "customer"
+          ? "Imagem do cliente gerada."
+          : "Imagem do técnico gerada. Agora anexe na OS do Hubsoft.",
+      );
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar a imagem. Tente novamente.");
     } finally {
-      setBusyImg(false);
+      setBusyImg(null);
     }
   }
 
@@ -229,7 +236,13 @@ export function DocumentActions({
 
   return (
     <>
-      <Card>
+      <Card
+        className={
+          row.tipo === "instalacao"
+            ? "rounded-2xl border-cyan-500/30 bg-[#06152d] text-slate-100 shadow-[0_0_22px_rgba(0,105,255,.08)]"
+            : undefined
+        }
+      >
         <CardContent className="space-y-4 p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold">Documentos e comprovação</h3>
@@ -246,18 +259,33 @@ export function DocumentActions({
               Baixar PDF
             </Button>
             <Button
-              onClick={baixarImagem}
-              disabled={busyImg || !publicUrl}
+              onClick={() => baixarImagem("technician")}
+              disabled={busyImg !== null || !publicUrl}
               size="sm"
               variant="default"
             >
-              {busyImg ? (
+              {busyImg === "technician" ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
                 <Download className="mr-1.5 h-4 w-4" />
               )}
-              Baixar imagem
+              {row.tipo === "instalacao" ? "Imagem do técnico" : "Baixar imagem"}
             </Button>
+            {row.tipo === "instalacao" && counterproof?.status === "validated" ? (
+              <Button
+                onClick={() => baixarImagem("customer")}
+                disabled={busyImg !== null || !publicUrl}
+                size="sm"
+                className="bg-cyan-600 text-white hover:bg-cyan-500"
+              >
+                {busyImg === "customer" ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-1.5 h-4 w-4" />
+                )}
+                Imagem do cliente
+              </Button>
+            ) : null}
             <Button onClick={copyLink} disabled={!publicUrl} size="sm" variant="outline">
               <Link2 className="mr-1.5 h-4 w-4" /> Copiar link
             </Button>
@@ -342,14 +370,27 @@ export function DocumentActions({
         aria-hidden
       >
         <ChecklistDocumentView
-          ref={docRef}
+          ref={technicianDocRef}
           payload={(snap ? undefined : localPayload) ?? (localPayload as never)}
           publicUrl={publicUrl}
           shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
           version={snap?.version ?? 1}
           fixedWidth={880}
           counterproof={counterproof}
+          documentPart={row.tipo === "instalacao" ? "technician" : "combined"}
         />
+        {row.tipo === "instalacao" && counterproof?.status === "validated" ? (
+          <ChecklistDocumentView
+            ref={customerDocRef}
+            payload={localPayload as never}
+            publicUrl={publicUrl}
+            shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
+            version={snap?.version ?? 1}
+            fixedWidth={880}
+            counterproof={counterproof}
+            documentPart="customer"
+          />
+        ) : null}
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
