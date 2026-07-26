@@ -9,40 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
 import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
-import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
-import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
-import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
-import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
-import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
-import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
+import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
+import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
+import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
+import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
+import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
+import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
-import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
-import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
-import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
-import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
+import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
+import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
+import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
+import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
+  id: '/completar-cadastro',
+  path: '/completar-cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutorizarAgentRoute = AutorizarAgentRouteImport.update({
@@ -50,36 +41,33 @@ const AutorizarAgentRoute = AutorizarAgentRouteImport.update({
   path: '/autorizar-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
-  id: '/completar-cadastro',
-  path: '/completar-cadastro',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedInformativosRoute =
-  AuthenticatedInformativosRouteImport.update({
-    id: '/informativos',
-    path: '/informativos',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedIntegracoesRoute =
-  AuthenticatedIntegracoesRouteImport.update({
-    id: '/integracoes',
-    path: '/integracoes',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
-  id: '/painel',
-  path: '/painel',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
-  id: '/provedor',
-  path: '/provedor',
+const ValidarTokenRoute = ValidarTokenRouteImport.update({
+  id: '/validar/$token',
+  path: '/validar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContraProvaTokenRoute = ContraProvaTokenRouteImport.update({
+  id: '/contra-prova/$token',
+  path: '/contra-prova/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
@@ -87,20 +75,32 @@ const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
   path: '/trocas-ont',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
+const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
+  id: '/provedor',
+  path: '/provedor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ContraProvaTokenRoute = ContraProvaTokenRouteImport.update({
-  id: '/contra-prova/$token',
-  path: '/contra-prova/$token',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ValidarTokenRoute = ValidarTokenRouteImport.update({
-  id: '/validar/$token',
-  path: '/validar/$token',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedIntegracoesRoute =
+  AuthenticatedIntegracoesRouteImport.update({
+    id: '/integracoes',
+    path: '/integracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInformativosRoute =
+  AuthenticatedInformativosRouteImport.update({
+    id: '/informativos',
+    path: '/informativos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedChecklistsIndexRoute =
   AuthenticatedChecklistsIndexRouteImport.update({
@@ -114,22 +114,10 @@ const AuthenticatedChecklistsIdRoute =
     path: '/checklists/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicWebiDiagnosticDeviceStartRoute =
-  ApiPublicWebiDiagnosticDeviceStartRouteImport.update({
-    id: '/api/public/webi-diagnostic/device-start',
-    path: '/api/public/webi-diagnostic/device-start',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicWebiDiagnosticDeviceTokenRoute =
-  ApiPublicWebiDiagnosticDeviceTokenRouteImport.update({
-    id: '/api/public/webi-diagnostic/device-token',
-    path: '/api/public/webi-diagnostic/device-token',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicWebiDiagnosticMyChecklistsRoute =
-  ApiPublicWebiDiagnosticMyChecklistsRouteImport.update({
-    id: '/api/public/webi-diagnostic/my-checklists',
-    path: '/api/public/webi-diagnostic/my-checklists',
+const ApiPublicWebiDiagnosticUploadReportRoute =
+  ApiPublicWebiDiagnosticUploadReportRouteImport.update({
+    id: '/api/public/webi-diagnostic/upload-report',
+    path: '/api/public/webi-diagnostic/upload-report',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicWebiDiagnosticResolveChecklistRoute =
@@ -138,10 +126,22 @@ const ApiPublicWebiDiagnosticResolveChecklistRoute =
     path: '/api/public/webi-diagnostic/resolve-checklist',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicWebiDiagnosticUploadReportRoute =
-  ApiPublicWebiDiagnosticUploadReportRouteImport.update({
-    id: '/api/public/webi-diagnostic/upload-report',
-    path: '/api/public/webi-diagnostic/upload-report',
+const ApiPublicWebiDiagnosticMyChecklistsRoute =
+  ApiPublicWebiDiagnosticMyChecklistsRouteImport.update({
+    id: '/api/public/webi-diagnostic/my-checklists',
+    path: '/api/public/webi-diagnostic/my-checklists',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticDeviceTokenRoute =
+  ApiPublicWebiDiagnosticDeviceTokenRouteImport.update({
+    id: '/api/public/webi-diagnostic/device-token',
+    path: '/api/public/webi-diagnostic/device-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticDeviceStartRoute =
+  ApiPublicWebiDiagnosticDeviceStartRouteImport.update({
+    id: '/api/public/webi-diagnostic/device-start',
+    path: '/api/public/webi-diagnostic/device-start',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -300,25 +300,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/completar-cadastro': {
+      id: '/completar-cadastro'
+      path: '/completar-cadastro'
+      fullPath: '/completar-cadastro'
+      preLoaderRoute: typeof CompletarCadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/autorizar-agent': {
@@ -328,46 +314,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AutorizarAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/completar-cadastro': {
-      id: '/completar-cadastro'
-      path: '/completar-cadastro'
-      fullPath: '/completar-cadastro'
-      preLoaderRoute: typeof CompletarCadastroRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/informativos': {
-      id: '/_authenticated/informativos'
-      path: '/informativos'
-      fullPath: '/informativos'
-      preLoaderRoute: typeof AuthenticatedInformativosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/integracoes': {
-      id: '/_authenticated/integracoes'
-      path: '/integracoes'
-      fullPath: '/integracoes'
-      preLoaderRoute: typeof AuthenticatedIntegracoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/validar/$token': {
+      id: '/validar/$token'
+      path: '/validar/$token'
+      fullPath: '/validar/$token'
+      preLoaderRoute: typeof ValidarTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/painel': {
-      id: '/_authenticated/painel'
-      path: '/painel'
-      fullPath: '/painel'
-      preLoaderRoute: typeof AuthenticatedPainelRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+    '/contra-prova/$token': {
+      id: '/contra-prova/$token'
+      path: '/contra-prova/$token'
+      fullPath: '/contra-prova/$token'
+      preLoaderRoute: typeof ContraProvaTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/provedor': {
-      id: '/_authenticated/provedor'
-      path: '/provedor'
-      fullPath: '/provedor'
-      preLoaderRoute: typeof AuthenticatedProvedorRouteImport
+    '/_authenticated/usuarios': {
+      id: '/_authenticated/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/trocas-ont': {
@@ -377,26 +363,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/usuarios': {
-      id: '/_authenticated/usuarios'
-      path: '/usuarios'
-      fullPath: '/usuarios'
-      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+    '/_authenticated/provedor': {
+      id: '/_authenticated/provedor'
+      path: '/provedor'
+      fullPath: '/provedor'
+      preLoaderRoute: typeof AuthenticatedProvedorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/contra-prova/$token': {
-      id: '/contra-prova/$token'
-      path: '/contra-prova/$token'
-      fullPath: '/contra-prova/$token'
-      preLoaderRoute: typeof ContraProvaTokenRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/painel': {
+      id: '/_authenticated/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof AuthenticatedPainelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/validar/$token': {
-      id: '/validar/$token'
-      path: '/validar/$token'
-      fullPath: '/validar/$token'
-      preLoaderRoute: typeof ValidarTokenRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/integracoes': {
+      id: '/_authenticated/integracoes'
+      path: '/integracoes'
+      fullPath: '/integracoes'
+      preLoaderRoute: typeof AuthenticatedIntegracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/informativos': {
+      id: '/_authenticated/informativos'
+      path: '/informativos'
+      fullPath: '/informativos'
+      preLoaderRoute: typeof AuthenticatedInformativosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/checklists/': {
       id: '/_authenticated/checklists/'
@@ -412,25 +412,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/webi-diagnostic/device-start': {
-      id: '/api/public/webi-diagnostic/device-start'
-      path: '/api/public/webi-diagnostic/device-start'
-      fullPath: '/api/public/webi-diagnostic/device-start'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceStartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webi-diagnostic/device-token': {
-      id: '/api/public/webi-diagnostic/device-token'
-      path: '/api/public/webi-diagnostic/device-token'
-      fullPath: '/api/public/webi-diagnostic/device-token'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webi-diagnostic/my-checklists': {
-      id: '/api/public/webi-diagnostic/my-checklists'
-      path: '/api/public/webi-diagnostic/my-checklists'
-      fullPath: '/api/public/webi-diagnostic/my-checklists'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRouteImport
+    '/api/public/webi-diagnostic/upload-report': {
+      id: '/api/public/webi-diagnostic/upload-report'
+      path: '/api/public/webi-diagnostic/upload-report'
+      fullPath: '/api/public/webi-diagnostic/upload-report'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticUploadReportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/webi-diagnostic/resolve-checklist': {
@@ -440,11 +426,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webi-diagnostic/upload-report': {
-      id: '/api/public/webi-diagnostic/upload-report'
-      path: '/api/public/webi-diagnostic/upload-report'
-      fullPath: '/api/public/webi-diagnostic/upload-report'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticUploadReportRouteImport
+    '/api/public/webi-diagnostic/my-checklists': {
+      id: '/api/public/webi-diagnostic/my-checklists'
+      path: '/api/public/webi-diagnostic/my-checklists'
+      fullPath: '/api/public/webi-diagnostic/my-checklists'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/device-token': {
+      id: '/api/public/webi-diagnostic/device-token'
+      path: '/api/public/webi-diagnostic/device-token'
+      fullPath: '/api/public/webi-diagnostic/device-token'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/device-start': {
+      id: '/api/public/webi-diagnostic/device-start'
+      path: '/api/public/webi-diagnostic/device-start'
+      fullPath: '/api/public/webi-diagnostic/device-start'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceStartRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -499,13 +499,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
