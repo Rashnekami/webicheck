@@ -428,6 +428,7 @@ export type Database = {
           hora_atendimento: string | null
           id: string
           is_current: boolean
+          locked_for_rework: boolean
           modelo: string | null
           modelo_ont_instalada: string | null
           modelo_ont_retirada: string | null
@@ -436,6 +437,10 @@ export type Database = {
           parent_checklist_id: string | null
           plano: string | null
           provider_id: string
+          review_comment: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           revised_at: string | null
           revised_by: string | null
           revision_notes: string | null
@@ -467,6 +472,7 @@ export type Database = {
           hora_atendimento?: string | null
           id?: string
           is_current?: boolean
+          locked_for_rework?: boolean
           modelo?: string | null
           modelo_ont_instalada?: string | null
           modelo_ont_retirada?: string | null
@@ -475,6 +481,10 @@ export type Database = {
           parent_checklist_id?: string | null
           plano?: string | null
           provider_id: string
+          review_comment?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           revised_at?: string | null
           revised_by?: string | null
           revision_notes?: string | null
@@ -506,6 +516,7 @@ export type Database = {
           hora_atendimento?: string | null
           id?: string
           is_current?: boolean
+          locked_for_rework?: boolean
           modelo?: string | null
           modelo_ont_instalada?: string | null
           modelo_ont_retirada?: string | null
@@ -514,6 +525,10 @@ export type Database = {
           parent_checklist_id?: string | null
           plano?: string | null
           provider_id?: string
+          review_comment?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           revised_at?: string | null
           revised_by?: string | null
           revision_notes?: string | null
@@ -823,6 +838,7 @@ export type Database = {
           phone: string | null
           platform_admin: boolean
           provider_id: string
+          supervisor_id: string | null
           updated_at: string
         }
         Insert: {
@@ -837,6 +853,7 @@ export type Database = {
           phone?: string | null
           platform_admin?: boolean
           provider_id: string
+          supervisor_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -851,6 +868,7 @@ export type Database = {
           phone?: string | null
           platform_admin?: boolean
           provider_id?: string
+          supervisor_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -983,6 +1001,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      supervisor_cities: {
+        Row: {
+          city: string
+          created_at: string
+          id: string
+          provider_id: string
+          supervisor_id: string
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          id?: string
+          provider_id: string
+          supervisor_id: string
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          id?: string
+          provider_id?: string
+          supervisor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_cities_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -1160,6 +1210,10 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_supervisor_of: {
+        Args: { _supervisor: string; _tecnico: string }
+        Returns: boolean
+      }
       link_diagnostic_report: {
         Args: {
           _agent_version: string
@@ -1183,6 +1237,27 @@ export type Database = {
         }[]
       }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
+      review_checklist: {
+        Args: { _comment?: string; _decision: string; _id: string }
+        Returns: {
+          id: string
+          locked_for_rework: boolean
+          review_status: string
+        }[]
+      }
+      supervisor_can_see_checklist: {
+        Args: {
+          _city: string
+          _provider: string
+          _supervisor: string
+          _tecnico: string
+        }
+        Returns: boolean
+      }
+      supervisor_covers_city: {
+        Args: { _city: string; _supervisor: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc"
