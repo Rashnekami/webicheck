@@ -353,6 +353,17 @@ function SmartDiagnosticBetaPage() {
 
   function submitDraft() {
     if (!question) return;
+    if (question.type === "multi") {
+      const selected = (question.options ?? [])
+        .filter((option) => draft[`selected_${option.value}`] === "yes")
+        .map((option) => option.value);
+      if (selected.length === 0) {
+        toast.error("Selecione pelo menos uma ação realizada.");
+        return;
+      }
+      recordAnswer(question.id, selected);
+      return;
+    }
     if (question.type === "metrics") {
       const required = ["download", "upload", "ping", "device", "connection"];
       const missing = required.some((field) => !draft[field]?.trim());
@@ -969,6 +980,56 @@ function QuestionCard({
                 )}
               </button>
             ))}
+          </div>
+        )}
+
+        {question.type === "multi" && (
+          <div className="space-y-4">
+            <div className="grid gap-3">
+              {question.options?.map((option) => {
+                const key = `selected_${option.value}`;
+                const selected = draft[key] === "yes";
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      if (option.value === "no_action_solved" && !selected) {
+                        const cleared = Object.fromEntries(
+                          Object.keys(draft)
+                            .filter((item) => !item.startsWith("selected_"))
+                            .map((item) => [item, draft[item]]),
+                        );
+                        onDraft({ ...cleared, [key]: "yes" });
+                        return;
+                      }
+                      const next = { ...draft, [key]: selected ? "no" : "yes" };
+                      if (option.value !== "no_action_solved" && !selected) {
+                        next.selected_no_action_solved = "no";
+                      }
+                      onDraft(next);
+                    }}
+                    className={optionClass(option, selected)}
+                  >
+                    <span>{option.label}</span>
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border",
+                        selected
+                          ? "border-cyan-300 bg-cyan-400 text-slate-950"
+                          : "border-slate-600 bg-slate-900",
+                      )}
+                    >
+                      {selected && <Check className="h-4 w-4" />}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <Button onClick={onSubmit} className="w-full sm:w-auto">
+              Registrar ações e continuar
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         )}
 

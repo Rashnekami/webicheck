@@ -1,6 +1,6 @@
-export const SMART_DIAGNOSTIC_ENGINE_VERSION = "beta-v2";
+export const SMART_DIAGNOSTIC_ENGINE_VERSION = "beta-v3";
 
-export const SMART_DIAGNOSTIC_STORAGE_KEY = "webicheck.smart-diagnostic.beta-v2";
+export const SMART_DIAGNOSTIC_STORAGE_KEY = "webicheck.smart-diagnostic.beta-v3";
 
 export type DiagnosticStatus =
   | "DIAGNOSTICO_EM_ANDAMENTO"
@@ -92,7 +92,7 @@ export interface DiagnosticQuestion {
   category: string;
   prompt: string;
   helper?: string;
-  type: "single" | "text" | "number" | "metrics" | "optical_metrics";
+  type: "single" | "multi" | "text" | "number" | "metrics" | "optical_metrics";
   options?: DiagnosticOption[];
   evidence?: string;
 }
@@ -219,12 +219,6 @@ const yesNoUnknown: DiagnosticOption[] = [
   { value: "unknown", label: "Não foi possível confirmar", tone: "warning" },
 ];
 
-const serviceScopeOptions: DiagnosticOption[] = [
-  { value: "yes", label: "Somente neste aplicativo, site ou serviço", tone: "positive" },
-  { value: "no", label: "Também acontece em outros serviços", tone: "negative" },
-  { value: "unknown", label: "Não foi possível testar outros serviços", tone: "warning" },
-];
-
 const otherServicesOptions: DiagnosticOption[] = [
   { value: "yes", label: "Sim, os outros funcionam normalmente", tone: "positive" },
   { value: "no", label: "Não, os outros também apresentam falha", tone: "negative" },
@@ -252,6 +246,28 @@ function shouldSkipInFastTrack(session: SmartDiagnosticSession, questionId: stri
 function answer(session: SmartDiagnosticSession, id: string): string | undefined {
   const value = session.answers[id];
   return typeof value === "string" ? value : undefined;
+}
+
+function selectedAnswers(session: SmartDiagnosticSession, id: string): string[] {
+  const value = session.answers[id];
+  if (Array.isArray(value)) return value;
+  return typeof value === "string" ? [value] : [];
+}
+
+function hasSelectedAnswer(session: SmartDiagnosticSession, id: string, value: string): boolean {
+  return selectedAnswers(session, id).includes(value);
+}
+
+function hasActiveLos(session: SmartDiagnosticSession): boolean {
+  return ["yes", "los_fixed", "los_blinking", "olt_alarm"].includes(
+    answer(session, "los_active") ?? "",
+  );
+}
+
+function hasInactiveLos(session: SmartDiagnosticSession): boolean {
+  return ["no", "los_off", "pon_blinking", "pon_stable"].includes(
+    answer(session, "los_active") ?? "",
+  );
 }
 
 function hasAny(session: SmartDiagnosticSession, ids: SymptomId[]): boolean {
@@ -409,10 +425,19 @@ const CORE_QUESTIONS: Array<
   {
     id: "los_active",
     category: "Óptica",
-    prompt: "O LED LOS está aceso ou piscando?",
-    helper: "Com LOS ativo, o diagnóstico óptico tem prioridade sobre velocidade e Wi-Fi.",
+    prompt: "Qual estado óptico foi observado neste momento?",
+    helper:
+      "Informe o estado visto no equipamento ou o alarme consultado na OLT. Não conclua a causa ainda.",
     type: "single",
-    options: yesNoUnknown,
+    options: [
+      { value: "los_fixed", label: "LOS vermelho aceso", tone: "negative" },
+      { value: "los_blinking", label: "LOS vermelho piscando", tone: "negative" },
+      { value: "los_off", label: "LOS apagado", tone: "positive" },
+      { value: "pon_blinking", label: "LOS apagado e PON piscando", tone: "warning" },
+      { value: "pon_stable", label: "LOS apagado e PON estável", tone: "positive" },
+      { value: "olt_alarm", label: "Alarme LOS confirmado pela OLT", tone: "negative" },
+      { value: "unknown", label: "Não foi possível visualizar ou consultar", tone: "warning" },
+    ],
     evidence: "Estado do LED LOS",
     when: (s) =>
       (isOptical(s) || answer(s, "wifi_network") === "wifi5") &&
@@ -465,7 +490,7 @@ const CORE_QUESTIONS: Array<
     type: "single",
     options: yesNoUnknown,
     evidence: "Consistência entre o LED LOS e a leitura óptica atual",
-    when: (s) => answer(s, "los_active") === "yes" && answer(s, "optical_in_range") === "yes",
+    when: (s) => hasActiveLos(s) && answer(s, "optical_in_range") === "yes",
   },
   {
     id: "optical_path_checked",
@@ -476,7 +501,7 @@ const CORE_QUESTIONS: Array<
     evidence: "Caminho óptico inspecionado",
     when: (s) =>
       answer(s, "optical_in_range") === "no" ||
-      (answer(s, "los_active") === "yes" && answer(s, "optical_consistency") !== "no"),
+      (hasActiveLos(s) && answer(s, "optical_consistency") !== "no"),
   },
   {
     id: "optical_fault_found",
@@ -686,24 +711,55 @@ const CORE_QUESTIONS: Array<
     when: (s) => s.symptoms.includes("lentidao"),
   },
   {
-    id: "specific_service_only",
+    id: "other_service_tested",
     category: "Serviço",
-    prompt: "A falha acontece somente em um aplicativo, site, jogo ou serviço?",
-    helper: "Compare o serviço afetado com outros aplicativos e sites antes de responder.",
+    prompt: "Foi possível testar outro aplicativo, site ou serviço neste atendimento?",
+    helper: "Primeiro registre se a comparação foi realmente realizada.",
     type: "single",
-    options: serviceScopeOptions,
-    evidence: "Falha isolada em serviço",
+    options: [
+      { value: "yes", label: "Sim, outro serviço foi testado", tone: "positive" },
+      { value: "no", label: "Não foi possível realizar a comparação", tone: "warning" },
+      { value: "na", label: "Não se aplica a este atendimento", tone: "neutral" },
+    ],
+    evidence: "Disponibilidade do teste comparativo",
     when: (s) => answer(s, "slowness_many_services") === "no" || isService(s),
+  },
+  {
+    id: "service_test_unavailable_reason",
+    category: "Serviço",
+    prompt: "Por que não foi possível testar outro serviço?",
+    type: "single",
+    options: [
+      {
+        value: "no_access",
+        label: "Não havia outro serviço ou acesso disponível",
+        tone: "neutral",
+      },
+      {
+        value: "customer_restriction",
+        label: "Cliente não autorizou ou não possuía acesso",
+        tone: "neutral",
+      },
+      {
+        value: "device_restriction",
+        label: "Equipamento disponível não permitiu o teste",
+        tone: "warning",
+      },
+      { value: "service_unavailable", label: "Nenhum serviço comparativo abriu", tone: "negative" },
+      { value: "other", label: "Outro motivo", tone: "neutral" },
+    ],
+    evidence: "Motivo da ausência de comparação",
+    when: (s) => answer(s, "other_service_tested") === "no",
   },
   {
     id: "other_services_normal",
     category: "Serviço",
-    prompt: "Outros aplicativos e sites funcionam normalmente?",
-    helper: "Use esta confirmação para separar falha de internet de indisponibilidade do serviço.",
+    prompt: "No teste comparativo, o outro serviço funcionou normalmente?",
+    helper: "Registre somente o resultado observado no teste.",
     type: "single",
     options: otherServicesOptions,
     evidence: "Comparação com outros serviços",
-    when: (s) => answer(s, "specific_service_only") === "yes" || isService(s),
+    when: (s) => answer(s, "other_service_tested") === "yes",
   },
   {
     id: "downdetector",
@@ -860,8 +916,13 @@ function getApplicableActions(session: SmartDiagnosticSession): DiagnosticOption
   if (answer(session, "downdetector") === "yes") {
     add("external_service", "Serviço externo identificado");
   }
+  if (isService(session)) {
+    add("service_comparison", "Comparação com outros serviços realizada");
+    add("dns_adjusted", "DNS alterado para teste");
+  }
+  add("ont_restarted", "ONT reiniciada");
   add("customer_guidance", "Orientação realizada ao cliente");
-  add("no_action_solved", "Nenhuma ação resolveu");
+  add("no_action_solved", "Nenhuma intervenção técnica foi realizada");
   add("other_action", "Outra ação realizada");
   return actions;
 }
@@ -910,11 +971,45 @@ export function getNextDiagnosticQuestion(
     return {
       id: "corrective_action",
       category: "Ação corretiva",
-      prompt: "Qual ação foi realizada neste atendimento?",
-      helper: "O sistema mostra apenas ações compatíveis com o caminho percorrido.",
-      type: "single",
+      prompt: "Quais ações foram realizadas neste atendimento?",
+      helper: "Selecione todas as ações realmente executadas. É possível marcar mais de uma.",
+      type: "multi",
       options: getApplicableActions(session),
-      evidence: "Ação efetivamente realizada",
+      evidence: "Ações efetivamente realizadas",
+    };
+  }
+
+  if (
+    hasSelectedAnswer(session, "corrective_action", "other_action") &&
+    session.answers.other_action_description === undefined
+  ) {
+    return {
+      id: "other_action_description",
+      category: "Ação corretiva",
+      prompt: "Descreva a outra ação realizada.",
+      helper: "Informe objetivamente o que foi alterado ou testado.",
+      type: "text",
+      evidence: "Descrição da ação adicional",
+    };
+  }
+
+  if (
+    session.answers.corrective_action_result === undefined &&
+    session.answers.retest_performed === undefined
+  ) {
+    return {
+      id: "corrective_action_result",
+      category: "Resultado da intervenção",
+      prompt: "Qual foi o resultado observado após as ações?",
+      helper: "Este resultado não substitui o reteste obrigatório do sintoma original.",
+      type: "single",
+      options: [
+        { value: "resolved", label: "O problema aparentou estar resolvido", tone: "positive" },
+        { value: "improved", label: "Melhorou, mas não resolveu completamente", tone: "warning" },
+        { value: "no_change", label: "Não houve alteração", tone: "negative" },
+        { value: "not_validated", label: "Não foi possível validar o resultado", tone: "warning" },
+      ],
+      evidence: "Resultado imediato da intervenção",
     };
   }
 
@@ -1086,7 +1181,7 @@ export function getDeterministicDivergences(
   };
 
   if (
-    answer(session, "los_active") === "yes" &&
+    hasActiveLos(session) &&
     answer(session, "optical_in_range") === "yes" &&
     answer(session, "optical_consistency") === undefined
   ) {
@@ -1129,7 +1224,36 @@ export function getDeterministicDivergences(
   }
 
   if (
-    answer(session, "corrective_action") === "external_service" &&
+    answer(session, "corrective_action_result") === "resolved" &&
+    answer(session, "symptom_persists") === "yes"
+  ) {
+    add({
+      code: "ACTION_RESULT_RETEST_CONFLICT",
+      severity: "critical",
+      title: "Resultado da ação diverge do reteste",
+      description:
+        "A intervenção foi marcada como resolvida, mas o reteste final informa que o sintoma continua.",
+      requiredAction:
+        "Revisar o resultado da intervenção ou repetir o reteste do sintoma original.",
+    });
+  }
+
+  if (
+    hasSelectedAnswer(session, "corrective_action", "no_action_solved") &&
+    selectedAnswers(session, "corrective_action").length > 1
+  ) {
+    add({
+      code: "NO_ACTION_WITH_TECHNICAL_ACTION",
+      severity: "warning",
+      title: "Ações registradas de forma incompatível",
+      description:
+        "Foi selecionado que nenhuma intervenção técnica ocorreu junto com outra ação realizada.",
+      requiredAction: "Manter apenas as ações que realmente foram executadas.",
+    });
+  }
+
+  if (
+    hasSelectedAnswer(session, "corrective_action", "external_service") &&
     answer(session, "downdetector") !== "yes"
   ) {
     add({
@@ -1144,7 +1268,7 @@ export function getDeterministicDivergences(
   }
 
   if (
-    answer(session, "corrective_action") === "client_device" &&
+    hasSelectedAnswer(session, "corrective_action", "client_device") &&
     answer(session, "comparison_device_result") !== "yes"
   ) {
     add({
@@ -1242,14 +1366,15 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
   }
 
   const opticalInRange = answer(session, "optical_in_range");
-  const losActive = answer(session, "los_active");
+  const losActive = hasActiveLos(session);
+  const losInactive = hasInactiveLos(session);
   const opticalConsistency = answer(session, "optical_consistency");
 
   if (opticalInRange === "no") {
     pushHypothesis(hypotheses, "Rede óptica", 96, "reinforced", "Potência óptica fora do padrão.");
     recommendations.push("Priorizar correção do caminho óptico antes de avaliar a ONT.");
   }
-  if (losActive === "yes" && opticalInRange !== "no" && opticalConsistency !== "no") {
+  if (losActive && opticalInRange !== "no" && opticalConsistency !== "no") {
     pushHypothesis(
       hypotheses,
       "Estado óptico precisa de confirmação",
@@ -1265,7 +1390,7 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
   }
   if (opticalInRange === "yes") {
     validate(true, "Óptica dentro do padrão");
-    if (losActive !== "yes" || opticalConsistency === "no") {
+    if (losInactive || opticalConsistency === "no") {
       eliminate(true, "Falha óptica atual");
     }
   }
@@ -1456,7 +1581,11 @@ export function getAnswerLabel(question: DiagnosticQuestion, value: DiagnosticAn
   if (typeof value === "string") {
     return question.options?.find((option) => option.value === value)?.label ?? value;
   }
-  if (Array.isArray(value)) return value.join(", ");
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => question.options?.find((option) => option.value === item)?.label ?? item)
+      .join(", ");
+  }
   return Object.entries(value)
     .filter(([, item]) => item)
     .map(([key, item]) => `${key}: ${item}`)
@@ -1500,7 +1629,16 @@ export function buildNocWhatsAppPreview(
   const symptomLabels = SYMPTOM_GROUPS.flatMap((group) => group.symptoms)
     .filter((item) => session.symptoms.includes(item.id))
     .map((item) => item.label);
-  const action = answer(session, "corrective_action") ?? "Não informada";
+  const actionQuestion: DiagnosticQuestion = {
+    id: "corrective_action",
+    category: "Ação corretiva",
+    prompt: "Quais ações foram realizadas neste atendimento?",
+    type: "multi",
+    options: getApplicableActions(session),
+  };
+  const action = session.answers.corrective_action
+    ? getAnswerLabel(actionQuestion, session.answers.corrective_action)
+    : "Não informada";
 
   return [
     "BETA — SIMULAÇÃO, NÃO É UMA AUTORIZAÇÃO REAL",

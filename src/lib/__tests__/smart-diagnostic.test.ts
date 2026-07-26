@@ -87,7 +87,7 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     const session = sessionWith(["streaming"], {
       all_devices: "yes",
       wifi_network: "both",
-      specific_service_only: "yes",
+      other_service_tested: "yes",
       other_services_normal: "yes",
       downdetector: "yes",
       corrective_action: "external_service",
@@ -105,12 +105,43 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     const session = sessionWith(["streaming"], { all_devices: "yes" });
     const question = getNextDiagnosticQuestion(session);
 
-    expect(question?.id).toBe("specific_service_only");
+    expect(question?.id).toBe("other_service_tested");
     expect(question?.options?.map((option) => option.label)).toEqual([
-      "Somente neste aplicativo, site ou serviço",
-      "Também acontece em outros serviços",
-      "Não foi possível testar outros serviços",
+      "Sim, outro serviço foi testado",
+      "Não foi possível realizar a comparação",
+      "Não se aplica a este atendimento",
     ]);
+  });
+
+  it("registra motivo quando não é possível comparar outro serviço", () => {
+    const session = sessionWith(["streaming"], {
+      all_devices: "yes",
+      other_service_tested: "no",
+    });
+
+    expect(getNextDiagnosticQuestion(session)?.id).toBe("service_test_unavailable_reason");
+  });
+
+  it("permite selecionar múltiplas ações antes de registrar o resultado", () => {
+    const session = sessionWith(["outro"], {
+      other_description: "Falha observada no atendimento",
+    });
+
+    const actions = getNextDiagnosticQuestion(session);
+    expect(actions?.id).toBe("corrective_action");
+    expect(actions?.type).toBe("multi");
+
+    session.answers.corrective_action = ["ont_restarted", "customer_guidance"];
+    expect(getNextDiagnosticQuestion(session)?.id).toBe("corrective_action_result");
+  });
+
+  it("oferece estados observáveis do LOS em vez de resposta binária", () => {
+    const session = sessionWith(["sem_internet"], {});
+    const question = getNextDiagnosticQuestion(session);
+
+    expect(question?.id).toBe("los_active");
+    expect(question?.options?.map((option) => option.value)).toContain("los_blinking");
+    expect(question?.options?.map((option) => option.value)).toContain("pon_stable");
   });
 
   it("libera a simulação NOC para porta LAN somente após eliminar cabo e dispositivo", () => {
