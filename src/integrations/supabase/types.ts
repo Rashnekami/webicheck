@@ -1185,7 +1185,7 @@ export type Database = {
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "tecnico" | "almoxarifado"
+      app_role: "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc"
       checklist_status: "rascunho" | "finalizado"
       checklist_tipo: "validacao_ont" | "instalacao"
       foto_categoria:
@@ -1322,7 +1322,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "tecnico", "almoxarifado"],
+      app_role: ["admin", "tecnico", "almoxarifado", "supervisor", "noc"],
       checklist_status: ["rascunho", "finalizado"],
       checklist_tipo: ["validacao_ont", "instalacao"],
       foto_categoria: [
