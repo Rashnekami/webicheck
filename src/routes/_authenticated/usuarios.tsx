@@ -252,6 +252,11 @@ function UsersPage() {
                   {user.city && <p>Cidade: {user.city}</p>}
                   {user.phone && <p>Telefone: {user.phone}</p>}
                   <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
+                  {accountByUserId.get(user.id) && (
+                    <p className="font-mono text-cyan-400">
+                      Login: {accountByUserId.get(user.id)!.login}
+                    </p>
+                  )}
                   {!user.has_profile && (
                     <p className="font-medium text-amber-400">
                       Perfil incompleto — revise antes de ativar.
@@ -259,13 +264,20 @@ function UsersPage() {
                   )}
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
-                <Pencil className="mr-1.5 h-4 w-4" /> Editar
-              </Button>
+              <div className="flex flex-col gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
+                  <Pencil className="mr-1.5 h-4 w-4" /> Editar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setCredTarget(user)}>
+                  <KeyRound className="mr-1.5 h-4 w-4" />
+                  {accountByUserId.get(user.id) ? "Redefinir" : "Login/Senha"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
 
       {!usersQuery.isLoading && filteredUsers.length === 0 && (
         <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
