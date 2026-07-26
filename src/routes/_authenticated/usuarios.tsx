@@ -257,6 +257,16 @@ function UsersPage() {
                         <ShieldCheck className="mr-1 h-3 w-3" /> Admin
                       </Badge>
                     )}
+                    {user.role === "supervisor" && (
+                      <Badge className="border-blue-400/30 bg-blue-500/15 text-blue-300">
+                        Supervisor
+                      </Badge>
+                    )}
+                    {user.role === "noc" && (
+                      <Badge className="border-purple-400/30 bg-purple-500/15 text-purple-300">
+                        NOC
+                      </Badge>
+                    )}
                     {user.role === "almoxarifado" && (
                       <Badge variant="secondary">Almoxarifado</Badge>
                     )}
