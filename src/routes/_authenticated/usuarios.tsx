@@ -540,5 +540,4 @@ function CredentialDialog({
     </Dialog>
   );
 }
-  );
-}
+
