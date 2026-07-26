@@ -288,6 +288,12 @@ function UsersPage() {
                   {user.city && <p>Cidade: {user.city}</p>}
                   {user.phone && <p>Telefone: {user.phone}</p>}
                   <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
+                  {user.supervisor_id && (
+                    <p>Supervisor: {supervisorById.get(user.supervisor_id)?.full_name ?? "—"}</p>
+                  )}
+                  {user.role === "supervisor" && user.supervisor_cities.length > 0 && (
+                    <p>Cidades cobertas: {user.supervisor_cities.join(", ")}</p>
+                  )}
                   {accountByUserId.get(user.id) && (
                     <p className="font-mono text-cyan-400">
                       Login: {accountByUserId.get(user.id)!.login}
