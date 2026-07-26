@@ -1,13 +1,15 @@
-export const SMART_DIAGNOSTIC_ENGINE_VERSION = "beta-v1";
+export const SMART_DIAGNOSTIC_ENGINE_VERSION = "beta-v2";
 
-export const SMART_DIAGNOSTIC_STORAGE_KEY = "webicheck.smart-diagnostic.beta-v1";
+export const SMART_DIAGNOSTIC_STORAGE_KEY = "webicheck.smart-diagnostic.beta-v2";
 
 export type DiagnosticStatus =
   | "DIAGNOSTICO_EM_ANDAMENTO"
   | "AGUARDANDO_TESTE"
   | "NORMALIZADO"
   | "TROCA_NAO_INDICADA"
-  | "POSSIVEL_DEFEITO_ONT";
+  | "POSSIVEL_DEFEITO_ONT"
+  | "DIVERGENCIA"
+  | "REVISAO_NOC";
 
 export type SymptomCategory = "ont" | "wifi" | "lan" | "service" | "other";
 
@@ -46,16 +48,34 @@ export interface DiagnosticMetadata {
   workOrder: string;
   city: string;
   otherSymptom: string;
+  serviceType: "manutencao";
+  linkedChecklistCode: string;
+  equipmentModel: string;
 }
 
 export type DiagnosticAnswer = string | string[] | Record<string, string>;
 
+export interface DiagnosticDecisionEvent {
+  id: string;
+  questionId: string;
+  question: string;
+  category: string;
+  answer: DiagnosticAnswer;
+  answerLabel: string;
+  evidence: string | null;
+  origin: "technician" | "webi-diagnostic" | "system";
+  engineVersion: string;
+  createdAt: string;
+}
+
 export interface SmartDiagnosticSession {
+  id: string;
   engineVersion: string;
   metadata: DiagnosticMetadata;
   symptoms: SymptomId[];
   answers: Record<string, DiagnosticAnswer>;
   history: string[];
+  events: DiagnosticDecisionEvent[];
   startedAt: string;
   updatedAt: string;
 }
@@ -72,7 +92,7 @@ export interface DiagnosticQuestion {
   category: string;
   prompt: string;
   helper?: string;
-  type: "single" | "text" | "number" | "metrics";
+  type: "single" | "text" | "number" | "metrics" | "optical_metrics";
   options?: DiagnosticOption[];
   evidence?: string;
 }
@@ -100,7 +120,16 @@ export interface DiagnosticEvaluation {
   validations: string[];
   eliminated: string[];
   recommendations: string[];
+  divergences: DiagnosticDivergence[];
   noc: NocReadiness;
+}
+
+export interface DiagnosticDivergence {
+  code: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  description: string;
+  requiredAction: string;
 }
 
 export interface SymptomDefinition {
@@ -371,6 +400,30 @@ const CORE_QUESTIONS: Array<
     when: (s) =>
       (isOptical(s) || answer(s, "wifi_network") === "wifi5") &&
       answer(s, "los_active") !== undefined,
+  },
+  {
+    id: "optical_measurements_available",
+    category: "Óptica",
+    prompt: "Os valores RX da ONT ou da OLT estão disponíveis para registrar?",
+    helper:
+      "Se não estiverem disponíveis, o fluxo continua e a limitação ficará registrada no parecer.",
+    type: "single",
+    options: [
+      { value: "yes", label: "Sim, registrar os valores", tone: "positive" },
+      { value: "no", label: "Não estão disponíveis", tone: "neutral" },
+    ],
+    evidence: "Disponibilidade das medições ópticas",
+    when: (s) => answer(s, "optical_in_range") !== undefined,
+  },
+  {
+    id: "optical_metrics",
+    category: "Óptica",
+    prompt: "Registre os valores ópticos exatamente como foram medidos.",
+    helper:
+      "Os limites permanecem configuráveis pelo provedor. A IA recebe os valores como evidência, sem inventar parâmetros.",
+    type: "optical_metrics",
+    evidence: "RX da ONT/OLT e origem da leitura",
+    when: (s) => answer(s, "optical_measurements_available") === "yes",
   },
   {
     id: "optical_consistency",
@@ -780,11 +833,24 @@ function getApplicableActions(session: SmartDiagnosticSession): DiagnosticOption
 export function createSmartDiagnosticSession(): SmartDiagnosticSession {
   const now = new Date().toISOString();
   return {
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     engineVersion: SMART_DIAGNOSTIC_ENGINE_VERSION,
-    metadata: { client: "", workOrder: "", city: "", otherSymptom: "" },
+    metadata: {
+      client: "",
+      workOrder: "",
+      city: "",
+      otherSymptom: "",
+      serviceType: "manutencao",
+      linkedChecklistCode: "",
+      equipmentModel: "",
+    },
     symptoms: [],
     answers: {},
     history: [],
+    events: [],
     startedAt: now,
     updatedAt: now,
   };
@@ -969,6 +1035,89 @@ function buildNocReadiness(session: SmartDiagnosticSession): NocReadiness {
     completed: selected.completed,
     missing: selected.missing,
   };
+}
+
+export function getDeterministicDivergences(
+  session: SmartDiagnosticSession,
+): DiagnosticDivergence[] {
+  const divergences: DiagnosticDivergence[] = [];
+  const add = (item: DiagnosticDivergence) => {
+    if (!divergences.some((current) => current.code === item.code)) divergences.push(item);
+  };
+
+  if (
+    answer(session, "los_active") === "yes" &&
+    answer(session, "optical_in_range") === "yes" &&
+    answer(session, "optical_consistency") === undefined
+  ) {
+    add({
+      code: "OPTICAL_STATE_UNCONFIRMED",
+      severity: "warning",
+      title: "Estado óptico precisa de confirmação",
+      description:
+        "LOS ativo e nível óptico declarado dentro do padrão foram registrados ao mesmo tempo.",
+      requiredAction: "Confirmar novamente o LED LOS e a origem da leitura óptica atual.",
+    });
+  }
+
+  if (
+    answer(session, "problem_after_reprovision") === "no" &&
+    answer(session, "symptom_persists") === "yes"
+  ) {
+    add({
+      code: "REPROVISION_RESULT_CONFLICT",
+      severity: "critical",
+      title: "Resultado do reprovisionamento está divergente",
+      description:
+        "O problema foi marcado como resolvido após o reprovisionamento, mas o reteste final informa que o sintoma persiste.",
+      requiredAction: "Revisar uma das respostas e repetir o reteste, se necessário.",
+    });
+  }
+
+  if (
+    answer(session, "connection_after_optical") === "yes" &&
+    answer(session, "symptom_persists") === "yes"
+  ) {
+    add({
+      code: "OPTICAL_RESULT_CONFLICT",
+      severity: "critical",
+      title: "Normalização óptica e reteste final divergem",
+      description:
+        "A conexão foi registrada como normal após a correção óptica, mas o sintoma original permanece no reteste.",
+      requiredAction: "Confirmar qual sintoma permaneceu e atualizar a evidência do teste final.",
+    });
+  }
+
+  if (
+    answer(session, "corrective_action") === "external_service" &&
+    answer(session, "downdetector") !== "yes"
+  ) {
+    add({
+      code: "EXTERNAL_SERVICE_WITHOUT_EVIDENCE",
+      severity: "warning",
+      title: "Serviço externo sem evidência correspondente",
+      description:
+        "A ação informa serviço externo, mas não existe confirmação de indisponibilidade registrada.",
+      requiredAction:
+        "Registrar a fonte da indisponibilidade ou escolher a ação efetivamente realizada.",
+    });
+  }
+
+  if (
+    answer(session, "corrective_action") === "client_device" &&
+    answer(session, "comparison_device_result") !== "yes"
+  ) {
+    add({
+      code: "CLIENT_DEVICE_WITHOUT_COMPARISON",
+      severity: "warning",
+      title: "Dispositivo do cliente não foi isolado por comparação",
+      description:
+        "A causa foi atribuída ao dispositivo, mas outro equipamento não foi registrado como funcionando normalmente.",
+      requiredAction: "Realizar o teste comparativo ou revisar a ação selecionada.",
+    });
+  }
+
+  return divergences;
 }
 
 export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): DiagnosticEvaluation {
@@ -1206,11 +1355,15 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
   validate(answer(session, "symptom_persists") === "no", "Sintoma normalizado no reteste");
 
   const noc = buildNocReadiness(session);
+  const divergences = getDeterministicDivergences(session);
   const next = getNextDiagnosticQuestion(session);
   let status: DiagnosticStatus = "DIAGNOSTICO_EM_ANDAMENTO";
   let statusLabel = "Diagnóstico em andamento";
 
-  if (answer(session, "retest_performed") === "no") {
+  if (divergences.some((item) => item.severity === "critical")) {
+    status = "DIVERGENCIA";
+    statusLabel = "Divergência técnica — revisão necessária";
+  } else if (answer(session, "retest_performed") === "no") {
     status = "AGUARDANDO_TESTE";
     statusLabel = "Aguardando reteste obrigatório";
   } else if (answer(session, "symptom_persists") === "no") {
@@ -1245,6 +1398,7 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
     validations: [...new Set(validations)],
     eliminated: [...new Set(eliminated)],
     recommendations: [...new Set(recommendations)],
+    divergences,
     noc,
   };
 }
@@ -1264,6 +1418,35 @@ export function getAnswerLabel(question: DiagnosticQuestion, value: DiagnosticAn
     .filter(([, item]) => item)
     .map(([key, item]) => `${key}: ${item}`)
     .join(" · ");
+}
+
+export function createDiagnosticDecisionEvent(
+  question: DiagnosticQuestion,
+  value: DiagnosticAnswer,
+  origin: DiagnosticDecisionEvent["origin"] = "technician",
+): DiagnosticDecisionEvent {
+  const now = new Date().toISOString();
+  return {
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    questionId: question.id,
+    question: question.prompt,
+    category: question.category,
+    answer: value,
+    answerLabel: getAnswerLabel(question, value),
+    evidence: question.evidence ?? null,
+    origin,
+    engineVersion: SMART_DIAGNOSTIC_ENGINE_VERSION,
+    createdAt: now,
+  };
+}
+
+export function getDiagnosticDecisionTrail(
+  session: SmartDiagnosticSession,
+): DiagnosticDecisionEvent[] {
+  return [...session.events].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 export function buildNocWhatsAppPreview(

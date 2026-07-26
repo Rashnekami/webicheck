@@ -1,19 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
   BrainCircuit,
+  Bot,
+  BookOpenCheck,
   Check,
   CheckCircle2,
   ChevronRight,
   CircleSlash2,
   ClipboardCheck,
   ClipboardCopy,
+  CloudOff,
+  Database,
+  FileDown,
   FlaskConical,
   Gauge,
   Lightbulb,
   ListRestart,
+  LoaderCircle,
   LockKeyhole,
   MessageCircle,
   Network,
@@ -52,11 +59,19 @@ import {
   SMART_DIAGNOSTIC_ENGINE_VERSION,
   SMART_DIAGNOSTIC_STORAGE_KEY,
   SYMPTOM_GROUPS,
+  createDiagnosticDecisionEvent,
   type DiagnosticAnswer,
   type DiagnosticOption,
   type SmartDiagnosticSession,
   type SymptomId,
 } from "@/lib/smart-diagnostic";
+import {
+  getSmartDiagnosticAiStatus,
+  runSmartDiagnosticAiReview,
+  syncSmartDiagnosticSession,
+  validateSmartDiagnosticForLearning,
+} from "@/lib/smart-diagnostic-ai.functions";
+import type { AiDiagnosticReview } from "@/lib/smart-diagnostic-ai";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/diagnostico-inteligente")({
@@ -86,6 +101,18 @@ const metricFields = [
   { id: "distance", label: "Distância aproximada da ONT", inputMode: "text" as const },
   { id: "plan", label: "Plano contratado", inputMode: "text" as const },
 ];
+
+const opticalMetricFields = [
+  { id: "rxOnt", label: "RX recebido na ONT (dBm)", placeholder: "Ex.: -19,4" },
+  { id: "rxOlt", label: "RX recebido na OLT (dBm) — opcional", placeholder: "Ex.: -22,1" },
+  {
+    id: "source",
+    label: "Origem da leitura",
+    placeholder: "Ex.: interface da ONT, OLT ou medidor",
+  },
+];
+
+type PersistenceState = "local" | "saving" | "saved" | "migration_pending" | "error";
 
 function loadStoredBeta(): StoredBeta {
   if (typeof window === "undefined") {
@@ -119,6 +146,12 @@ function optionClass(option: DiagnosticOption, selected: boolean): string {
 }
 
 function statusTone(status: ReturnType<typeof evaluateSmartDiagnostic>["status"]) {
+  if (status === "DIVERGENCIA" || status === "REVISAO_NOC") {
+    return {
+      className: "border-rose-400/40 bg-rose-950/30 text-rose-100",
+      icon: AlertTriangle,
+    };
+  }
   if (status === "NORMALIZADO") {
     return {
       className: "border-emerald-400/40 bg-emerald-950/30 text-emerald-200",
@@ -150,6 +183,65 @@ function SmartDiagnosticBetaPage() {
   const [session, setSession] = useState<SmartDiagnosticSession>(initial.session);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [nocPreviewOpen, setNocPreviewOpen] = useState(false);
+  const [aiReview, setAiReview] = useState<AiDiagnosticReview | null>(null);
+  const [persistenceState, setPersistenceState] = useState<PersistenceState>("local");
+
+  const aiStatus = useQuery({
+    queryKey: ["smart-diagnostic-ai-status"],
+    queryFn: () => getSmartDiagnosticAiStatus(),
+    enabled: typeof window !== "undefined",
+    staleTime: 60_000,
+    retry: false,
+  });
+  const syncMutation = useMutation({
+    mutationFn: (nextSession: SmartDiagnosticSession) =>
+      syncSmartDiagnosticSession({ data: { session: nextSession } }),
+    onMutate: () => setPersistenceState("saving"),
+    onSuccess: (result) => setPersistenceState(result.persisted ? "saved" : "migration_pending"),
+    onError: () => setPersistenceState("error"),
+  });
+  const aiMutation = useMutation({
+    mutationFn: ({
+      nextSession,
+      mode,
+    }: {
+      nextSession: SmartDiagnosticSession;
+      mode: "triage" | "review";
+    }) => runSmartDiagnosticAiReview({ data: { session: nextSession, mode } }),
+    onSuccess: (result) => {
+      setAiReview(result);
+      setPersistenceState(
+        result.persistence === "saved"
+          ? "saved"
+          : result.persistence === "migration_pending"
+            ? "migration_pending"
+            : "local",
+      );
+      toast.success(
+        result.mode === "review" ? "Auditoria Webi NOC concluída." : "Triagem da IA concluída.",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const learningMutation = useMutation({
+    mutationFn: () => validateSmartDiagnosticForLearning({ data: { sessionId: session.id } }),
+    onSuccess: (result) => {
+      if (!result.saved) {
+        toast.error(
+          result.reason === "migration_pending"
+            ? "A migration de auditoria ainda não foi aplicada."
+            : "Sessão ainda não encontrada no banco.",
+        );
+        return;
+      }
+      toast.success(
+        result.embeddingStored
+          ? "Caso validado e incorporado à memória operacional."
+          : "Caso validado para aprendizado; embedding ficou pendente.",
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const question = useMemo(() => getNextDiagnosticQuestion(session), [session]);
   const evaluation = useMemo(() => evaluateSmartDiagnostic(session), [session]);
@@ -166,6 +258,21 @@ function SmartDiagnosticBetaPage() {
     } catch {
       // A prévia continua funcional mesmo quando o navegador bloqueia armazenamento local.
     }
+  }, [session, stage]);
+
+  useEffect(() => {
+    if (
+      stage !== "diagnosis" ||
+      session.events.length === 0 ||
+      persistenceState === "migration_pending"
+    ) {
+      return;
+    }
+    const timeout = window.setTimeout(() => syncMutation.mutate(session), 900);
+    return () => window.clearTimeout(timeout);
+    // O snapshot é sincronizado por debounce. Estados visuais da mutation não
+    // reagendam a mesma sessão.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, stage]);
 
   useEffect(() => {
@@ -194,12 +301,16 @@ function SmartDiagnosticBetaPage() {
   }
 
   function recordAnswer(id: string, value: DiagnosticAnswer) {
+    if (!question || question.id !== id) return;
+    const event = createDiagnosticDecisionEvent(question, value);
     setSession((current) => ({
       ...current,
       answers: { ...current.answers, [id]: value },
       history: current.history.includes(id) ? current.history : [...current.history, id],
-      updatedAt: new Date().toISOString(),
+      events: [...current.events.filter((item) => item.questionId !== id), event],
+      updatedAt: event.createdAt,
     }));
+    setAiReview(null);
   }
 
   function undoLastAnswer() {
@@ -215,10 +326,12 @@ function SmartDiagnosticBetaPage() {
         ...current,
         answers,
         history: current.history.slice(0, -1),
+        events: current.events.filter((item) => item.questionId !== last),
         updatedAt: new Date().toISOString(),
       };
     });
     setNocPreviewOpen(false);
+    setAiReview(null);
   }
 
   function resetBeta() {
@@ -226,6 +339,8 @@ function SmartDiagnosticBetaPage() {
     setSession(fresh);
     setStage("setup");
     setNocPreviewOpen(false);
+    setAiReview(null);
+    setPersistenceState("local");
     try {
       window.localStorage.removeItem(SMART_DIAGNOSTIC_STORAGE_KEY);
     } catch {
@@ -241,6 +356,20 @@ function SmartDiagnosticBetaPage() {
       const missing = required.some((field) => !draft[field]?.trim());
       if (missing) {
         toast.error("Preencha download, upload, ping, dispositivo e conexão utilizada.");
+        return;
+      }
+      recordAnswer(question.id, draft);
+      return;
+    }
+    if (question.type === "optical_metrics") {
+      if (!draft.rxOnt?.trim() || !draft.source?.trim()) {
+        toast.error("Informe ao menos o RX da ONT e a origem da leitura.");
+        return;
+      }
+      const rxOnt = Number(draft.rxOnt.replace(",", "."));
+      const rxOlt = draft.rxOlt?.trim() ? Number(draft.rxOlt.replace(",", ".")) : null;
+      if (!Number.isFinite(rxOnt) || (rxOlt !== null && !Number.isFinite(rxOlt))) {
+        toast.error("Informe os valores RX usando números válidos.");
         return;
       }
       recordAnswer(question.id, draft);
@@ -262,6 +391,25 @@ function SmartDiagnosticBetaPage() {
     } catch {
       toast.error("Não foi possível copiar a mensagem.");
     }
+  }
+
+  async function downloadReport() {
+    try {
+      const { downloadSmartDiagnosticReport } =
+        await import("@/components/smart-diagnostic/smart-diagnostic-report");
+      await downloadSmartDiagnosticReport({ session, evaluation, aiReview });
+      toast.success("PDF do diagnóstico gerado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o PDF.");
+    }
+  }
+
+  function runAi(mode: "triage" | "review") {
+    if (!aiStatus.data?.configured) {
+      toast.error("A OpenAI ainda não está disponível neste ambiente.");
+      return;
+    }
+    aiMutation.mutate({ nextSession: session, mode });
   }
 
   const nocPreview = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "");
@@ -308,12 +456,46 @@ function SmartDiagnosticBetaPage() {
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:px-6 sm:py-8">
         <Alert className="rounded-2xl border-amber-400/35 bg-amber-950/20 text-amber-100">
           <FlaskConical className="h-4 w-4 text-amber-300" />
-          <AlertTitle>Ambiente de simulação</AlertTitle>
+          <AlertTitle>Ambiente experimental de preview</AlertTitle>
           <AlertDescription className="text-amber-100/75">
-            Os dados ficam somente neste navegador. Nenhum checklist, código TRC, solicitação NOC ou
-            registro no banco será criado.
+            O diagnóstico pode consultar a IA, mas continua sem gerar código TRC ou autorização
+            real. A chave da OpenAI permanece somente no servidor.
           </AlertDescription>
         </Alert>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge className="border-cyan-400/30 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/10">
+            <Bot className="mr-1.5 h-3.5 w-3.5" />
+            {aiStatus.isLoading
+              ? "Verificando IA"
+              : aiStatus.data?.configured
+                ? `IA pronta · ${aiStatus.data.triageModel}`
+                : "IA não configurada"}
+          </Badge>
+          <Badge
+            className={cn(
+              "hover:bg-current/10",
+              persistenceState === "saved"
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                : persistenceState === "migration_pending"
+                  ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                  : "border-slate-500/30 bg-slate-500/10 text-slate-300",
+            )}
+          >
+            {persistenceState === "saved" ? (
+              <Database className="mr-1.5 h-3.5 w-3.5" />
+            ) : (
+              <CloudOff className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {persistenceState === "saved"
+              ? "Auditoria salva"
+              : persistenceState === "saving"
+                ? "Salvando auditoria"
+                : persistenceState === "migration_pending"
+                  ? "Auditoria local · migration pendente"
+                  : "Auditoria local"}
+          </Badge>
+        </div>
 
         {stage === "setup" && (
           <SetupStep
@@ -386,12 +568,19 @@ function SmartDiagnosticBetaPage() {
                   <DiagnosticSummary
                     session={session}
                     evaluation={evaluation}
+                    aiReview={aiReview}
                     nocPreviewOpen={nocPreviewOpen}
                     nocPreview={nocPreview}
                     onToggleNocPreview={() => setNocPreviewOpen((current) => !current)}
                     onCopyNocPreview={copyNocPreview}
                     onBack={undoLastAnswer}
                     onReset={resetBeta}
+                    onRunReview={() => runAi("review")}
+                    onDownloadReport={downloadReport}
+                    onValidateLearning={() => learningMutation.mutate()}
+                    canValidateLearning={Boolean(user?.isAdmin)}
+                    aiPending={aiMutation.isPending}
+                    learningPending={learningMutation.isPending}
                   />
                 )}
               </div>
@@ -444,6 +633,46 @@ function SmartDiagnosticBetaPage() {
                     )}
                   </CardContent>
                 </Card>
+
+                {evaluation.divergences.length > 0 && (
+                  <Card className="border-amber-400/35 bg-amber-950/15">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base text-white">
+                        <AlertTriangle className="h-4 w-4 text-amber-300" />
+                        Divergências encontradas
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {evaluation.divergences.map((item) => (
+                        <div
+                          key={item.code}
+                          className={cn(
+                            "rounded-xl border p-3",
+                            item.severity === "critical"
+                              ? "border-rose-400/35 bg-rose-950/20"
+                              : "border-amber-400/25 bg-amber-950/15",
+                          )}
+                        >
+                          <p className="text-sm font-semibold text-white">{item.title}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                            {item.description}
+                          </p>
+                          <p className="mt-2 text-xs font-medium text-amber-200">
+                            {item.requiredAction}
+                          </p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                <AiAdvisorCard
+                  review={aiReview}
+                  configured={Boolean(aiStatus.data?.configured)}
+                  loading={aiMutation.isPending}
+                  finished={finished}
+                  onRun={() => runAi(finished ? "review" : "triage")}
+                />
 
                 <div
                   className={cn("rounded-2xl border p-4", statusTone(evaluation.status).className)}
@@ -511,7 +740,7 @@ function SetupStep({
             inputMode="numeric"
           />
         </label>
-        <label className="space-y-2 sm:col-span-2">
+        <label className="space-y-2">
           <span className="text-sm font-semibold text-slate-200">Cidade</span>
           <Select value={session.metadata.city} onValueChange={(value) => onChange("city", value)}>
             <SelectTrigger>
@@ -525,6 +754,28 @@ function SetupStep({
               ))}
             </SelectContent>
           </Select>
+        </label>
+        <label className="space-y-2">
+          <span className="text-sm font-semibold text-slate-200">Modelo da ONT/equipamento</span>
+          <Input
+            value={session.metadata.equipmentModel}
+            onChange={(event) => onChange("equipmentModel", event.target.value)}
+            placeholder="Ex.: Huawei EG8145V5"
+          />
+        </label>
+        <label className="space-y-2 sm:col-span-2">
+          <span className="text-sm font-semibold text-slate-200">
+            Checklist técnico vinculado — opcional
+          </span>
+          <Input
+            value={session.metadata.linkedChecklistCode}
+            onChange={(event) => onChange("linkedChecklistCode", event.target.value.toUpperCase())}
+            placeholder="Ex.: WEBICHECK20260045"
+          />
+          <span className="block text-xs text-slate-500">
+            Quando a migration for homologada, o vínculo será resolvido pelo código sem alterar o
+            checklist original.
+          </span>
         </label>
         <div className="flex justify-end sm:col-span-2">
           <Button onClick={onContinue} size="lg" className="w-full sm:w-auto">
@@ -748,6 +999,32 @@ function QuestionCard({
           </div>
         )}
 
+        {question.type === "optical_metrics" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {opticalMetricFields.map((field, index) => (
+              <label
+                key={field.id}
+                className={cn(
+                  "space-y-2",
+                  index === opticalMetricFields.length - 1 && "sm:col-span-2",
+                )}
+              >
+                <span className="text-xs font-semibold text-slate-300">{field.label}</span>
+                <Input
+                  value={draft[field.id] ?? ""}
+                  onChange={(event) => onDraft({ ...draft, [field.id]: event.target.value })}
+                  inputMode={field.id === "source" ? "text" : "decimal"}
+                  placeholder={field.placeholder}
+                />
+              </label>
+            ))}
+            <Button onClick={onSubmit} className="sm:col-span-2">
+              Registrar medições ópticas
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         <div className="border-t border-blue-400/15 pt-4">
           <Button variant="ghost" onClick={onBack} className="text-slate-400 hover:text-white">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -759,24 +1036,131 @@ function QuestionCard({
   );
 }
 
+function AiAdvisorCard({
+  review,
+  configured,
+  loading,
+  finished,
+  onRun,
+}: {
+  review: AiDiagnosticReview | null;
+  configured: boolean;
+  loading: boolean;
+  finished: boolean;
+  onRun: () => void;
+}) {
+  return (
+    <Card className="overflow-hidden border-violet-400/30 bg-violet-950/15">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[.16em] text-violet-300">
+              Camada consultiva
+            </p>
+            <CardTitle className="mt-1 flex items-center gap-2 text-base text-white">
+              <Bot className="h-4 w-4 text-violet-300" />
+              Webi NOC — IA
+            </CardTitle>
+          </div>
+          {review && (
+            <Badge className="border-violet-400/30 bg-violet-400/10 text-violet-200 hover:bg-violet-400/10">
+              {review.confianca}% confiança
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {review ? (
+          <>
+            <div className="rounded-xl border border-violet-400/20 bg-slate-950/40 p-3">
+              <p className="text-xs text-slate-500">Status consultivo</p>
+              <p className="mt-1 text-sm font-bold text-violet-200">
+                {review.status.replaceAll("_", " ")}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-white">{review.diagnostico_provavel}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-300">{review.proxima_acao}</p>
+            </div>
+            {review.evidencias_faltantes.length > 0 && (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-950/15 p-3">
+                <p className="text-xs font-semibold text-amber-200">Evidências faltantes</p>
+                <ul className="mt-2 space-y-1.5 text-xs text-slate-300">
+                  {review.evidencias_faltantes.slice(0, 4).map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+              <span>{review.model}</span>
+              <span>·</span>
+              <span>{review.promptVersion}</span>
+              <span>·</span>
+              <span>{review.memoryCasesUsed} caso(s) validado(s) consultado(s)</span>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm leading-relaxed text-slate-400">
+            A IA analisa o conjunto de fatos e procura contradições. As regras do WebiCheck
+            continuam sendo a autoridade para bloqueios e troca de ONT.
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full border-violet-400/35 bg-violet-400/10 text-violet-100 hover:bg-violet-400/20"
+          disabled={!configured || loading}
+          onClick={onRun}
+        >
+          {loading ? (
+            <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <BrainCircuit className="mr-2 h-4 w-4" />
+          )}
+          {!configured
+            ? "IA indisponível"
+            : finished
+              ? "Auditar atendimento com IA"
+              : review
+                ? "Atualizar análise da IA"
+                : "Analisar estado atual com IA"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function DiagnosticSummary({
   session,
   evaluation,
+  aiReview,
   nocPreviewOpen,
   nocPreview,
   onToggleNocPreview,
   onCopyNocPreview,
   onBack,
   onReset,
+  onRunReview,
+  onDownloadReport,
+  onValidateLearning,
+  canValidateLearning,
+  aiPending,
+  learningPending,
 }: {
   session: SmartDiagnosticSession;
   evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
+  aiReview: AiDiagnosticReview | null;
   nocPreviewOpen: boolean;
   nocPreview: string;
   onToggleNocPreview: () => void;
   onCopyNocPreview: () => void;
   onBack: () => void;
   onReset: () => void;
+  onRunReview: () => void;
+  onDownloadReport: () => void;
+  onValidateLearning: () => void;
+  canValidateLearning: boolean;
+  aiPending: boolean;
+  learningPending: boolean;
 }) {
   const tone = statusTone(evaluation.status);
   const Icon = tone.icon;
@@ -800,6 +1184,86 @@ function DiagnosticSummary({
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-violet-400/30 bg-violet-950/15">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <Bot className="h-5 w-5 text-violet-300" />
+            Auditoria final Webi NOC
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {aiReview ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-violet-400/20 bg-slate-950/45 p-3">
+                  <p className="text-xs text-slate-500">Status</p>
+                  <p className="mt-1 text-sm font-bold text-violet-200">
+                    {aiReview.status.replaceAll("_", " ")}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-violet-400/20 bg-slate-950/45 p-3">
+                  <p className="text-xs text-slate-500">Confiança consultiva</p>
+                  <p className="mt-1 text-lg font-black text-white">{aiReview.confianca}%</p>
+                </div>
+                <div className="rounded-xl border border-violet-400/20 bg-slate-950/45 p-3">
+                  <p className="text-xs text-slate-500">Revisão humana</p>
+                  <p className="mt-1 text-sm font-bold text-white">
+                    {aiReview.necessita_noc_humano ? "Necessária" : "Não indicada"}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-violet-400/20 bg-slate-950/45 p-4">
+                <p className="text-sm font-semibold text-white">{aiReview.diagnostico_provavel}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                  {aiReview.resumo_tecnico}
+                </p>
+                <p className="mt-3 text-xs font-medium text-violet-200">
+                  Próxima ação: {aiReview.proxima_acao}
+                </p>
+              </div>
+              {aiReview.divergencias.length > 0 && (
+                <div className="space-y-2">
+                  {aiReview.divergencias.map((item) => (
+                    <div
+                      key={`${item.codigo}-${item.descricao}`}
+                      className="rounded-xl border border-amber-400/30 bg-amber-950/15 p-3"
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wide text-amber-200">
+                        {item.codigo} · {item.severidade}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-200">{item.descricao}</p>
+                      <p className="mt-2 text-xs text-slate-400">{item.acao_corretiva}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {aiReview.guardrailsApplied.length > 0 && (
+                <Alert className="rounded-xl border-cyan-400/30 bg-cyan-950/20 text-cyan-100">
+                  <ShieldCheck className="h-4 w-4 text-cyan-300" />
+                  <AlertTitle>Proteções aplicadas pelo WebiCheck</AlertTitle>
+                  <AlertDescription className="text-cyan-100/75">
+                    {aiReview.guardrailsApplied.join(" ")}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
+          ) : (
+            <p className="text-sm leading-relaxed text-slate-400">
+              Execute a auditoria para cruzar respostas, medições, ações e reteste antes de gerar o
+              documento final.
+            </p>
+          )}
+          <Button onClick={onRunReview} disabled={aiPending} className="w-full sm:w-auto">
+            {aiPending ? (
+              <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <BrainCircuit className="mr-2 h-4 w-4" />
+            )}
+            {aiReview ? "Refazer auditoria com IA" : "Executar auditoria com IA"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -961,6 +1425,29 @@ function DiagnosticSummary({
           </div>
         </CardContent>
       </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button onClick={onDownloadReport} size="lg">
+          <FileDown className="mr-2 h-5 w-5" />
+          Baixar PDF verificável
+        </Button>
+        {canValidateLearning && (
+          <Button
+            onClick={onValidateLearning}
+            size="lg"
+            variant="outline"
+            disabled={!aiReview || learningPending}
+            className="border-violet-400/35 bg-violet-400/10 text-violet-100"
+          >
+            {learningPending ? (
+              <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <BookOpenCheck className="mr-2 h-5 w-5" />
+            )}
+            Validar caso para aprendizado
+          </Button>
+        )}
+      </div>
 
       <div className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
         <Button variant="outline" onClick={onBack}>

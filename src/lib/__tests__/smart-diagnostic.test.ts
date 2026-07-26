@@ -163,6 +163,8 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     });
 
     const result = evaluateSmartDiagnostic(session);
+    expect(getNextDiagnosticQuestion(session)?.id).toBe("optical_measurements_available");
+    session.answers.optical_measurements_available = "no";
     expect(getNextDiagnosticQuestion(session)?.id).toBe("optical_consistency");
     expect(result.hypotheses.some((item) => item.label === "Rede óptica" && item.score >= 90)).toBe(
       false,
