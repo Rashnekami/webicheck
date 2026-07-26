@@ -273,21 +273,6 @@ const Field = ({
 );
 
 
-const Field = ({
-  label,
-  value,
-  w = "50%",
-}: {
-  label: string;
-  value?: string | null;
-  w?: string;
-}) => (
-  <View style={{ ...styles.cell, width: w }}>
-    <Text style={styles.label}>{label}:</Text>
-    <Text style={styles.value}>{value || "—"}</Text>
-  </View>
-);
-
 function yesNo(v: "sim" | "nao" | null) {
   if (v === "sim") return "Sim";
   if (v === "nao") return "Não";
