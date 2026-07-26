@@ -1,6 +1,6 @@
-export const SMART_DIAGNOSTIC_ENGINE_VERSION = "beta-v3";
+export const SMART_DIAGNOSTIC_ENGINE_VERSION = "beta-v4";
 
-export const SMART_DIAGNOSTIC_STORAGE_KEY = "webicheck.smart-diagnostic.beta-v3";
+export const SMART_DIAGNOSTIC_STORAGE_KEY = "webicheck.smart-diagnostic.beta-v4";
 
 export type DiagnosticStatus =
   | "DIAGNOSTICO_EM_ANDAMENTO"
@@ -51,6 +51,42 @@ export interface DiagnosticMetadata {
   serviceType: "manutencao";
   linkedChecklistCode: string;
   equipmentModel: string;
+  location?: DiagnosticLocation;
+  revision?: DiagnosticRevision;
+  operation?: DiagnosticOperation;
+}
+
+export interface DiagnosticLocation {
+  status: "pending" | "captured" | "denied" | "unavailable" | "low_accuracy";
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
+  capturedAt?: string;
+}
+
+export interface DiagnosticRevision {
+  rootSessionId: string;
+  parentSessionId?: string;
+  revisionNumber: number;
+  reason?: string;
+}
+
+export type OntExchangeDecision = "continue_maintenance" | "request_ont_exchange";
+export type OntExchangeAuthorization = "pending" | "authorized" | "denied";
+
+export interface DiagnosticOperation {
+  decision?: OntExchangeDecision;
+  exchangeReasons?: string[];
+  exchangeNotes?: string;
+  nocAuthorization?: OntExchangeAuthorization;
+  nocAnalyst?: string;
+  nocProtocol?: string;
+  nocAuthorizedAt?: string;
+  removedSerial?: string;
+  installedSerial?: string;
+  postExchangeRetest?: "resolved" | "persists" | "not_performed";
+  counterproofRecommended?: boolean;
+  counterproofRequested?: boolean;
 }
 
 export type DiagnosticAnswer = string | string[] | Record<string, string>;
@@ -112,6 +148,13 @@ export interface NocReadiness {
   missing: string[];
 }
 
+export interface OntExchangeReadiness extends NocReadiness {
+  reasonsMissing: boolean;
+  eligibleToRequest: boolean;
+  eligibleForCode: boolean;
+  missingForCode: string[];
+}
+
 export interface DiagnosticEvaluation {
   status: DiagnosticStatus;
   statusLabel: string;
@@ -122,6 +165,7 @@ export interface DiagnosticEvaluation {
   recommendations: string[];
   divergences: DiagnosticDivergence[];
   noc: NocReadiness;
+  ontExchange: OntExchangeReadiness;
 }
 
 export interface DiagnosticDivergence {
@@ -929,11 +973,12 @@ function getApplicableActions(session: SmartDiagnosticSession): DiagnosticOption
 
 export function createSmartDiagnosticSession(): SmartDiagnosticSession {
   const now = new Date().toISOString();
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return {
-    id:
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id,
     engineVersion: SMART_DIAGNOSTIC_ENGINE_VERSION,
     metadata: {
       client: "",
@@ -943,6 +988,9 @@ export function createSmartDiagnosticSession(): SmartDiagnosticSession {
       serviceType: "manutencao",
       linkedChecklistCode: "",
       equipmentModel: "",
+      location: { status: "pending" },
+      revision: { rootSessionId: id, revisionNumber: 1 },
+      operation: { nocAuthorization: "pending", postExchangeRetest: "not_performed" },
     },
     symptoms: [],
     answers: {},
@@ -1169,6 +1217,27 @@ function buildNocReadiness(session: SmartDiagnosticSession): NocReadiness {
     title: selected.title,
     completed: selected.completed,
     missing: selected.missing,
+  };
+}
+
+export function getOntExchangeReadiness(
+  session: SmartDiagnosticSession,
+  noc = buildNocReadiness(session),
+): OntExchangeReadiness {
+  const reasons = session.metadata.operation?.exchangeReasons ?? [];
+  const reasonsMissing = reasons.length === 0;
+  const eligibilityMissing = [...noc.missing, ...(reasonsMissing ? ["Motivo da troca informado"] : [])];
+  const authorized = session.metadata.operation?.nocAuthorization === "authorized";
+  const missingForCode = [
+    ...eligibilityMissing,
+    ...(authorized ? [] : ["Autorização do NOC registrada"]),
+  ];
+  return {
+    ...noc,
+    reasonsMissing,
+    eligibleToRequest: noc.eligible && !reasonsMissing,
+    eligibleForCode: noc.eligible && !reasonsMissing && authorized,
+    missingForCode,
   };
 }
 
@@ -1520,6 +1589,7 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
   validate(answer(session, "symptom_persists") === "no", "Sintoma normalizado no reteste");
 
   const noc = buildNocReadiness(session);
+  const ontExchange = getOntExchangeReadiness(session, noc);
   const divergences = getDeterministicDivergences(session);
   const next = getNextDiagnosticQuestion(session);
   let status: DiagnosticStatus = "DIAGNOSTICO_EM_ANDAMENTO";
@@ -1568,6 +1638,7 @@ export function evaluateSmartDiagnostic(session: SmartDiagnosticSession): Diagno
     recommendations: [...new Set(recommendations)],
     divergences,
     noc,
+    ontExchange,
   };
 }
 
@@ -1625,6 +1696,7 @@ export function buildNocWhatsAppPreview(
   session: SmartDiagnosticSession,
   evaluation: DiagnosticEvaluation,
   technician: string,
+  aiAudit?: { status: string; confianca: number; diagnostico: string } | null,
 ): string {
   const symptomLabels = SYMPTOM_GROUPS.flatMap((group) => group.symptoms)
     .filter((item) => session.symptoms.includes(item.id))
@@ -1639,16 +1711,16 @@ export function buildNocWhatsAppPreview(
   const action = session.answers.corrective_action
     ? getAnswerLabel(actionQuestion, session.answers.corrective_action)
     : "Não informada";
+  const operation = session.metadata.operation;
 
   return [
-    "BETA — SIMULAÇÃO, NÃO É UMA AUTORIZAÇÃO REAL",
-    "",
     "Olá, NOC.",
     "",
     "Solicito análise para possível troca de ONT.",
     "",
     `OS: ${session.metadata.workOrder || "—"}`,
-    "Checklist: Diagnóstico Inteligente Beta",
+    `Diagnóstico: ${session.id}${session.metadata.revision ? ` · R${session.metadata.revision.revisionNumber}` : ""}`,
+    `Checklist: ${session.metadata.linkedChecklistCode || "Não vinculado"}`,
     `Cliente: ${session.metadata.client || "—"}`,
     `Cidade: ${session.metadata.city || "—"}`,
     `Técnico: ${technician || "—"}`,
@@ -1665,6 +1737,10 @@ export function buildNocWhatsAppPreview(
     "AÇÃO REALIZADA:",
     action,
     "",
+    "MOTIVO DA TROCA:",
+    operation?.exchangeReasons?.join("; ") || "Não informado",
+    ...(operation?.exchangeNotes ? ["Observação técnica:", operation.exchangeNotes] : []),
+    "",
     "RESULTADO DO RETESTE:",
     answer(session, "symptom_persists") === "yes"
       ? "O sintoma permanece."
@@ -1674,6 +1750,15 @@ export function buildNocWhatsAppPreview(
     "",
     "DIAGNÓSTICO WEBICHECK:",
     evaluation.probableCause,
+    `Confiança calculada: ${evaluation.hypotheses[0]?.score ?? 0}%`,
+    ...(aiAudit
+      ? [
+          "",
+          "AUDITORIA WEBI NOC — IA (CONSULTIVA):",
+          `${aiAudit.status} · ${aiAudit.confianca}%`,
+          aiAudit.diagnostico,
+        ]
+      : []),
     "",
     "O problema permanece após as verificações aplicáveis.",
     "",

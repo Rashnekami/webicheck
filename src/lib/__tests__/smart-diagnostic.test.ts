@@ -66,6 +66,31 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     expect(result.noc.profile).toBe("ont_power");
   });
 
+  it("exige motivo e autorização humana antes de liberar a etapa do ticket de troca", () => {
+    const session = sessionWith(["ont_nao_liga"], {
+      ont_powered_now: "no",
+      outlet_has_power: "yes",
+      homologated_psu_tested: "yes",
+      power_after_psu: "no",
+      corrective_action: "no_action_solved",
+      retest_performed: "yes",
+      symptom_persists: "yes",
+    });
+
+    let result = evaluateSmartDiagnostic(session);
+    expect(result.ontExchange.eligibleToRequest).toBe(false);
+    expect(result.ontExchange.missingForCode).toContain("Motivo da troca informado");
+
+    session.metadata.operation = { exchangeReasons: ["ONT não liga"], nocAuthorization: "pending" };
+    result = evaluateSmartDiagnostic(session);
+    expect(result.ontExchange.eligibleToRequest).toBe(true);
+    expect(result.ontExchange.eligibleForCode).toBe(false);
+
+    session.metadata.operation.nocAuthorization = "authorized";
+    result = evaluateSmartDiagnostic(session);
+    expect(result.ontExchange.eligibleForCode).toBe(true);
+  });
+
   it("descarta falha geral da ONT quando outro dispositivo funciona normalmente", () => {
     const session = sessionWith(["alguns_dispositivos"], {
       all_devices: "no",

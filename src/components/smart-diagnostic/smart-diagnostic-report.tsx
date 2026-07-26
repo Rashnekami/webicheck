@@ -173,7 +173,17 @@ function Header({
           value={session.metadata.linkedChecklistCode || "Não vinculado"}
         />
         <Info label="Equipamento" value={session.metadata.equipmentModel || "Não informado"} />
-        <Info label="Motor" value={session.engineVersion} />
+        <Info label="Revisão" value={`R${session.metadata.revision?.revisionNumber ?? 1}`} />
+        <Info
+          label="Localização"
+          value={
+            session.metadata.location?.status === "captured"
+              ? `capturada · precisão ${session.metadata.location.accuracyMeters ?? "—"} m`
+              : session.metadata.location?.status === "denied"
+                ? "permissão negada"
+                : "não disponível"
+          }
+        />
         <Info label="Status" value={evaluation.statusLabel} wide status />
       </View>
     </>
@@ -254,9 +264,18 @@ function DiagnosticDocument({
                   </Text>
                   <Text style={s.bullet}>
                     Troca de ONT:{" "}
-                    {evaluation.noc.eligible
-                      ? "possivelmente indicada para revisão humana"
+                    {evaluation.ontExchange.eligibleToRequest
+                      ? "apta para solicitação e revisão humana"
                       : "não liberada pelo motor de regras"}
+                  </Text>
+                  <Text style={s.bullet}>
+                    Decisão operacional: {session.metadata.operation?.decision || "NÃO INFORMADA"}
+                  </Text>
+                  <Text style={s.bullet}>
+                    Autorização NOC: {session.metadata.operation?.nocAuthorization || "PENDENTE"}
+                  </Text>
+                  <Text style={s.bullet}>
+                    Reteste pós-troca: {session.metadata.operation?.postExchangeRetest || "NÃO REALIZADO"}
                   </Text>
                 </View>
                 {evaluation.divergences.length ? (
@@ -294,6 +313,7 @@ function DiagnosticDocument({
               <Info label="Status" value={aiReview.status} wide status />
               <Info label="Confiança consultiva" value={`${aiReview.confianca}%`} />
               <Info label="Modelo" value={aiReview.model} />
+              <Info label="Provider" value={aiReview.provider || "NÃO INFORMADO"} />
               <Info label="Prompt" value={aiReview.promptVersion} />
               <Info
                 label="Analisado em"

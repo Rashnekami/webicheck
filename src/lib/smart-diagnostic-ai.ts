@@ -6,7 +6,7 @@ import type {
   SmartDiagnosticSession,
 } from "@/lib/smart-diagnostic";
 
-export const SMART_DIAGNOSTIC_AI_PROMPT_VERSION = "webi-noc-v1";
+export const SMART_DIAGNOSTIC_AI_PROMPT_VERSION = "webi-noc-v2";
 
 export const AI_REVIEW_STATUSES = [
   "VALIDADO",
@@ -47,6 +47,7 @@ export type AiDiagnosticReviewBody = z.infer<typeof aiDiagnosticReviewSchema>;
 export interface AiDiagnosticReview extends AiDiagnosticReviewBody {
   advisory: true;
   mode: AiReviewMode;
+  provider?: string;
   model: string;
   promptVersion: string;
   analyzedAt: string;
@@ -56,6 +57,9 @@ export interface AiDiagnosticReview extends AiDiagnosticReviewBody {
     outputTokens: number | null;
     totalTokens: number | null;
   };
+  latencyMs?: number;
+  fallbackUsed?: boolean;
+  fallbackReason?: string | null;
   guardrailsApplied: string[];
   persistence: "saved" | "migration_pending" | "not_linked";
   memoryCasesUsed: number;
@@ -130,7 +134,7 @@ function sanitizeAnswer(value: DiagnosticAnswer): DiagnosticAnswer {
 }
 
 export interface SanitizedAiDiagnosticInput {
-  schemaVersion: "webicheck-ai-input-v1";
+  schemaVersion: "webicheck-ai-input-v2";
   engineVersion: string;
   mode: AiReviewMode;
   serviceType: string;
@@ -147,6 +151,16 @@ export interface SanitizedAiDiagnosticInput {
     recommendations: string[];
     divergences: DiagnosticEvaluation["divergences"];
     noc: DiagnosticEvaluation["noc"];
+    ontExchange: DiagnosticEvaluation["ontExchange"];
+  };
+  operation: {
+    decision: string;
+    exchangeReasons: string[];
+    exchangeNotes: string;
+    nocAuthorization: string;
+    postExchangeRetest: string;
+    hasRemovedSerial: boolean;
+    hasInstalledSerial: boolean;
   };
   verifiedMemoryCases: Array<{
     symptoms: string[];
@@ -163,7 +177,7 @@ export function buildSanitizedAiInput(
   verifiedMemoryCases: SanitizedAiDiagnosticInput["verifiedMemoryCases"] = [],
 ): SanitizedAiDiagnosticInput {
   return {
-    schemaVersion: "webicheck-ai-input-v1",
+    schemaVersion: "webicheck-ai-input-v2",
     engineVersion: session.engineVersion,
     mode,
     serviceType: session.metadata.serviceType || "manutencao",
@@ -184,6 +198,16 @@ export function buildSanitizedAiInput(
       recommendations: evaluation.recommendations.slice(0, 20),
       divergences: evaluation.divergences.slice(0, 20),
       noc: evaluation.noc,
+      ontExchange: evaluation.ontExchange,
+    },
+    operation: {
+      decision: session.metadata.operation?.decision ?? "NÃO INFORMADO",
+      exchangeReasons: (session.metadata.operation?.exchangeReasons ?? []).slice(0, 12).map(redactText),
+      exchangeNotes: redactText(session.metadata.operation?.exchangeNotes ?? "NÃO INFORMADO"),
+      nocAuthorization: session.metadata.operation?.nocAuthorization ?? "NÃO INFORMADO",
+      postExchangeRetest: session.metadata.operation?.postExchangeRetest ?? "NÃO INFORMADO",
+      hasRemovedSerial: Boolean(session.metadata.operation?.removedSerial?.trim()),
+      hasInstalledSerial: Boolean(session.metadata.operation?.installedSerial?.trim()),
     },
     verifiedMemoryCases: verifiedMemoryCases.slice(0, 3).map((item) => ({
       symptoms: item.symptoms.slice(0, 20),

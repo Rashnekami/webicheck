@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  getAiGatewayConfiguration,
+  parseGatewayJson,
+  runAiGateway,
+  type AiGatewayProvider,
+} from "@/lib/ai-gateway.server";
+
 import type { Database } from "@/integrations/supabase/types";
 import {
   AI_REVIEW_JSON_SCHEMA,
@@ -52,6 +59,7 @@ type SmartDiagnosticDatabase = {
       smart_diagnostic_events: DynamicTable;
       smart_diagnostic_measurements: DynamicTable;
       smart_diagnostic_ai_reviews: DynamicTable;
+      smart_diagnostic_ai_usage: DynamicTable;
       smart_diagnostic_learning_cases: DynamicTable<StoredLearningCase>;
     };
     Views: Record<string, never>;
@@ -61,22 +69,11 @@ type SmartDiagnosticDatabase = {
   };
 };
 type SmartDiagnosticDb = SupabaseClient<SmartDiagnosticDatabase>;
-type OpenAiResponsePayload = {
-  error?: { message?: string };
-  output_text?: string;
-  output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
-  usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-    total_tokens?: number;
-  };
-};
 
 function asSmartDiagnosticDb(db: Db): SmartDiagnosticDb {
   return db as unknown as SmartDiagnosticDb;
 }
 
-const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const OPENAI_EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";
 const MAX_REQUEST_BYTES = 160_000;
 const requestWindows = new Map<string, number[]>();
@@ -92,12 +89,15 @@ function getConfig() {
 
 export function getSmartDiagnosticAiConfiguration() {
   const config = getConfig();
+  const gateway = getAiGatewayConfiguration();
   return {
-    configured: Boolean(config.apiKey),
-    triageModel: config.triageModel,
-    reviewModel: config.reviewModel,
+    configured: gateway.configured,
+    triageModel: gateway.triageModel,
+    reviewModel: gateway.reviewModel,
     embeddingModel: config.embeddingModel,
     promptVersion: SMART_DIAGNOSTIC_AI_PROMPT_VERSION,
+    costMode: gateway.costMode,
+    providers: gateway.providers,
   };
 }
 
@@ -115,8 +115,9 @@ function isMigrationPending(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const value = error as { code?: string; message?: string };
   return (
-    value.code === "PGRST205" ||
-    value.code === "42P01" ||
+      value.code === "PGRST205" ||
+      value.code === "PGRST204" ||
+      value.code === "42P01" ||
     Boolean(value.message?.includes("smart_diagnostic"))
   );
 }
@@ -230,6 +231,13 @@ export async function syncSmartDiagnosticRecord({
       service_type: session.metadata.serviceType,
       equipment_model: session.metadata.equipmentModel.trim() || null,
       engine_version: session.engineVersion,
+      root_session_id: session.metadata.revision?.rootSessionId ?? session.id,
+      parent_session_id: session.metadata.revision?.parentSessionId ?? null,
+      revision_number: session.metadata.revision?.revisionNumber ?? 1,
+      revision_reason: session.metadata.revision?.reason ?? null,
+      metadata_snapshot: session.metadata,
+      operation_snapshot: session.metadata.operation ?? {},
+      location_snapshot: session.metadata.location ?? {},
       status: evaluation.status,
       symptom_codes: session.symptoms,
       answers_snapshot: session.answers,
@@ -324,18 +332,6 @@ async function getVerifiedMemoryCases(
     .slice(0, 3);
 }
 
-function extractOutputText(payload: OpenAiResponsePayload | null): string {
-  if (typeof payload?.output_text === "string") return payload.output_text;
-  for (const item of payload?.output ?? []) {
-    for (const content of item?.content ?? []) {
-      if (content?.type === "output_text" && typeof content.text === "string") {
-        return content.text;
-      }
-    }
-  }
-  return "";
-}
-
 function buildInstructions(mode: AiReviewMode): string {
   return [
     "Você é o Webi NOC, uma camada CONSULTIVA de auditoria técnica para um provedor de internet.",
@@ -352,76 +348,41 @@ function buildInstructions(mode: AiReviewMode): string {
   ].join("\n");
 }
 
-async function callOpenAi({
+async function callAiGateway({
   mode,
   input,
+  sessionId,
+  provider,
+  allowPaid,
 }: {
   mode: AiReviewMode;
   input: SanitizedAiDiagnosticInput;
+  sessionId: string;
+  provider?: AiGatewayProvider;
+  allowPaid?: boolean;
 }) {
-  const config = getConfig();
-  if (!config.apiKey) {
-    throw new Error("OPENAI_API_KEY não está configurada no ambiente de preview.");
-  }
-  const model = mode === "review" ? config.reviewModel : config.triageModel;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25_000);
-  try {
-    const response = await fetch(OPENAI_RESPONSES_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        store: false,
-        instructions: buildInstructions(mode),
-        input: JSON.stringify(input),
-        max_output_tokens: mode === "review" ? 1_800 : 1_200,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "webicheck_ai_review",
-            strict: true,
-            schema: AI_REVIEW_JSON_SCHEMA,
-          },
-        },
-      }),
-      signal: controller.signal,
-    });
-    const payload = (await response.json().catch(() => null)) as OpenAiResponsePayload | null;
-    if (!response.ok) {
-      const message =
-        typeof payload?.error?.message === "string"
-          ? payload.error.message.slice(0, 400)
-          : `Falha HTTP ${response.status}`;
-      throw new Error(`OpenAI: ${message}`);
-    }
-    const output = extractOutputText(payload);
-    if (!output) throw new Error("A OpenAI não retornou um parecer estruturado.");
-    const parsed = aiDiagnosticReviewSchema.parse(JSON.parse(output));
-    return {
-      parsed,
-      model,
-      requestId: response.headers.get("x-request-id"),
-      usage: {
-        inputTokens:
-          typeof payload?.usage?.input_tokens === "number" ? payload.usage.input_tokens : null,
-        outputTokens:
-          typeof payload?.usage?.output_tokens === "number" ? payload.usage.output_tokens : null,
-        totalTokens:
-          typeof payload?.usage?.total_tokens === "number" ? payload.usage.total_tokens : null,
-      },
-    };
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("A análise da IA excedeu 25 segundos. Tente novamente.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const result = await runAiGateway({
+    sessionId,
+    mode,
+    instructions: `${buildInstructions(mode)}\nSchema JSON obrigatório: ${JSON.stringify(AI_REVIEW_JSON_SCHEMA)}`,
+    payload: input,
+    provider,
+    allowPaid,
+  });
+  return {
+    parsed: aiDiagnosticReviewSchema.parse(parseGatewayJson(result.outputText)),
+    model: result.model,
+    provider: result.provider,
+    requestId: result.requestId,
+    latencyMs: result.latencyMs,
+    fallbackUsed: result.fallbackUsed,
+    fallbackReason: result.fallbackReason,
+    usage: {
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      totalTokens: result.usage.totalTokens,
+    },
+  };
 }
 
 export async function runSmartDiagnosticAi({
@@ -429,11 +390,15 @@ export async function runSmartDiagnosticAi({
   userId,
   session,
   mode,
+  provider,
+  allowPaid,
 }: {
   db: Db;
   userId: string;
   session: SmartDiagnosticSession;
   mode: AiReviewMode;
+  provider?: AiGatewayProvider;
+  allowPaid?: boolean;
 }): Promise<AiDiagnosticReview> {
   const serialized = JSON.stringify(session);
   if (new TextEncoder().encode(serialized).byteLength > MAX_REQUEST_BYTES) {
@@ -443,7 +408,7 @@ export async function runSmartDiagnosticAi({
   const providerId = await getProviderId(db, userId);
   const memoryCases = await getVerifiedMemoryCases(db, providerId, session.symptoms);
   const input = buildSanitizedAiInput(session, evaluation, mode, memoryCases);
-  const result = await callOpenAi({ mode, input });
+  const result = await callAiGateway({ mode, input, sessionId: session.id, provider, allowPaid });
   const guarded = enforceAiGuardrails(result.parsed, evaluation);
   const synced = await syncSmartDiagnosticRecord({ db, userId, session, evaluation });
   const analyzedAt = new Date().toISOString();
@@ -451,11 +416,15 @@ export async function runSmartDiagnosticAi({
     ...guarded.review,
     advisory: true,
     mode,
+    provider: result.provider,
     model: result.model,
     promptVersion: SMART_DIAGNOSTIC_AI_PROMPT_VERSION,
     analyzedAt,
     requestId: result.requestId,
     usage: result.usage,
+    latencyMs: result.latencyMs,
+    fallbackUsed: result.fallbackUsed,
+    fallbackReason: result.fallbackReason,
     guardrailsApplied: guarded.applied,
     persistence: synced.persisted ? "saved" : "migration_pending",
     memoryCasesUsed: memoryCases.length,
@@ -475,16 +444,86 @@ export async function runSmartDiagnosticAi({
       request_id: result.requestId,
       input_tokens: result.usage.inputTokens,
       output_tokens: result.usage.outputTokens,
+      total_tokens: result.usage.totalTokens,
+      provider: result.provider,
+      latency_ms: result.latencyMs,
+      fallback_used: result.fallbackUsed,
+      fallback_reason: result.fallbackReason,
       analyzed_by: userId,
       analyzed_at: analyzedAt,
     });
     if (error && !isMigrationPending(error)) throw new Error(error.message);
+    const { error: usageError } = await database.from("smart_diagnostic_ai_usage").insert({
+      provider_id: providerId,
+      session_id: session.id,
+      actor_user_id: userId,
+      provider: result.provider,
+      model: result.model,
+      operation: mode,
+      latency_ms: result.latencyMs,
+      input_tokens: result.usage.inputTokens,
+      output_tokens: result.usage.outputTokens,
+      total_tokens: result.usage.totalTokens,
+      estimated_cost: 0,
+      success: true,
+      fallback_used: result.fallbackUsed,
+      fallback_reason: result.fallbackReason,
+    });
+    if (usageError && !isMigrationPending(usageError)) throw new Error(usageError.message);
   }
 
   return review;
 }
 
+export async function compareSmartDiagnosticAiProviders({
+  db,
+  userId,
+  session,
+  mode,
+}: {
+  db: Db;
+  userId: string;
+  session: SmartDiagnosticSession;
+  mode: AiReviewMode;
+}) {
+  const evaluation = evaluateSmartDiagnostic(session);
+  const providerId = await getProviderId(db, userId);
+  const memoryCases = await getVerifiedMemoryCases(db, providerId, session.symptoms);
+  const input = buildSanitizedAiInput(session, evaluation, mode, memoryCases);
+  const candidates: AiGatewayProvider[] = ["groq", "openrouter", "github_deepseek", "github_llama"];
+  return Promise.all(
+    candidates.map(async (provider) => {
+      try {
+        const result = await callAiGateway({ mode, input, sessionId: session.id, provider });
+        const guarded = enforceAiGuardrails(result.parsed, evaluation);
+        return {
+          provider,
+          model: result.model,
+          success: true,
+          latencyMs: result.latencyMs,
+          usage: result.usage,
+          fallbackUsed: result.fallbackUsed,
+          review: guarded.review,
+        };
+      } catch (error) {
+        return {
+          provider,
+          model: null,
+          success: false,
+          latencyMs: null,
+          usage: null,
+          fallbackUsed: false,
+          error: error instanceof Error ? error.message.slice(0, 400) : "Falha desconhecida",
+        };
+      }
+    }),
+  );
+}
+
 async function createEmbedding(text: string): Promise<number[] | null> {
+  // Embeddings OpenAI são cobrança por uso. No modo padrão o aprendizado mantém
+  // apenas o caso validado e nunca faz uma chamada paga automaticamente.
+  if ((process.env.AI_COST_MODE?.trim() || "free_only") === "free_only") return null;
   const config = getConfig();
   if (!config.apiKey || !config.embeddingModel) return null;
   try {

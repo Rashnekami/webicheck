@@ -1,4 +1,6 @@
-export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "4.0.0";
+export const CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION = "4.1.0";
+
+export type CustomerCounterproofKind = "installation" | "maintenance";
 
 export type CustomerCounterproofAnswer = "sim" | "nao";
 
@@ -31,9 +33,25 @@ export const CUSTOMER_COUNTERPROOF_QUESTIONS: CustomerCounterproofQuestion[] = [
   { id: "cq10", question: "Você confirma que o serviço foi concluído e está satisfeito(a) com o atendimento?" },
 ];
 
+export const CUSTOMER_MAINTENANCE_COUNTERPROOF_QUESTIONS: CustomerCounterproofQuestion[] = [
+  { id: "mq01", question: "O técnico explicou o diagnóstico identificado no atendimento?" },
+  { id: "mq02", question: "O técnico mostrou o funcionamento ou o resultado do teste realizado?" },
+  { id: "mq03", question: "Você recebeu as orientações necessárias para o seu equipamento ou Wi-Fi?" },
+  { id: "mq04", question: "O problema informado foi resolvido ou foi explicada a pendência existente?" },
+  { id: "mq05", question: "Você confirma que teve oportunidade de esclarecer suas dúvidas?" },
+  { id: "mq06", question: "Você confirma as orientações recebidas neste atendimento?" },
+];
+
+export function questionsForCounterproof(kind: CustomerCounterproofKind = "installation") {
+  return kind === "maintenance"
+    ? CUSTOMER_MAINTENANCE_COUNTERPROOF_QUESTIONS
+    : CUSTOMER_COUNTERPROOF_QUESTIONS;
+}
+
 
 export function normalizeCustomerCounterproofChecklist(
   input: unknown,
+  kind: CustomerCounterproofKind = "installation",
 ): CustomerCounterproofChecklist {
   const source = (input && typeof input === "object" ? (input as Record<string, unknown>) : {}) as {
     version?: unknown;
@@ -51,7 +69,7 @@ export function normalizeCustomerCounterproofChecklist(
     if (id) byId.set(id, answer);
     legacyOrdered.push(answer);
   }
-  const items: CustomerCounterproofChecklistItem[] = CUSTOMER_COUNTERPROOF_QUESTIONS.map((q, idx) => ({
+  const items: CustomerCounterproofChecklistItem[] = questionsForCounterproof(kind).map((q, idx) => ({
     id: q.id,
     question: q.question,
     answer: byId.get(q.id) ?? legacyOrdered[idx] ?? "sim",

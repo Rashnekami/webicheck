@@ -22,6 +22,7 @@ import {
   ListRestart,
   LoaderCircle,
   LockKeyhole,
+  MapPin,
   MessageCircle,
   Network,
   RotateCcw,
@@ -64,14 +65,19 @@ import {
   type DiagnosticAnswer,
   type DiagnosticOption,
   type SmartDiagnosticSession,
+  type DiagnosticOperation,
   type SymptomId,
 } from "@/lib/smart-diagnostic";
 import {
   getSmartDiagnosticAiStatus,
+  getSmartDiagnosticNocContact,
+  healthCheckSmartDiagnosticAiGateway,
+  compareSmartDiagnosticAiProviders,
   runSmartDiagnosticAiReview,
   syncSmartDiagnosticSession,
   validateSmartDiagnosticForLearning,
 } from "@/lib/smart-diagnostic-ai.functions";
+import { createMaintenanceCounterproof } from "@/lib/customer-counterproof.functions";
 import type { AiDiagnosticReview } from "@/lib/smart-diagnostic-ai";
 import { cn } from "@/lib/utils";
 
@@ -183,9 +189,9 @@ function SmartDiagnosticBetaPage() {
   const [stage, setStage] = useState<Stage>(initial.stage);
   const [session, setSession] = useState<SmartDiagnosticSession>(initial.session);
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [nocPreviewOpen, setNocPreviewOpen] = useState(false);
   const [aiReview, setAiReview] = useState<AiDiagnosticReview | null>(null);
   const [persistenceState, setPersistenceState] = useState<PersistenceState>("local");
+  const [linkedChecklistId, setLinkedChecklistId] = useState<string | null>(null);
 
   const aiStatus = useQuery({
     queryKey: ["smart-diagnostic-ai-status"],
@@ -194,11 +200,28 @@ function SmartDiagnosticBetaPage() {
     staleTime: 60_000,
     retry: false,
   });
+  const nocContact = useQuery({
+    queryKey: ["smart-diagnostic-noc-contact"],
+    queryFn: () => getSmartDiagnosticNocContact(),
+    staleTime: 300_000,
+    retry: false,
+  });
+  const healthMutation = useMutation({
+    mutationFn: () => healthCheckSmartDiagnosticAiGateway(),
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const compareMutation = useMutation({
+    mutationFn: () => compareSmartDiagnosticAiProviders({ data: { session, mode: "review" } }),
+    onError: (error: Error) => toast.error(error.message),
+  });
   const syncMutation = useMutation({
     mutationFn: (nextSession: SmartDiagnosticSession) =>
       syncSmartDiagnosticSession({ data: { session: nextSession } }),
     onMutate: () => setPersistenceState("saving"),
-    onSuccess: (result) => setPersistenceState(result.persisted ? "saved" : "migration_pending"),
+    onSuccess: (result) => {
+      setPersistenceState(result.persisted ? "saved" : "migration_pending");
+      if (result.persisted) setLinkedChecklistId(result.checklistId);
+    },
     onError: () => setPersistenceState("error"),
   });
   const aiMutation = useMutation({
@@ -240,6 +263,20 @@ function SmartDiagnosticBetaPage() {
           ? "Caso validado e incorporado à memória operacional."
           : "Caso validado para aprendizado; embedding ficou pendente.",
       );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const maintenanceCounterproofMutation = useMutation({
+    mutationFn: () => createMaintenanceCounterproof({ data: { sessionId: session.id } }),
+    onSuccess: async (counterproof) => {
+      updateOperation({ counterproofRequested: true, counterproofRecommended: true });
+      const link = `${window.location.origin}/contra-prova/${counterproof.public_token}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success(`Contra-Prova ${counterproof.code} criada. O link público foi copiado.`);
+      } catch {
+        toast.success(`Contra-Prova ${counterproof.code} criada.`);
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -289,6 +326,77 @@ function SmartDiagnosticBetaPage() {
     }));
   }
 
+  function updateOperation(next: Partial<DiagnosticOperation>) {
+    setSession((current) => ({
+      ...current,
+      metadata: {
+        ...current.metadata,
+        operation: { ...current.metadata.operation, ...next },
+      },
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
+  function captureLocation() {
+    if (!navigator.geolocation) {
+      setSession((current) => ({
+        ...current,
+        metadata: { ...current.metadata, location: { status: "unavailable" } },
+      }));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setSession((current) => ({
+          ...current,
+          metadata: {
+            ...current.metadata,
+            location: {
+              status: position.coords.accuracy <= 100 ? "captured" : "low_accuracy",
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracyMeters: Math.round(position.coords.accuracy),
+              capturedAt: new Date().toISOString(),
+            },
+          },
+          updatedAt: new Date().toISOString(),
+        }));
+      },
+      (error) => {
+        setSession((current) => ({
+          ...current,
+          metadata: {
+            ...current.metadata,
+            location: { status: error.code === error.PERMISSION_DENIED ? "denied" : "unavailable" },
+          },
+        }));
+      },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 12_000 },
+    );
+  }
+
+  function createRevision() {
+    const parentId = session.id;
+    const revision = session.metadata.revision;
+    const fresh = createSmartDiagnosticSession();
+    setSession({
+      ...fresh,
+      metadata: {
+        ...session.metadata,
+        revision: {
+          rootSessionId: revision?.rootSessionId ?? parentId,
+          parentSessionId: parentId,
+          revisionNumber: (revision?.revisionNumber ?? 1) + 1,
+          reason: "Reteste/revisão do atendimento",
+        },
+        operation: { nocAuthorization: "pending", postExchangeRetest: "not_performed" },
+      },
+    });
+    setStage("triage");
+    setAiReview(null);
+    toast.success("Nova revisão criada. O diagnóstico anterior permanece preservado.");
+  }
+
   function toggleSymptom(id: SymptomId) {
     setSession((current) => {
       const selected = current.symptoms.includes(id);
@@ -332,7 +440,6 @@ function SmartDiagnosticBetaPage() {
         updatedAt: new Date().toISOString(),
       };
     });
-    setNocPreviewOpen(false);
     setAiReview(null);
   }
 
@@ -340,7 +447,6 @@ function SmartDiagnosticBetaPage() {
     const fresh = createSmartDiagnosticSession();
     setSession(fresh);
     setStage("setup");
-    setNocPreviewOpen(false);
     setAiReview(null);
     setPersistenceState("local");
     try {
@@ -397,7 +503,11 @@ function SmartDiagnosticBetaPage() {
   }
 
   async function copyNocPreview() {
-    const text = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "");
+    const text = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "", aiReview ? {
+      status: aiReview.status,
+      confianca: aiReview.confianca,
+      diagnostico: aiReview.diagnostico_provavel,
+    } : null);
     try {
       await navigator.clipboard.writeText(text);
       toast.success("Mensagem de teste copiada.");
@@ -419,13 +529,17 @@ function SmartDiagnosticBetaPage() {
 
   function runAi(mode: "triage" | "review") {
     if (!aiStatus.data?.configured) {
-      toast.error("A OpenAI ainda não está disponível neste ambiente.");
+      toast.error("Nenhum provider de IA disponível neste ambiente.");
       return;
     }
     aiMutation.mutate({ nextSession: session, mode });
   }
 
-  const nocPreview = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "");
+  const nocPreview = buildNocWhatsAppPreview(session, evaluation, user?.full_name ?? "", aiReview ? {
+    status: aiReview.status,
+    confianca: aiReview.confianca,
+    diagnostico: aiReview.diagnostico_provavel,
+  } : null);
   const StatusIcon = statusTone(evaluation.status).icon;
 
   return (
@@ -471,8 +585,8 @@ function SmartDiagnosticBetaPage() {
           <FlaskConical className="h-4 w-4 text-amber-300" />
           <AlertTitle>Ambiente experimental de preview</AlertTitle>
           <AlertDescription className="text-amber-100/75">
-            O diagnóstico pode consultar a IA, mas continua sem gerar código TRC ou autorização
-            real. A chave da OpenAI permanece somente no servidor.
+            O diagnóstico pode consultar os providers de IA autorizados, mas não gera código TRC
+            sozinho nem substitui a autorização humana do NOC. Chaves permanecem somente no servidor.
           </AlertDescription>
         </Alert>
 
@@ -523,6 +637,7 @@ function SmartDiagnosticBetaPage() {
                 toast.error("Informe cliente, OS e cidade para iniciar a simulação.");
                 return;
               }
+              captureLocation();
               setStage("triage");
             }}
           />
@@ -570,7 +685,10 @@ function SmartDiagnosticBetaPage() {
               />
             </section>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,.75fr)]">
+            <div className={cn(
+              "grid gap-5",
+              (!finished || user?.isAdmin) && "xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,.75fr)]",
+            )}>
               <div className="space-y-5">
                 {question ? (
                   <QuestionCard
@@ -587,23 +705,30 @@ function SmartDiagnosticBetaPage() {
                     session={session}
                     evaluation={evaluation}
                     aiReview={aiReview}
-                    nocPreviewOpen={nocPreviewOpen}
                     nocPreview={nocPreview}
-                    onToggleNocPreview={() => setNocPreviewOpen((current) => !current)}
                     onCopyNocPreview={copyNocPreview}
+                    nocWhatsApp={nocContact.data?.phone ?? null}
+                    linkedChecklistId={linkedChecklistId}
                     onBack={undoLastAnswer}
                     onReset={resetBeta}
                     onRunReview={() => runAi("review")}
                     onDownloadReport={downloadReport}
+                    onUpdateOperation={updateOperation}
+                    onCreateRevision={createRevision}
+                    onCaptureLocation={captureLocation}
+                    onCreateMaintenanceCounterproof={() => maintenanceCounterproofMutation.mutate()}
                     onValidateLearning={() => learningMutation.mutate()}
                     canValidateLearning={Boolean(user?.isAdmin)}
                     aiPending={aiMutation.isPending}
                     learningPending={learningMutation.isPending}
+                    maintenanceCounterproofPending={maintenanceCounterproofMutation.isPending}
                   />
                 )}
               </div>
 
-              <aside className="space-y-4">
+              {(!finished || user?.isAdmin) && <aside className="space-y-4">
+                {!finished && (
+                  <>
                 <Card className="border-blue-400/25 bg-slate-950/35">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base text-white">
@@ -692,7 +817,22 @@ function SmartDiagnosticBetaPage() {
                   onRun={() => runAi(finished ? "review" : "triage")}
                 />
 
-                <div
+                  </>
+                )}
+
+                {user?.isAdmin && (
+                  <AiGatewayAdminCard
+                    status={aiStatus.data}
+                    results={healthMutation.data}
+                    loading={healthMutation.isPending}
+                    onTest={() => healthMutation.mutate()}
+                    comparison={compareMutation.data}
+                    comparing={compareMutation.isPending}
+                    onCompare={() => compareMutation.mutate()}
+                  />
+                )}
+
+                {!finished && <div
                   className={cn("rounded-2xl border p-4", statusTone(evaluation.status).className)}
                 >
                   <div className="flex items-start gap-3">
@@ -704,8 +844,8 @@ function SmartDiagnosticBetaPage() {
                       <p className="mt-1 text-sm font-bold">{evaluation.statusLabel}</p>
                     </div>
                   </div>
-                </div>
-              </aside>
+                </div>}
+              </aside>}
             </div>
           </>
         )}
@@ -1104,6 +1244,220 @@ function QuestionCard({
   );
 }
 
+function AiGatewayAdminCard({
+  status,
+  results,
+  loading,
+  onTest,
+  comparison,
+  comparing,
+  onCompare,
+}: {
+  status: Awaited<ReturnType<typeof getSmartDiagnosticAiStatus>> | undefined;
+  results: Awaited<ReturnType<typeof healthCheckSmartDiagnosticAiGateway>> | undefined;
+  loading: boolean;
+  onTest: () => void;
+  comparison: Awaited<ReturnType<typeof compareSmartDiagnosticAiProviders>> | undefined;
+  comparing: boolean;
+  onCompare: () => void;
+}) {
+  const providers = results ?? status?.providers ?? [];
+  return (
+    <Card className="border-fuchsia-400/25 bg-fuchsia-950/10">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base text-white">
+          <Gauge className="h-4 w-4 text-fuchsia-300" />
+          IA / AI Gateway · Administrador
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs leading-relaxed text-slate-400">
+          Modo atual: <strong className="text-fuchsia-200">{status?.costMode ?? "free_only"}</strong>. OpenAI não é testada automaticamente.
+        </p>
+        <div className="space-y-2">
+          {providers.map((provider) => (
+            <div key={provider.provider} className="rounded-xl border border-fuchsia-400/15 bg-slate-950/35 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-white">{provider.label}</p>
+                <Badge className={cn(
+                  "border text-[10px]",
+                  provider.lastHealth?.ok
+                    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                    : provider.configured
+                      ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                      : "border-slate-500/30 bg-slate-500/10 text-slate-400",
+                )}>
+                  {provider.lastHealth?.ok ? "OK" : provider.configured ? "Pendente" : "Sem chave"}
+                </Badge>
+              </div>
+              <p className="mt-1 truncate text-xs text-slate-400">{provider.triageModel}</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {provider.costClass === "free" ? "Gratuito/configurado" : provider.costClass === "paid" ? "Pago — bloqueado por padrão" : "Custo precisa de confirmação"}
+                {provider.lastHealth ? ` · ${provider.lastHealth.latencyMs} ms` : ""}
+              </p>
+              {provider.lastHealth?.message && <p className="mt-1 text-[11px] text-rose-200">{provider.lastHealth.message}</p>}
+            </div>
+          ))}
+        </div>
+        <Button onClick={onTest} disabled={loading} variant="outline" className="w-full border-fuchsia-400/35 text-fuchsia-100">
+          {loading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Gauge className="mr-2 h-4 w-4" />}
+          Testar providers gratuitos
+        </Button>
+        <Button onClick={onCompare} disabled={comparing} variant="outline" className="w-full border-blue-400/35 text-blue-100">
+          {comparing ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
+          Comparar este caso nos modelos gratuitos
+        </Button>
+        {comparison && (
+          <div className="space-y-2 border-t border-fuchsia-400/15 pt-3">
+            {comparison.map((item) => (
+              <div key={item.provider} className="rounded-lg bg-slate-950/45 p-2 text-xs text-slate-300">
+                <span className="font-semibold text-white">{item.provider}</span>
+                {item.success
+                  ? ` · ${item.model} · ${item.latencyMs} ms · ${item.review?.confianca ?? "—"}%`
+                  : ` · ${item.error}`}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function NocAuthorizationPanel({
+  evaluation,
+  operation,
+  onUpdate,
+  nocPreview,
+  onCopy,
+  nocWhatsApp,
+  linkedChecklistId,
+}: {
+  evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
+  operation: DiagnosticOperation;
+  onUpdate: (next: Partial<DiagnosticOperation>) => void;
+  nocPreview: string;
+  onCopy: () => void;
+  nocWhatsApp: string | null;
+  linkedChecklistId: string | null;
+}) {
+  const canRequest = evaluation.ontExchange.eligibleToRequest;
+  const authorized = operation.nocAuthorization === "authorized";
+  return (
+    <div className="space-y-3 rounded-xl border border-cyan-400/25 bg-cyan-950/10 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-white">Autorização NOC</p>
+          <p className="text-xs text-slate-400">A mensagem pode ser enviada pelo WhatsApp; o retorno é registrado aqui.</p>
+        </div>
+        <Badge className={cn(
+          "border",
+          authorized ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200",
+        )}>
+          {authorized ? "Autorizada" : "Aguardando NOC"}
+        </Badge>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button variant="outline" disabled={!canRequest} onClick={onCopy} className="border-cyan-400/35 text-cyan-100">
+          <ClipboardCopy className="mr-2 h-4 w-4" />
+          Copiar solicitação
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!canRequest || !nocWhatsApp}
+          onClick={() => window.open(`https://wa.me/${nocWhatsApp}?text=${encodeURIComponent(nocPreview)}`, "_blank", "noopener,noreferrer")}
+          className="border-emerald-400/35 text-emerald-100"
+        >
+          <MessageCircle className="mr-2 h-4 w-4" />
+          {nocWhatsApp ? "Abrir WhatsApp NOC" : "WhatsApp NOC não configurado"}
+        </Button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input
+          placeholder="Analista NOC"
+          value={operation.nocAnalyst ?? ""}
+          onChange={(event) => onUpdate({ nocAnalyst: event.target.value })}
+        />
+        <Input
+          placeholder="Protocolo NOC"
+          value={operation.nocProtocol ?? ""}
+          onChange={(event) => onUpdate({ nocProtocol: event.target.value })}
+        />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button
+          variant={authorized ? "default" : "outline"}
+          disabled={!canRequest || !operation.nocAnalyst?.trim() || !operation.nocProtocol?.trim()}
+          onClick={() => onUpdate({ nocAuthorization: "authorized", nocAuthorizedAt: new Date().toISOString() })}
+          className="border-emerald-400/40 text-emerald-100"
+        >
+          Registrar autorizado
+        </Button>
+        <Button
+          variant={operation.nocAuthorization === "denied" ? "destructive" : "outline"}
+          onClick={() => onUpdate({ nocAuthorization: "denied", nocAuthorizedAt: new Date().toISOString() })}
+        >
+          Registrar não autorizado
+        </Button>
+      </div>
+      {authorized && (
+        <div className="space-y-3 rounded-xl border border-emerald-400/30 bg-emerald-950/15 p-3">
+          <p className="text-sm font-semibold text-emerald-100">
+            {evaluation.ontExchange.eligibleForCode
+              ? "Pronto para o ticket de troca existente"
+              : "Código de troca ainda bloqueado"}
+          </p>
+          <p className="text-xs text-slate-300">
+            O código TRC é emitido pelo fluxo oficial de troca de ONT do checklist técnico
+            vinculado, preservando a mesma numeração e histórico.
+          </p>
+          {linkedChecklistId ? (
+            <Button asChild variant="outline" className="w-full border-emerald-400/35 text-emerald-100">
+              <Link to="/checklists/$id" params={{ id: linkedChecklistId }}>
+                Abrir checklist vinculado e executar troca
+              </Link>
+            </Button>
+          ) : (
+            <p className="text-xs text-amber-200">Vincule um checklist técnico válido para liberar o atalho ao fluxo oficial.</p>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              placeholder="Serial ONT antiga"
+              value={operation.removedSerial ?? ""}
+              onChange={(event) => onUpdate({ removedSerial: event.target.value })}
+            />
+            <Input
+              placeholder="Serial ONT nova"
+              value={operation.installedSerial ?? ""}
+              onChange={(event) => onUpdate({ installedSerial: event.target.value })}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {[
+              ["resolved", "Problema resolvido"],
+              ["persists", "Problema permanece"],
+              ["not_performed", "Reteste pendente"],
+            ].map(([value, label]) => (
+              <Button
+                type="button"
+                key={value}
+                variant={operation.postExchangeRetest === value ? "default" : "outline"}
+                onClick={() => onUpdate({ postExchangeRetest: value as DiagnosticOperation["postExchangeRetest"] })}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+      <details className="rounded-lg border border-slate-700 bg-slate-950/30 p-3">
+        <summary className="cursor-pointer text-xs text-slate-400">Prévia da mensagem NOC</summary>
+        <pre className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-slate-300">{nocPreview}</pre>
+      </details>
+    </div>
+  );
+}
+
 function AiAdvisorCard({
   review,
   configured,
@@ -1201,39 +1555,86 @@ function DiagnosticSummary({
   session,
   evaluation,
   aiReview,
-  nocPreviewOpen,
   nocPreview,
-  onToggleNocPreview,
   onCopyNocPreview,
+  nocWhatsApp,
+  linkedChecklistId,
   onBack,
   onReset,
   onRunReview,
   onDownloadReport,
+  onUpdateOperation,
+  onCreateRevision,
+  onCaptureLocation,
+  onCreateMaintenanceCounterproof,
   onValidateLearning,
   canValidateLearning,
   aiPending,
   learningPending,
+  maintenanceCounterproofPending,
 }: {
   session: SmartDiagnosticSession;
   evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
   aiReview: AiDiagnosticReview | null;
-  nocPreviewOpen: boolean;
   nocPreview: string;
-  onToggleNocPreview: () => void;
   onCopyNocPreview: () => void;
+  nocWhatsApp: string | null;
+  linkedChecklistId: string | null;
   onBack: () => void;
   onReset: () => void;
   onRunReview: () => void;
   onDownloadReport: () => void;
+  onUpdateOperation: (next: Partial<DiagnosticOperation>) => void;
+  onCreateRevision: () => void;
+  onCaptureLocation: () => void;
+  onCreateMaintenanceCounterproof: () => void;
   onValidateLearning: () => void;
   canValidateLearning: boolean;
   aiPending: boolean;
   learningPending: boolean;
+  maintenanceCounterproofPending: boolean;
 }) {
   const tone = statusTone(evaluation.status);
   const Icon = tone.icon;
+  const operation = session.metadata.operation ?? {};
+  const canRequestExchange = evaluation.ontExchange.eligibleToRequest;
+  const revision = session.metadata.revision?.revisionNumber ?? 1;
+  const rootId = session.metadata.revision?.rootSessionId ?? session.id;
+  const diagnosticCode = `WEBIDIAG-${rootId.slice(0, 8).toUpperCase()}-R${revision}`;
+  const exchangeReasons = [
+    "ONT não liga",
+    "ONT reiniciando",
+    "Wi-Fi 2.4 GHz defeituoso",
+    "Wi-Fi 5 GHz defeituoso",
+    "Portas LAN defeituosas",
+    "Travamentos",
+    "Perda de configuração",
+    "Defeito óptico/GPON da ONT",
+    "ONT queimada",
+    "ONT danificada pelo cliente",
+    "Outro",
+  ];
   return (
     <div className="space-y-5">
+      <Card className="overflow-hidden border-blue-400/30 bg-slate-950/35">
+        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Cliente", session.metadata.client || "—"],
+            ["OS", session.metadata.workOrder || "—"],
+            ["Cidade", session.metadata.city || "—"],
+            ["Checklist", session.metadata.linkedChecklistCode || "Não vinculado"],
+            ["Código do diagnóstico", diagnosticCode],
+            ["Status", evaluation.statusLabel],
+            ["Início", new Date(session.startedAt).toLocaleString("pt-BR")],
+            ["Localização", session.metadata.location?.status === "captured" ? `${session.metadata.location.accuracyMeters ?? "—"} m` : session.metadata.location?.status === "denied" ? "Permissão negada" : "Não disponível"],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-blue-400/15 bg-slate-950/45 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+              <p className="mt-1 break-words text-sm font-semibold text-white">{value}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
       <Card className={cn("overflow-hidden border", tone.className)}>
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
@@ -1250,8 +1651,125 @@ function DiagnosticSummary({
               <p className="mt-3 text-sm opacity-80">
                 Causa provável: <strong>{evaluation.probableCause}</strong>
               </p>
+              {evaluation.validations.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {evaluation.validations.slice(0, 6).map((item) => (
+                    <span key={item} className="rounded-full border border-current/20 bg-black/10 px-2.5 py-1 text-xs">
+                      ✓ {item}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-cyan-400/30 bg-slate-950/35">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg text-white">
+            <ClipboardCheck className="h-5 w-5 text-cyan-300" />
+            Decisão operacional
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-slate-300">
+            O diagnóstico indica o caminho técnico; a autorização de troca permanece humana e
+            vinculada às regras do NOC.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Button
+              variant={operation.decision === "continue_maintenance" ? "default" : "outline"}
+              onClick={() => onUpdateOperation({ decision: "continue_maintenance" })}
+            >
+              Continuar manutenção
+            </Button>
+            <Button
+              variant={operation.decision === "request_ont_exchange" ? "default" : "outline"}
+              disabled={!canRequestExchange}
+              onClick={() => onUpdateOperation({ decision: "request_ont_exchange" })}
+              className="border-amber-400/40 text-amber-100"
+            >
+              Solicitar troca de ONT
+            </Button>
+          </div>
+          {!canRequestExchange && (
+            <div className="rounded-xl border border-amber-400/25 bg-amber-950/15 p-3 text-sm text-amber-100">
+              <p className="font-semibold">Ainda não apto para solicitar troca</p>
+              <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                {evaluation.ontExchange.missingForCode.map((item) => (
+                  <li key={item}>• {item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {operation.decision === "request_ont_exchange" && (
+            <div className="space-y-4 rounded-2xl border border-amber-400/30 bg-amber-950/10 p-4">
+              <div>
+                <p className="font-semibold text-white">Validação para troca de ONT</p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Selecione somente os motivos verificados neste atendimento. As evidências do
+                  diagnóstico são reaproveitadas.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {exchangeReasons.map((reason) => {
+                  const checked = operation.exchangeReasons?.includes(reason) ?? false;
+                  return (
+                    <button
+                      type="button"
+                      key={reason}
+                      onClick={() => {
+                        const current = operation.exchangeReasons ?? [];
+                        onUpdateOperation({
+                          exchangeReasons: checked
+                            ? current.filter((item) => item !== reason)
+                            : [...current, reason],
+                        });
+                      }}
+                      className={cn(
+                        "rounded-xl border px-3 py-2 text-left text-sm transition",
+                        checked
+                          ? "border-amber-300 bg-amber-400/15 text-amber-100"
+                          : "border-slate-700 bg-slate-950/40 text-slate-300",
+                      )}
+                    >
+                      {checked ? "✓ " : "○ "}{reason}
+                    </button>
+                  );
+                })}
+              </div>
+              <Textarea
+                value={operation.exchangeNotes ?? ""}
+                onChange={(event) => onUpdateOperation({ exchangeNotes: event.target.value })}
+                placeholder="Observação técnica complementar — opcional"
+                rows={3}
+              />
+              <div className="rounded-xl border border-blue-400/20 bg-slate-950/45 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
+                  Pré-validação
+                </p>
+                <ul className="mt-2 space-y-1.5 text-sm text-slate-300">
+                  {evaluation.ontExchange.completed.map((item) => (
+                    <li key={item} className="flex gap-2"><Check className="h-4 w-4 text-emerald-400" />{item}</li>
+                  ))}
+                  {evaluation.ontExchange.missingForCode.map((item) => (
+                    <li key={item} className="flex gap-2"><AlertTriangle className="h-4 w-4 text-amber-400" />{item}</li>
+                  ))}
+                </ul>
+              </div>
+              <NocAuthorizationPanel
+                evaluation={evaluation}
+                operation={operation}
+                onUpdate={onUpdateOperation}
+                nocPreview={nocPreview}
+                onCopy={onCopyNocPreview}
+                nocWhatsApp={nocWhatsApp}
+                linkedChecklistId={linkedChecklistId}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1290,6 +1808,11 @@ function DiagnosticSummary({
                 </p>
                 <p className="mt-3 text-xs font-medium text-violet-200">
                   Próxima ação: {aiReview.proxima_acao}
+                </p>
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Provider: {aiReview.provider ?? "não informado"} · Modelo: {aiReview.model}
+                  {aiReview.latencyMs ? ` · ${aiReview.latencyMs} ms` : ""}
+                  {aiReview.fallbackUsed ? " · fallback gratuito usado" : ""}
                 </p>
               </div>
               {aiReview.divergencias.length > 0 && (
@@ -1335,162 +1858,67 @@ function DiagnosticSummary({
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="border-emerald-400/25 bg-emerald-950/15">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base text-white">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-              Validações realizadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {evaluation.validations.map((item) => (
-                <li key={item} className="flex gap-2 text-sm text-slate-300">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-        <Card className="border-blue-400/25 bg-blue-950/15">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base text-white">
-              <CircleSlash2 className="h-4 w-4 text-blue-400" />
-              Hipóteses descartadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card className="border-blue-400/25 bg-blue-950/15">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base text-white">
+            <Lightbulb className="h-4 w-4 text-amber-300" />
+            Hipóteses técnicas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 lg:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-cyan-200">Mais prováveis</p>
+            {evaluation.hypotheses.slice(0, 4).map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3 rounded-xl border border-blue-400/15 bg-slate-950/40 px-3 py-2">
+                <div><p className="text-sm font-semibold text-white">{item.label}</p><p className="text-xs text-slate-400">{item.reason}</p></div>
+                <span className="text-sm font-black text-cyan-300">{item.score}%</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-200">Descartadas</p>
             {evaluation.eliminated.length ? (
               <ul className="space-y-2">
                 {evaluation.eliminated.map((item) => (
-                  <li key={item} className="flex gap-2 text-sm text-slate-300">
-                    <X className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
-                    {item}
-                  </li>
+                  <li key={item} className="flex gap-2 rounded-xl border border-blue-400/15 bg-slate-950/40 p-3 text-sm text-slate-300"><X className="h-4 w-4 shrink-0 text-blue-400" />{item}</li>
                 ))}
               </ul>
-            ) : (
-              <p className="text-sm text-slate-500">Nenhuma hipótese foi totalmente descartada.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card
-        className={cn(
-          "border",
-          evaluation.noc.eligible
-            ? "border-emerald-400/45 bg-emerald-950/20"
-            : "border-amber-400/35 bg-amber-950/15",
-        )}
-      >
-        <CardHeader>
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border",
-                evaluation.noc.eligible
-                  ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-300"
-                  : "border-amber-400/35 bg-amber-400/10 text-amber-300",
-              )}
-            >
-              {evaluation.noc.eligible ? (
-                <MessageCircle className="h-5 w-5" />
-              ) : (
-                <LockKeyhole className="h-5 w-5" />
-              )}
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-400">
-                Simulação de autorização NOC
-              </p>
-              <CardTitle className="mt-1 text-lg text-white">{evaluation.noc.title}</CardTitle>
-            </div>
+            ) : <p className="rounded-xl border border-blue-400/15 bg-slate-950/40 p-3 text-sm text-slate-500">Nenhuma hipótese foi totalmente descartada.</p>}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {evaluation.noc.completed.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
-                Concluído
-              </p>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {evaluation.noc.completed.map((item) => (
-                  <li key={item} className="flex gap-2 text-sm text-slate-300">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {evaluation.noc.missing.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">
-                Solicitação bloqueada — falta concluir
-              </p>
-              <ul className="space-y-2">
-                {evaluation.noc.missing.map((item) => (
-                  <li key={item} className="flex gap-2 text-sm text-slate-300">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {evaluation.noc.eligible && (
-            <>
-              <Alert className="rounded-xl border-cyan-400/30 bg-cyan-950/20 text-cyan-100">
-                <FlaskConical className="h-4 w-4 text-cyan-300" />
-                <AlertTitle>Somente simulação</AlertTitle>
-                <AlertDescription className="text-cyan-100/75">
-                  O botão abaixo apenas monta a mensagem. Ele não abre o WhatsApp, não solicita
-                  autorização e não gera código TRC.
-                </AlertDescription>
-              </Alert>
-              <Button onClick={onToggleNocPreview} size="lg" className="w-full">
-                <MessageCircle className="mr-2 h-5 w-5" />
-                {nocPreviewOpen ? "Ocultar mensagem de teste" : "Simular solicitação ao NOC"}
-              </Button>
-            </>
-          )}
-
-          {nocPreviewOpen && evaluation.noc.eligible && (
-            <div className="space-y-3 rounded-2xl border border-blue-400/25 bg-slate-950/60 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-white">Prévia da mensagem</p>
-                <Button variant="outline" size="sm" onClick={onCopyNocPreview}>
-                  <ClipboardCopy className="mr-1.5 h-4 w-4" />
-                  Copiar
-                </Button>
-              </div>
-              <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-black/25 p-4 font-sans text-xs leading-relaxed text-slate-300">
-                {nocPreview}
-              </pre>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      <Card className="border-blue-400/20 bg-slate-950/35">
-        <CardContent className="grid gap-3 p-5 text-sm sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Button variant="outline" onClick={onCaptureLocation} className="border-cyan-400/30 text-cyan-100">
+          <MapPin className="mr-2 h-4 w-4" />
+          Atualizar localização
+        </Button>
+        <Button variant="outline" onClick={onCreateRevision} className="border-blue-400/30 text-blue-100">
+          <ListRestart className="mr-2 h-4 w-4" />
+          Refazer em nova revisão
+        </Button>
+      </div>
+
+      <Card className="border-emerald-400/25 bg-emerald-950/10">
+        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-slate-500">Cliente</p>
-            <p className="mt-1 font-semibold text-white">{session.metadata.client}</p>
+            <p className="font-semibold text-white">Contra-prova de manutenção</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Recomendável quando houver orientação ao cliente, troca de ONT, divergência ou resultado inconclusivo.
+            </p>
           </div>
-          <div>
-            <p className="text-slate-500">OS</p>
-            <p className="mt-1 font-semibold text-white">{session.metadata.workOrder}</p>
-          </div>
-          <div>
-            <p className="text-slate-500">Cidade</p>
-            <p className="mt-1 font-semibold text-white">{session.metadata.city}</p>
-          </div>
+          <Button
+            variant="outline"
+            disabled={maintenanceCounterproofPending}
+            onClick={onCreateMaintenanceCounterproof}
+            className="border-emerald-400/35 text-emerald-100"
+          >
+            {maintenanceCounterproofPending
+              ? "Criando link público..."
+              : operation.counterproofRequested
+                ? "Copiar/recuperar Contra-prova"
+                : "Gerar Contra-prova pública"}
+          </Button>
         </CardContent>
       </Card>
 

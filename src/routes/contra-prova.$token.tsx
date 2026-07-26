@@ -5,7 +5,7 @@ import { CheckCircle2, ChevronLeft, Loader2, ShieldCheck } from "lucide-react";
 import { getPublicCounterproof, completePublicCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION,
-  CUSTOMER_COUNTERPROOF_QUESTIONS,
+  questionsForCounterproof,
   type CustomerCounterproofAnswer,
 } from "@/lib/customer-counterproof-checklist";
 import { SignaturePad } from "@/components/signature-pad";
@@ -40,7 +40,9 @@ function CounterproofPage() {
     queryKey: ["public-counterproof", token],
     queryFn: () => getPublicCounterproof({ data: { token } }),
   });
-  const allQuestionsAnswered = CUSTOMER_COUNTERPROOF_QUESTIONS.every(
+  const kind = query.data?.kind === "maintenance" ? "maintenance" : "installation";
+  const questions = questionsForCounterproof(kind);
+  const allQuestionsAnswered = questions.every(
     (question) => answers[question.id] === "sim" || answers[question.id] === "nao",
   );
   const finish = useMutation({
@@ -53,7 +55,7 @@ function CounterproofPage() {
           signature: signature || "",
           clientChecklist: {
             version: CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION,
-            items: CUSTOMER_COUNTERPROOF_QUESTIONS.map((question) => ({
+            items: questions.map((question) => ({
               id: question.id,
               question: question.question,
               answer: answers[question.id] as CustomerCounterproofAnswer,
@@ -77,7 +79,7 @@ function CounterproofPage() {
   if (cp.status === "annulled") return <div className="min-h-screen bg-[#020817] p-8 text-center text-amber-300">Esta Contra-Prova foi anulada. Solicite um novo link à equipe.</div>;
 
   return <main className="min-h-screen bg-[#020817] pb-10 text-slate-100">
-    <header className="border-b border-blue-500/30 bg-[radial-gradient(circle_at_top_right,rgba(0,170,255,.2),transparent_42%),linear-gradient(135deg,#06152d,#020817)] p-5 text-white shadow-[0_0_30px_rgba(0,105,255,.12)]"><div className="mx-auto flex max-w-lg items-center gap-3"><WebifibraLogo size={48} className="shadow-[0_0_20px_rgba(0,180,255,.22)]" /><div><p className="text-xs uppercase tracking-[.2em] text-cyan-300">Contra-prova digital</p><h1 className="font-black">CHECKLIST DO CLIENTE</h1></div></div></header>
+    <header className="border-b border-blue-500/30 bg-[radial-gradient(circle_at_top_right,rgba(0,170,255,.2),transparent_42%),linear-gradient(135deg,#06152d,#020817)] p-5 text-white shadow-[0_0_30px_rgba(0,105,255,.12)]"><div className="mx-auto flex max-w-lg items-center gap-3"><WebifibraLogo size={48} className="shadow-[0_0_20px_rgba(0,180,255,.22)]" /><div><p className="text-xs uppercase tracking-[.2em] text-cyan-300">{kind === "maintenance" ? "Contra-prova de manutenção" : "Contra-prova digital"}</p><h1 className="font-black">CHECKLIST DO CLIENTE</h1></div></div></header>
     <div className="mx-auto max-w-lg space-y-4 p-4">
       <section className="rounded-2xl border border-blue-500/35 bg-[#06152d] p-4 shadow-[inset_0_0_26px_rgba(0,105,255,.07)]"><div className="flex gap-3"><div className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-blue-600/20 text-cyan-300"><ShieldCheck className="h-6 w-6" /></div><div className="w-full"><p className="font-bold">Atendimento técnico registrado</p><div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300"><p>Cliente<br /><b className="text-white">{cp.client_name || "—"}</b></p><p>OS<br /><b className="text-white">{cp.service_order || "—"}</b></p><p>Contra-Prova<br /><b className="text-white">{cp.code}</b></p><p>Checklist<br /><b className="text-white">{cp.checklist_code}</b></p><p>Cidade<br /><b className="text-white">{cp.city || "—"}</b></p><p>Código<br /><b className="break-all text-white">{cp.validation_code || "—"}</b></p></div></div></div></section>
       <section className="rounded-2xl border border-blue-500/35 bg-[#06152d] p-4 shadow-[inset_0_0_26px_rgba(0,105,255,.07)]">
@@ -89,8 +91,7 @@ function CounterproofPage() {
             </p>
           </div>
           <span className="whitespace-nowrap rounded-full border border-cyan-500/30 bg-blue-600/15 px-3 py-1 text-xs font-bold text-cyan-300">
-            {Math.min(currentQuestion + 1, CUSTOMER_COUNTERPROOF_QUESTIONS.length)} de{" "}
-            {CUSTOMER_COUNTERPROOF_QUESTIONS.length}
+            {Math.min(currentQuestion + 1, questions.length)} de {questions.length}
           </span>
         </div>
         <div className="mb-5 h-2 overflow-hidden rounded-full bg-slate-800">
@@ -98,18 +99,18 @@ function CounterproofPage() {
             className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-300 shadow-[0_0_12px_rgba(0,210,255,.4)] transition-all"
             style={{
               width: `${
-                (Object.keys(answers).length / CUSTOMER_COUNTERPROOF_QUESTIONS.length) * 100
+                (Object.keys(answers).length / questions.length) * 100
               }%`,
             }}
           />
         </div>
 
-        {currentQuestion < CUSTOMER_COUNTERPROOF_QUESTIONS.length ? (
+        {currentQuestion < questions.length ? (
           <div className="space-y-5">
-            <div className="flex min-h-28 items-start gap-3 rounded-2xl border border-blue-500/30 bg-[#041126] p-4"><span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-blue-600 text-sm font-black shadow-[0_0_16px_rgba(0,119,255,.28)]">{String(currentQuestion + 1).padStart(2, "0")}</span><p className="text-base font-medium leading-6">{CUSTOMER_COUNTERPROOF_QUESTIONS[currentQuestion].question}</p></div>
+              <div className="flex min-h-28 items-start gap-3 rounded-2xl border border-blue-500/30 bg-[#041126] p-4"><span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-blue-600 text-sm font-black shadow-[0_0_16px_rgba(0,119,255,.28)]">{String(currentQuestion + 1).padStart(2, "0")}</span><p className="text-base font-medium leading-6">{questions[currentQuestion].question}</p></div>
             <div className="grid grid-cols-2 gap-3">
               {(["sim", "nao"] as const).map((answer) => {
-                const question = CUSTOMER_COUNTERPROOF_QUESTIONS[currentQuestion];
+                const question = questions[currentQuestion];
                 const selected = answers[question.id] === answer;
                 return (
                   <Button
@@ -127,8 +128,8 @@ function CounterproofPage() {
                       setAnswers((previous) => ({ ...previous, [question.id]: answer }));
                       setCurrentQuestion((index) =>
                         allQuestionsAnswered
-                          ? CUSTOMER_COUNTERPROOF_QUESTIONS.length
-                          : Math.min(index + 1, CUSTOMER_COUNTERPROOF_QUESTIONS.length),
+                          ? questions.length
+                          : Math.min(index + 1, questions.length),
                       );
                     }}
                   >
@@ -155,7 +156,7 @@ function CounterproofPage() {
               Todas as perguntas foram respondidas.
             </div>
             <div className="space-y-2">
-              {CUSTOMER_COUNTERPROOF_QUESTIONS.map((question, index) => (
+              {questions.map((question, index) => (
                 <button
                   key={question.id}
                   type="button"
@@ -173,7 +174,7 @@ function CounterproofPage() {
         )}
       </section>
 
-      {allQuestionsAnswered && currentQuestion >= CUSTOMER_COUNTERPROOF_QUESTIONS.length && (
+      {allQuestionsAnswered && currentQuestion >= questions.length && (
       <section className="space-y-5 rounded-2xl border border-blue-500/35 bg-[#06152d] p-4 shadow-[inset_0_0_26px_rgba(0,105,255,.07)] [&_label]:text-slate-200">
         <div className="flex items-start gap-2"><Checkbox id="confirm" checked={confirmed} onCheckedChange={(value) => setConfirmed(value === true)} /><Label htmlFor="confirm" className="leading-5">Confirmo que recebi e compreendi as orientações acima e tive oportunidade de esclarecer minhas dúvidas.</Label></div>
         <div className="rounded-xl border border-blue-500/25 bg-[#041126] p-3"><Label>🔒 Foto segurando RG ou CNH</Label><input ref={input} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={async (event) => { const file = event.target.files?.[0]; if (file) setIdentity(await fileDataUrl(file)); }} /><Button className="mt-2 border-cyan-500/40 bg-blue-600/20 text-white hover:bg-blue-600/35" variant="outline" onClick={() => input.current?.click()}>{identity ? "✓ Foto registrada" : "Tirar foto"}</Button><p className="mt-2 text-xs text-slate-400">A foto com RG/CNH é privada e pode ser consultada somente pela administração autorizada.</p></div>
