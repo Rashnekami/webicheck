@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { emptyChecklistData } from "@/lib/checklist-schema";
 import type { SmartDiagnosticSession } from "@/lib/smart-diagnostic";
 import type { AiReviewMode } from "@/lib/smart-diagnostic-ai";
 import type { AiGatewayProvider } from "@/lib/ai-gateway.server";
@@ -31,6 +32,140 @@ const sessionInputSchema = z
 function validateSession(value: unknown): SmartDiagnosticSession {
   return sessionInputSchema.parse(value) as SmartDiagnosticSession;
 }
+
+/**
+ * Ponte do Diagnóstico Inteligente para o fluxo já homologado de checklist/ONT.
+ * Não cria ticket nem código próprio: cria a revisão rascunho do checklist e o
+ * trigger existente gera o código TYYYYNN quando a troca for efetivamente
+ * finalizada no mesmo formulário que o almoxarifado já utiliza.
+ */
+export const createDiagnosticOntExchangeDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: {
+    checklistCode: string;
+    exchangeReasons: string[];
+    notes?: string;
+    nocProtocol: string;
+    nocAnalyst?: string;
+    diagnosisSummary: string;
+  }) => ({
+    checklistCode: z.string().trim().regex(/^[A-Za-z0-9_-]{4,100}$/).parse(data.checklistCode),
+    exchangeReasons: z.array(z.string().trim().min(2).max(180)).min(1).max(12).parse(data.exchangeReasons),
+    notes: z.string().max(2_000).optional().parse(data.notes),
+    nocProtocol: z.string().trim().min(2).max(180).parse(data.nocProtocol),
+    nocAnalyst: z.string().max(180).optional().parse(data.nocAnalyst),
+    diagnosisSummary: z.string().trim().min(3).max(2_000).parse(data.diagnosisSummary),
+  }))
+  .handler(async ({ context, data }) => {
+    const { data: providerId, error: providerError } = await context.supabase.rpc("current_provider_id");
+    if (providerError || !providerId) throw new Error("Provedor do usuário não encontrado.");
+
+    const baseCode = data.checklistCode.replace(/-R\d+$/i, "");
+    const { data: candidates, error: checklistError } = await context.supabase
+      .from("checklists")
+      .select("id, case_id, status, is_current, revision_number")
+      .eq("provider_id", providerId)
+      .or(`numero_publico.eq.${baseCode},codigo_validacao.eq.${baseCode}`)
+      .order("revision_number", { ascending: false });
+    if (checklistError) throw new Error(checklistError.message);
+    const current = (candidates ?? []).find((item) => item.is_current !== false);
+    if (!current) throw new Error("Checklist técnico vinculado não encontrado neste provedor.");
+
+    // Um rascunho já aberto é retomado; nunca criamos uma segunda revisão do mesmo atendimento.
+    if (current.status === "rascunho") {
+      return { id: current.id, revisionNumber: current.revision_number, resumed: true };
+    }
+    if (current.status !== "finalizado") {
+      throw new Error("O checklist vinculado precisa estar finalizado antes de abrir a troca.");
+    }
+
+    const reason = `Troca de ONT indicada pelo Diagnóstico Inteligente: ${data.exchangeReasons.join(", ")}`;
+    const { data: revision, error: revisionError } = await context.supabase.rpc(
+      "create_checklist_revision",
+      {
+        _parent_id: current.id,
+        _reason: reason.slice(0, 500),
+        _stage: "pre_change",
+        _notes: [data.diagnosisSummary, data.notes?.trim()].filter(Boolean).join("\n\n").slice(0, 2_000),
+      },
+    );
+    if (revisionError) throw new Error(revisionError.message);
+    const created = Array.isArray(revision) ? revision[0] : revision;
+    if (!created?.id) throw new Error("Não foi possível criar o rascunho de troca.");
+
+    const now = new Date();
+    const checklistData = emptyChecklistData();
+    checklistData.resultado_final = {
+      ...checklistData.resultado_final,
+      permaneceu: true,
+      motivo: data.exchangeReasons.join("; "),
+    };
+    checklistData.relato = [
+      "Diagnóstico Inteligente — evidências aproveitadas para a troca.",
+      data.diagnosisSummary,
+      data.notes?.trim(),
+    ].filter(Boolean).join("\n");
+    checklistData.noc = {
+      autorizada: "sim",
+      analista: data.nocAnalyst?.trim() || "",
+      protocolo: data.nocProtocol,
+      data: now.toISOString().slice(0, 10),
+      hora: now.toTimeString().slice(0, 5),
+    };
+    // A RPC já validou proprietário/admin e criou a revisão. Usamos o cliente
+    // administrativo apenas para pré-preencher o rascunho recém-criado quando
+    // quem abriu o diagnóstico é administrador e o checklist pertence a outro técnico.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: updateError } = await (supabaseAdmin as any)
+      .from("checklists")
+      .update({ dados: checklistData as never })
+      .eq("id", created.id);
+    if (updateError) throw new Error(updateError.message);
+
+    return {
+      id: created.id as string,
+      revisionNumber: Number(created.revision_number ?? 0),
+      resumed: false,
+    };
+  });
+
+/** Cria/retoma a revisão rascunho de reteste sem alterar a versão anterior. */
+export const createDiagnosticRetestDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { checklistCode: string; diagnosisSummary: string }) => ({
+    checklistCode: z.string().trim().regex(/^[A-Za-z0-9_-]{4,100}$/).parse(data.checklistCode),
+    diagnosisSummary: z.string().trim().min(3).max(2_000).parse(data.diagnosisSummary),
+  }))
+  .handler(async ({ context, data }) => {
+    const { data: providerId, error: providerError } = await context.supabase.rpc("current_provider_id");
+    if (providerError || !providerId) throw new Error("Provedor do usuário não encontrado.");
+    const baseCode = data.checklistCode.replace(/-R\d+$/i, "");
+    const { data: candidates, error: checklistError } = await context.supabase
+      .from("checklists")
+      .select("id, status, is_current, revision_number")
+      .eq("provider_id", providerId)
+      .or(`numero_publico.eq.${baseCode},codigo_validacao.eq.${baseCode}`)
+      .order("revision_number", { ascending: false });
+    if (checklistError) throw new Error(checklistError.message);
+    const current = (candidates ?? []).find((item) => item.is_current !== false);
+    if (!current) throw new Error("Checklist técnico vinculado não encontrado neste provedor.");
+    if (current.status === "rascunho") {
+      return { id: current.id, revisionNumber: current.revision_number, resumed: true };
+    }
+    if (current.status !== "finalizado") {
+      throw new Error("O checklist vinculado precisa estar finalizado antes de abrir um novo teste.");
+    }
+    const { data: revision, error } = await context.supabase.rpc("create_checklist_revision", {
+      _parent_id: current.id,
+      _reason: "Novo teste criado pelo Diagnóstico Inteligente",
+      _stage: "additional_test",
+      _notes: data.diagnosisSummary,
+    });
+    if (error) throw new Error(error.message);
+    const created = Array.isArray(revision) ? revision[0] : revision;
+    if (!created?.id) throw new Error("Não foi possível criar o rascunho do novo teste.");
+    return { id: created.id as string, revisionNumber: Number(created.revision_number ?? 0), resumed: false };
+  });
 
 export const getSmartDiagnosticAiStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

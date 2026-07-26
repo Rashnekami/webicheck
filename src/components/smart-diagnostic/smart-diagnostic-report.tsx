@@ -198,11 +198,11 @@ function operationDecisionLabel(value: DiagnosticOperation["decision"]) {
 }
 
 function authorizationLabel(operation: DiagnosticOperation | undefined) {
-  if (operation?.nocAuthorization === "authorized" && operation.nocAuthorizationCode) {
-    return `Código externo registrado: ${operation.nocAuthorizationCode}`;
+  if (operation?.nocAuthorization === "authorized" && operation.nocProtocol) {
+    return `Protocolo NOC registrado: ${operation.nocProtocol}`;
   }
   if (operation?.nocAuthorization === "denied") return "Não autorizada pelo NOC";
-  return "Código externo ainda não registrado";
+  return "Protocolo NOC ainda não registrado";
 }
 
 function postExchangeRetestLabel(value: DiagnosticOperation["postExchangeRetest"]) {
@@ -293,7 +293,7 @@ function DiagnosticDocument({
                     Decisão operacional: {operationDecisionLabel(session.metadata.operation?.decision)}
                   </Text>
                   <Text style={s.bullet}>
-                    Autorização externa: {authorizationLabel(session.metadata.operation)}
+                    Autorização NOC: {authorizationLabel(session.metadata.operation)}
                   </Text>
                   <Text style={s.bullet}>
                     Reteste pós-troca: {postExchangeRetestLabel(session.metadata.operation?.postExchangeRetest)}

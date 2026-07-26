@@ -87,7 +87,7 @@ describe("motor do Diagnóstico Inteligente Beta", () => {
     expect(result.ontExchange.eligibleForCode).toBe(false);
 
     session.metadata.operation.nocAuthorization = "authorized";
-    session.metadata.operation.nocAuthorizationCode = "TRC-EXTERNO-123";
+    session.metadata.operation.nocProtocol = "NOC-2026-123";
     result = evaluateSmartDiagnostic(session);
     expect(result.ontExchange.eligibleForCode).toBe(true);
   });

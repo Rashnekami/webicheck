@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -69,11 +69,12 @@ import {
   getSmartDiagnosticAiStatus,
   healthCheckSmartDiagnosticAiGateway,
   compareSmartDiagnosticAiProviders,
+  createDiagnosticOntExchangeDraft,
+  createDiagnosticRetestDraft,
   runSmartDiagnosticAiReview,
   syncSmartDiagnosticSession,
   validateSmartDiagnosticForLearning,
 } from "@/lib/smart-diagnostic-ai.functions";
-import { createMaintenanceCounterproof } from "@/lib/customer-counterproof.functions";
 import type { AiDiagnosticReview } from "@/lib/smart-diagnostic-ai";
 import { cn } from "@/lib/utils";
 
@@ -193,6 +194,7 @@ function statusTone(status: ReturnType<typeof evaluateSmartDiagnostic>["status"]
 
 function SmartDiagnosticBetaPage() {
   const { data: user } = useCurrentUser();
+  const navigate = useNavigate();
   const [initial] = useState(loadStoredBeta);
   const [stage, setStage] = useState<Stage>(initial.stage);
   const [session, setSession] = useState<SmartDiagnosticSession>(initial.session);
@@ -268,17 +270,61 @@ function SmartDiagnosticBetaPage() {
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  const maintenanceCounterproofMutation = useMutation({
-    mutationFn: () => createMaintenanceCounterproof({ data: { sessionId: session.id } }),
-    onSuccess: async (counterproof) => {
-      updateOperation({ counterproofRequested: true, counterproofRecommended: true });
-      const link = `${window.location.origin}/contra-prova/${counterproof.public_token}`;
-      try {
-        await navigator.clipboard.writeText(link);
-        toast.success(`Contra-Prova ${counterproof.code} criada. O link público foi copiado.`);
-      } catch {
-        toast.success(`Contra-Prova ${counterproof.code} criada.`);
+  const exchangeDraftMutation = useMutation({
+    mutationFn: async () => {
+      const operation = session.metadata.operation ?? {};
+      if (!session.metadata.linkedChecklistCode.trim()) {
+        throw new Error("Informe o código do checklist técnico vinculado para abrir o rascunho da troca.");
       }
+      if (!evaluation.ontExchange.eligibleToRequest) {
+        throw new Error("Conclua as validações técnicas antes de abrir a troca de ONT.");
+      }
+      if (!operation.exchangeReasons?.length) {
+        throw new Error("Selecione ao menos um motivo da troca.");
+      }
+      if (!operation.nocProtocol?.trim()) {
+        throw new Error("Cole o protocolo recebido do NOC no WhatsApp.");
+      }
+      return createDiagnosticOntExchangeDraft({
+        data: {
+          checklistCode: session.metadata.linkedChecklistCode,
+          exchangeReasons: operation.exchangeReasons,
+          notes: operation.exchangeNotes,
+          nocProtocol: operation.nocProtocol,
+          nocAnalyst: operation.nocAnalyst,
+          diagnosisSummary: `Causa provável: ${evaluation.probableCause}. Validações: ${evaluation.validations.join("; ") || "não informadas"}.`,
+        },
+      });
+    },
+    onSuccess: (draft) => {
+      toast.success(
+        draft.resumed
+          ? `Rascunho R${draft.revisionNumber} retomado.`
+          : `Rascunho R${draft.revisionNumber} criado. Finalize a troca no checklist para gerar o ticket.`,
+      );
+      navigate({ to: "/checklists/$id", params: { id: draft.id } });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const retestDraftMutation = useMutation({
+    mutationFn: async () => {
+      if (!session.metadata.linkedChecklistCode.trim()) {
+        throw new Error("Informe o código do checklist técnico vinculado para criar uma nova revisão.");
+      }
+      return createDiagnosticRetestDraft({
+        data: {
+          checklistCode: session.metadata.linkedChecklistCode,
+          diagnosisSummary: `Novo teste solicitado após o diagnóstico. Causa anterior: ${evaluation.probableCause}.`,
+        },
+      });
+    },
+    onSuccess: (draft) => {
+      toast.success(
+        draft.resumed
+          ? `Rascunho R${draft.revisionNumber} retomado.`
+          : `Novo teste R${draft.revisionNumber} criado sem alterar a versão anterior.`,
+      );
+      navigate({ to: "/checklists/$id", params: { id: draft.id } });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -383,28 +429,6 @@ function SmartDiagnosticBetaPage() {
       },
       { enableHighAccuracy: true, maximumAge: 30_000, timeout: 12_000 },
     );
-  }
-
-  function createRevision() {
-    const parentId = session.id;
-    const revision = session.metadata.revision;
-    const fresh = createSmartDiagnosticSession();
-    setSession({
-      ...fresh,
-      metadata: {
-        ...session.metadata,
-        revision: {
-          rootSessionId: revision?.rootSessionId ?? parentId,
-          parentSessionId: parentId,
-          revisionNumber: (revision?.revisionNumber ?? 1) + 1,
-          reason: "Reteste/revisão do atendimento",
-        },
-        operation: { nocAuthorization: "pending", postExchangeRetest: "not_performed" },
-      },
-    });
-    setStage("triage");
-    setAiReview(null);
-    toast.success("Nova revisão criada. O diagnóstico anterior permanece preservado.");
   }
 
   function toggleSymptom(id: SymptomId) {
@@ -532,14 +556,6 @@ function SmartDiagnosticBetaPage() {
   }
 
   const StatusIcon = statusTone(evaluation.status).icon;
-  const maintenanceCounterproofBlockReason =
-    persistenceState === "migration_pending"
-      ? "A migration operacional da preview ainda não foi aplicada; nenhum link será criado."
-      : persistenceState !== "saved"
-        ? "Aguarde o diagnóstico ser salvo e vinculado ao checklist técnico."
-        : !linkedChecklistId
-          ? "Vincule um checklist técnico para liberar a Contra-Prova de manutenção."
-          : null;
 
   return (
     <div className="webi-page min-h-screen">
@@ -618,7 +634,7 @@ function SmartDiagnosticBetaPage() {
               : persistenceState === "saving"
                 ? "Salvando auditoria"
                 : persistenceState === "migration_pending"
-                  ? "Auditoria local · migration pendente"
+                  ? "Auditoria local · rascunhos usam o checklist"
                   : "Auditoria local"}
           </Badge>
         </div>
@@ -710,28 +726,16 @@ function SmartDiagnosticBetaPage() {
                     onRunReview={() => runAi("review")}
                     onDownloadReport={downloadReport}
                     onUpdateOperation={updateOperation}
-                    onCreateRevision={createRevision}
-                    onContinueMaintenance={() => {
-                      setSession((current) => ({
-                        ...current,
-                        metadata: {
-                          ...current.metadata,
-                          operation: {
-                            ...current.metadata.operation,
-                            decision: "continue_maintenance",
-                          },
-                        },
-                      }));
-                      createRevision();
-                    }}
+                    onCreateRevision={() => retestDraftMutation.mutate()}
+                    onContinueMaintenance={() => retestDraftMutation.mutate()}
                     onCaptureLocation={captureLocation}
-                    onCreateMaintenanceCounterproof={() => maintenanceCounterproofMutation.mutate()}
                     onValidateLearning={() => learningMutation.mutate()}
                     canValidateLearning={Boolean(user?.isAdmin)}
                     aiPending={aiMutation.isPending}
                     learningPending={learningMutation.isPending}
-                    maintenanceCounterproofPending={maintenanceCounterproofMutation.isPending}
-                    maintenanceCounterproofBlockReason={maintenanceCounterproofBlockReason}
+                    onCreateExchangeDraft={() => exchangeDraftMutation.mutate()}
+                    exchangeDraftPending={exchangeDraftMutation.isPending}
+                    retestDraftPending={retestDraftMutation.isPending}
                   />
                 )}
               </div>
@@ -1349,76 +1353,71 @@ function NocAuthorizationPanel({
   operation,
   onUpdate,
   linkedChecklistId,
+  onCreateDraft,
+  creatingDraft,
 }: {
   evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
   operation: DiagnosticOperation;
   onUpdate: (next: Partial<DiagnosticOperation>) => void;
   linkedChecklistId: string | null;
+  onCreateDraft: () => void;
+  creatingDraft: boolean;
 }) {
   const technicalReady = evaluation.ontExchange.eligibleToRequest;
   const reasonReady = !evaluation.ontExchange.reasonsMissing;
-  const codeReady = Boolean(operation.nocAuthorizationCode?.trim());
-  const authorized = operation.nocAuthorization === "authorized" && codeReady;
+  const protocolReady = Boolean(operation.nocProtocol?.trim());
+  const authorized = operation.nocAuthorization === "authorized" && protocolReady;
   return (
     <div className="space-y-3 rounded-xl border border-cyan-400/25 bg-cyan-950/10 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-white">Código autorizado pelo NOC</p>
+          <p className="text-sm font-semibold text-white">Protocolo do NOC recebido pelo WhatsApp</p>
           <p className="text-xs text-slate-400">
-            O NOC é acionado fora do Webi (WhatsApp/telefone). Este sistema não envia solicitação:
-            apenas registra o código que o técnico recebeu para identificar a ONT no almoxarifado.
+            O NOC é acionado fora do Webi. Cole aqui o protocolo do atendimento autorizado; o
+            Webi cria então o mesmo rascunho de troca usado pelo checklist e pelo almoxarifado.
           </p>
         </div>
         <Badge className={cn(
           "border",
           authorized ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200",
         )}>
-          {authorized ? "Código registrado" : "Aguardando código externo"}
+          {authorized ? "Protocolo registrado" : "Aguardando protocolo"}
         </Badge>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Input
-          placeholder="Código de troca recebido do NOC *"
-          value={operation.nocAuthorizationCode ?? ""}
-          onChange={(event) => onUpdate({ nocAuthorizationCode: event.target.value.toUpperCase() })}
+          placeholder="Protocolo/OS recebido do NOC *"
+          value={operation.nocProtocol ?? ""}
+          onChange={(event) => onUpdate({ nocProtocol: event.target.value })}
         />
         <Input
           placeholder="Responsável que autorizou (opcional)"
           value={operation.nocAnalyst ?? ""}
           onChange={(event) => onUpdate({ nocAnalyst: event.target.value })}
         />
-        <Input
-          placeholder="Protocolo/observação (opcional)"
-          value={operation.nocProtocol ?? ""}
-          onChange={(event) => onUpdate({ nocProtocol: event.target.value })}
-        />
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2">
         <Button
           variant={authorized ? "default" : "outline"}
-          disabled={!technicalReady || !reasonReady || !codeReady}
-          onClick={() => onUpdate({ nocAuthorization: "authorized", nocAuthorizedAt: new Date().toISOString() })}
+          disabled={!technicalReady || !reasonReady || !protocolReady || creatingDraft}
+          onClick={() => {
+            onUpdate({ nocAuthorization: "authorized", nocAuthorizedAt: new Date().toISOString() });
+            onCreateDraft();
+          }}
           className="border-emerald-400/40 text-emerald-100"
         >
-          Registrar código autorizado
-        </Button>
-        <Button
-          variant={operation.nocAuthorization === "denied" ? "destructive" : "outline"}
-          onClick={() => onUpdate({ nocAuthorization: "denied", nocAuthorizedAt: new Date().toISOString() })}
-        >
-          Registrar não autorizado
+          {creatingDraft ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}
+          Gerar rascunho da troca de ONT
         </Button>
       </div>
       {authorized && (
         <div className="space-y-3 rounded-xl border border-emerald-400/30 bg-emerald-950/15 p-3">
           <p className="text-sm font-semibold text-emerald-100">
-            {evaluation.ontExchange.eligibleForCode
-              ? "Pronto para o ticket de troca existente"
-              : "Código de troca ainda bloqueado"}
+            Rascunho pronto para o fluxo oficial de troca
           </p>
           <p className="text-xs text-slate-300">
-            Código registrado: <strong>{operation.nocAuthorizationCode}</strong>. A troca continua
-            pelo fluxo oficial e preserva o histórico do checklist técnico vinculado.
+            O ticket/código de troca será gerado pelo fluxo atual ao finalizar a troca física no
+            checklist. O protocolo <strong>{operation.nocProtocol}</strong> seguirá junto.
           </p>
           {linkedChecklistId ? (
             <Button asChild variant="outline" className="w-full border-emerald-400/35 text-emerald-100">
@@ -1429,34 +1428,6 @@ function NocAuthorizationPanel({
           ) : (
             <p className="text-xs text-amber-200">Vincule um checklist técnico válido para liberar o atalho ao fluxo oficial.</p>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              placeholder="Serial ONT antiga"
-              value={operation.removedSerial ?? ""}
-              onChange={(event) => onUpdate({ removedSerial: event.target.value })}
-            />
-            <Input
-              placeholder="Serial ONT nova"
-              value={operation.installedSerial ?? ""}
-              onChange={(event) => onUpdate({ installedSerial: event.target.value })}
-            />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {[
-              ["resolved", "Problema resolvido"],
-              ["persists", "Problema permanece"],
-              ["not_performed", "Reteste pendente"],
-            ].map(([value, label]) => (
-              <Button
-                type="button"
-                key={value}
-                variant={operation.postExchangeRetest === value ? "default" : "outline"}
-                onClick={() => onUpdate({ postExchangeRetest: value as DiagnosticOperation["postExchangeRetest"] })}
-              >
-                {label}
-              </Button>
-            ))}
-          </div>
         </div>
       )}
     </div>
@@ -1569,13 +1540,13 @@ function DiagnosticSummary({
   onCreateRevision,
   onContinueMaintenance,
   onCaptureLocation,
-  onCreateMaintenanceCounterproof,
   onValidateLearning,
   canValidateLearning,
   aiPending,
   learningPending,
-  maintenanceCounterproofPending,
-  maintenanceCounterproofBlockReason,
+  onCreateExchangeDraft,
+  exchangeDraftPending,
+  retestDraftPending,
 }: {
   session: SmartDiagnosticSession;
   evaluation: ReturnType<typeof evaluateSmartDiagnostic>;
@@ -1589,13 +1560,13 @@ function DiagnosticSummary({
   onCreateRevision: () => void;
   onContinueMaintenance: () => void;
   onCaptureLocation: () => void;
-  onCreateMaintenanceCounterproof: () => void;
   onValidateLearning: () => void;
   canValidateLearning: boolean;
   aiPending: boolean;
   learningPending: boolean;
-  maintenanceCounterproofPending: boolean;
-  maintenanceCounterproofBlockReason: string | null;
+  onCreateExchangeDraft: () => void;
+  exchangeDraftPending: boolean;
+  retestDraftPending: boolean;
 }) {
   const tone = statusTone(evaluation.status);
   const Icon = tone.icon;
@@ -1687,8 +1658,10 @@ function DiagnosticSummary({
             <Button
               variant={operation.decision === "continue_maintenance" ? "default" : "outline"}
               onClick={onContinueMaintenance}
+              disabled={retestDraftPending}
             >
-              Continuar em nova revisão
+              {retestDraftPending ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Continuar em novo teste
             </Button>
             <Button
               variant={operation.decision === "request_ont_exchange" ? "default" : "outline"}
@@ -1770,6 +1743,8 @@ function DiagnosticSummary({
                 operation={operation}
                 onUpdate={onUpdateOperation}
                 linkedChecklistId={linkedChecklistId}
+                onCreateDraft={onCreateExchangeDraft}
+                creatingDraft={exchangeDraftPending}
               />
             </div>
           )}
@@ -1896,35 +1871,22 @@ function DiagnosticSummary({
           <MapPin className="mr-2 h-4 w-4" />
           Atualizar localização
         </Button>
-        <Button variant="outline" onClick={onCreateRevision} className="border-blue-400/30 text-blue-100">
-          <ListRestart className="mr-2 h-4 w-4" />
-          Refazer em nova revisão
+        <Button variant="outline" onClick={onCreateRevision} disabled={retestDraftPending} className="border-blue-400/30 text-blue-100">
+          {retestDraftPending ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ListRestart className="mr-2 h-4 w-4" />}
+          Criar/retomar rascunho de novo teste
         </Button>
       </div>
 
       <Card className="border-emerald-400/25 bg-emerald-950/10">
         <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-semibold text-white">Contra-prova de manutenção</p>
+            <p className="font-semibold text-white">Contra-prova do cliente</p>
             <p className="mt-1 text-sm text-slate-400">
-              Recomendável quando houver orientação ao cliente, troca de ONT, divergência ou resultado inconclusivo.
+              Ela segue o mesmo fluxo já aprovado: finalize o rascunho do checklist de troca e
+              gere a Contra-Prova na página do checklist finalizado.
             </p>
-            {maintenanceCounterproofBlockReason && (
-              <p className="mt-2 text-xs text-amber-200">{maintenanceCounterproofBlockReason}</p>
-            )}
           </div>
-          <Button
-            variant="outline"
-            disabled={maintenanceCounterproofPending || Boolean(maintenanceCounterproofBlockReason)}
-            onClick={onCreateMaintenanceCounterproof}
-            className="border-emerald-400/35 text-emerald-100"
-          >
-            {maintenanceCounterproofPending
-              ? "Criando link público..."
-              : operation.counterproofRequested
-                ? "Copiar/recuperar Contra-prova"
-                : "Gerar Contra-prova pública"}
-          </Button>
+          <p className="text-xs font-medium text-emerald-200">Sem link paralelo e sem migration extra.</p>
         </CardContent>
       </Card>
 

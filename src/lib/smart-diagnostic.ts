@@ -81,8 +81,6 @@ export interface DiagnosticOperation {
   nocAuthorization?: OntExchangeAuthorization;
   nocAnalyst?: string;
   nocProtocol?: string;
-  /** Código informado pelo NOC no atendimento externo (WhatsApp/telefone). Nunca é gerado pelo Webi. */
-  nocAuthorizationCode?: string;
   nocAuthorizedAt?: string;
   removedSerial?: string;
   installedSerial?: string;
@@ -1252,10 +1250,10 @@ export function getOntExchangeReadiness(
   const eligibilityMissing = [...noc.missing, ...(reasonsMissing ? ["Motivo da troca informado"] : [])];
   const authorized =
     session.metadata.operation?.nocAuthorization === "authorized" &&
-    Boolean(session.metadata.operation?.nocAuthorizationCode?.trim());
+    Boolean(session.metadata.operation?.nocProtocol?.trim());
   const missingForCode = [
     ...eligibilityMissing,
-    ...(authorized ? [] : ["Autorização do NOC registrada"]),
+    ...(authorized ? [] : ["Protocolo da autorização NOC registrado"]),
   ];
   return {
     ...noc,
