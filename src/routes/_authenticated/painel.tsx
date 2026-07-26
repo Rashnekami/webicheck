@@ -294,12 +294,6 @@ function Painel() {
                   : "Registre novos atendimentos ou continue rascunhos em andamento."
               }
             />
-            <HomeNavCard
-              to="/diagnostico-inteligente"
-              icon={BrainCircuit}
-              title="Diagnóstico Inteligente"
-              description="Teste o novo NOC virtual guiado, com hipóteses, ações e reteste."
-            />
             {user.isAdmin && (
               <HomeNavCard
                 to="/dashboard"
