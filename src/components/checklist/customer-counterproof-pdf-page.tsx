@@ -68,11 +68,11 @@ const s = StyleSheet.create({
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: C.line,
-    paddingVertical: 3,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#1d5a9f",
+    paddingVertical: 3.4,
   },
-  firstItem: { borderTopWidth: 0 },
+  lastItem: { borderBottomWidth: 0 },
   itemNumber: {
     width: 28,
     backgroundColor: "#0c45a5",
@@ -83,7 +83,13 @@ const s = StyleSheet.create({
     fontSize: 7,
     fontWeight: 700,
   },
-  itemQuestion: { flex: 1, paddingHorizontal: 7, lineHeight: 1.25, color: C.text },
+  itemQuestion: {
+    flex: 1,
+    paddingHorizontal: 7,
+    lineHeight: 1.28,
+    color: C.text,
+    fontSize: 9.2,
+  },
   answer: {
     width: 45,
     borderRadius: 8,
@@ -114,10 +120,12 @@ const s = StyleSheet.create({
     marginTop: 5,
     borderWidth: 1,
     borderStyle: "dashed",
-    borderColor: C.border,
+    borderColor: C.cyan,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#ffffff",
+    padding: 3,
   },
   signImage: { maxHeight: 34, maxWidth: "90%", objectFit: "contain" },
   signName: { marginTop: 4, color: C.text, fontSize: 7.5, fontWeight: 700, textAlign: "center" },
@@ -242,7 +250,14 @@ export function CustomerCounterproofPdfPage({
           <Text style={s.panelTitle}>Perguntas do cliente</Text>
           {items.length ? (
             items.map((item, index) => (
-              <View key={item.id} style={[s.itemRow, index === 0 ? s.firstItem : {}]} wrap={false}>
+              <View
+                key={item.id}
+                style={[
+                  s.itemRow,
+                  index === items.length - 1 ? s.lastItem : {},
+                ]}
+                wrap={false}
+              >
                 <Text style={s.itemNumber}>{String(index + 1).padStart(2, "0")}</Text>
                 <Text style={s.itemQuestion}>{item.question}</Text>
                 <Text
