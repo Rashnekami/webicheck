@@ -98,6 +98,16 @@ function UsersPage() {
 
   const [credTarget, setCredTarget] = useState<AdminUserRecord | null>(null);
 
+  const supervisorsQuery = useQuery({
+    queryKey: ["provider-supervisors"],
+    queryFn: () => listProviderSupervisors(),
+    enabled: currentUser?.isAdmin === true,
+  });
+  const supervisorById = useMemo(
+    () => new Map((supervisorsQuery.data ?? []).map((s) => [s.id, s])),
+    [supervisorsQuery.data],
+  );
+
   const updateUser = useMutation({
     mutationFn: async ({ user, values }: { user: AdminUserRecord; values: UserDraft }) =>
       updateAdminUser({
@@ -110,6 +120,8 @@ function UsersPage() {
           city: values.city,
           active: values.active,
           role: values.role,
+          supervisorId: values.role === "tecnico" ? values.supervisorId : null,
+          supervisorCities: values.role === "supervisor" ? values.supervisorCities : [],
         },
       }),
     onSuccess: async () => {
@@ -117,6 +129,7 @@ function UsersPage() {
       setEditing(null);
       setDraft(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.invalidateQueries({ queryKey: ["provider-supervisors"] });
       await queryClient.invalidateQueries({ queryKey: ["current-user"] });
     },
     onError: (error: Error) => toast.error(error.message),
