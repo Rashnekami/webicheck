@@ -90,7 +90,7 @@ export const runOntAiAnalysis = createServerFn({ method: "POST" })
     if (row.status !== "rascunho") throw new Error("O checklist já está finalizado.");
     if (row.tecnico_id !== userId) throw new Error("Apenas o técnico responsável pode solicitar a análise.");
 
-    const dados = row.dados as ChecklistData;
+    const dados = row.dados as unknown as ChecklistData;
 
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY não configurado.");
