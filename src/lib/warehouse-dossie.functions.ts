@@ -181,9 +181,9 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
         .eq("case_id", caseId)
         .eq("status", "active")
         .order("created_at", { ascending: true }),
-      supabaseAdmin
+      (supabaseAdmin as any)
         .from("customer_counterproofs")
-        .select("id, checklist_id, code, checklist_code, status, validated_at, identity_storage_path")
+        .select("id, checklist_id, code, checklist_code, status, validated_at, identity_storage_path, client_name, service_order, signature_data_url, client_checklist_version, client_checklist")
         .in("checklist_id", revisionIds)
         .order("created_at", { ascending: false }),
     ]);
@@ -210,6 +210,11 @@ export const getCaseDossieBundle = createServerFn({ method: "POST" })
           status: cp.status,
           validated_at: cp.validated_at,
           identity_registered: Boolean(cp.identity_storage_path),
+          client_name: cp.client_name,
+          service_order: cp.service_order,
+          signature_data_url: cp.signature_data_url,
+          client_checklist_version: cp.client_checklist_version,
+          client_checklist: cp.client_checklist as CounterproofDocumentInfo["client_checklist"],
         });
       }
     }
