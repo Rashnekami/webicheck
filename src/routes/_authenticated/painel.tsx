@@ -332,6 +332,18 @@ function Painel() {
                 description="Consulte cadastros, edite perfis e controle acessos."
               />
             )}
+            {(user.isAdmin || user.isPlatformAdmin) && (
+              <HomeNavCard
+                to="/plataforma"
+                icon={ShieldCheck}
+                title={user.isPlatformAdmin ? "Plataforma" : "Credenciais do provedor"}
+                description={
+                  user.isPlatformAdmin
+                    ? "Crie provedores, personalize logo/cores/template e gere logins internos."
+                    : "Crie logins e senhas para sua equipe."
+                }
+              />
+            )}
             <HomeNavCard
               to="/integracoes"
               icon={PenLine}
