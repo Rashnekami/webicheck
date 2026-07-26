@@ -48,7 +48,7 @@ function ChecklistsList() {
   const [tab, setTab] = useState<"todos" | "rascunho" | "finalizado">("todos");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const scope = user?.isAdmin ? "all" : "mine";
+  const scope = user?.isAdmin || user?.isSupervisor || user?.isNoc ? "all" : "mine";
 
   const query = useQuery({
     queryKey: ["checklists", scope, user?.id],
