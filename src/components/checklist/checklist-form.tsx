@@ -10,6 +10,7 @@ import {
   type ChecklistRow,
   type YesNo,
 } from "@/lib/checklist-schema";
+import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 
 type Props = {
   header: Pick<
@@ -184,10 +185,10 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
           </div>
           <div className="space-y-1.5">
             <Label>Cidade</Label>
-            <Input
-              value={header.cidade ?? ""}
+            <WebiCitySelect
+              value={header.cidade}
               disabled={readOnly}
-              onChange={(e) => onHeaderChange({ cidade: e.target.value })}
+              onChange={(cidade) => onHeaderChange({ cidade })}
             />
           </div>
           <div className="space-y-1.5">
