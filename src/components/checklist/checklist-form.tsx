@@ -27,6 +27,7 @@ type Props = {
     | "os"
     | "cliente"
     | "cidade"
+    | "endereco"
     | "modelo"
     | "serial"
     | "cto_porta"
@@ -118,6 +119,8 @@ function YesNoField({
 }
 
 export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataChange }: Props) {
+  useChecklistAutoFill({ header, readOnly, onHeaderChange });
+
   const set =
     <K extends keyof ChecklistData>(section: K) =>
     (patch: Partial<ChecklistData[K]>) =>
