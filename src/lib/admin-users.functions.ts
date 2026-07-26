@@ -241,6 +241,7 @@ export const updateAdminUser = createServerFn({ method: "POST" })
     });
     if (authError) throw new Error(authError.message);
 
+    const providerIdForUser = targetProfile?.provider_id ?? actorProfile.provider_id;
     const { error: profileError } = await supabaseAdmin.from("profiles").upsert(
       {
         id: data.userId,
@@ -250,12 +251,33 @@ export const updateAdminUser = createServerFn({ method: "POST" })
         matricula: data.matricula,
         city: data.city,
         active: data.active,
-        provider_id: targetProfile?.provider_id ?? actorProfile.provider_id,
+        provider_id: providerIdForUser,
+        supervisor_id: data.role === "tecnico" ? data.supervisorId : null,
         updated_at: new Date().toISOString(),
-      },
+      } as never,
       { onConflict: "id" },
     );
     if (profileError) throw new Error(profileError.message);
+
+    // Sincroniza cidades cobertas quando o papel é supervisor
+    if (data.role === "supervisor") {
+      const desired = new Set(data.supervisorCities);
+      await supabaseAdmin.from("supervisor_cities").delete().eq("supervisor_id", data.userId);
+      if (desired.size > 0 && providerIdForUser) {
+        const rows = Array.from(desired).map((city) => ({
+          supervisor_id: data.userId,
+          provider_id: providerIdForUser,
+          city,
+        }));
+        const { error: cErr } = await supabaseAdmin
+          .from("supervisor_cities")
+          .insert(rows as never);
+        if (cErr) throw new Error(cErr.message);
+      }
+    } else {
+      // Se deixou de ser supervisor, remove cidades
+      await supabaseAdmin.from("supervisor_cities").delete().eq("supervisor_id", data.userId);
+    }
 
     // Primeiro garante o novo papel e só depois remove os demais. Assim,
     // uma falha intermediária nunca deixa o usuário sem papel algum.
