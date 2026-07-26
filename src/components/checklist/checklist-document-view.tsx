@@ -7,6 +7,10 @@ import {
   INSTALACAO_TECHNICIAN_QUESTIONS,
   readInstalacaoAnswer,
 } from "@/lib/instalacao-checklist";
+import {
+  InstallationDarkDocument,
+  type InstallationDocumentPart,
+} from "@/components/checklist/installation-dark-document";
 
 
 interface Props {
@@ -17,6 +21,7 @@ interface Props {
   /** Renderiza com largura fixa em px (para exportação PNG). */
   fixedWidth?: number;
   counterproof?: CounterproofDocumentInfo | null;
+  documentPart?: InstallationDocumentPart;
 }
 
 const BRAND = "#1a53ff";
@@ -166,11 +171,37 @@ function useQrDataUrl(text: string | null | undefined) {
 }
 
 export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
-  function ChecklistDocumentView({ payload, publicUrl, shortHash, version, fixedWidth, counterproof }, ref) {
+  function ChecklistDocumentView(
+    {
+      payload,
+      publicUrl,
+      shortHash,
+      version,
+      fixedWidth,
+      counterproof,
+      documentPart = "combined",
+    },
+    ref,
+  ) {
     const isInstal = payload.tipo === "instalacao";
     const h = payload.header;
     const d = payload.dados as Record<string, Record<string, unknown> | string>;
     const qr = useQrDataUrl(publicUrl ?? null);
+
+    if (isInstal) {
+      return (
+        <InstallationDarkDocument
+          ref={ref}
+          payload={payload}
+          publicUrl={publicUrl}
+          shortHash={shortHash}
+          version={version}
+          fixedWidth={fixedWidth}
+          counterproof={counterproof}
+          documentPart={documentPart}
+        />
+      );
+    }
 
     const containerStyle: React.CSSProperties = {
       width: fixedWidth ? `${fixedWidth}px` : "100%",
