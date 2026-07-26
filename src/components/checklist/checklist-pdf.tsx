@@ -6,6 +6,7 @@ import { signedFotoUrl } from "@/lib/checklists";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 import { CustomerCounterproofPdfPage } from "@/components/checklist/customer-counterproof-pdf-page";
+import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
 
 const BRAND = "#1a53ff";
 const BRAND_DARK = "#0f3fd4";
@@ -518,7 +519,63 @@ function ChecklistDocument({
           </View>
         </View>
 
+        {(d.tipo_manutencao || d.ai_analysis) && (
+          <>
+            <Text style={styles.sectionTitle}>10. Análise por IA (consultiva)</Text>
+            <View style={styles.sectionBox}>
+              <View style={styles.grid2}>
+                <Field
+                  label="Tipo de manutenção"
+                  value={labelTipoManutencao(d.tipo_manutencao)}
+                  w="50%"
+                />
+                {d.ai_analysis ? (
+                  <Field
+                    label="Recomendação"
+                    value={
+                      RECOMENDACAO_LABEL[d.ai_analysis.recomendacao] ?? d.ai_analysis.recomendacao
+                    }
+                    w="50%"
+                  />
+                ) : null}
+              </View>
+              {d.ai_analysis ? (
+                <>
+                  <Field
+                    label="Diagnóstico provável"
+                    value={d.ai_analysis.diagnostico_provavel}
+                    w="100%"
+                  />
+                  <Field label="Causa raiz" value={d.ai_analysis.causa_raiz} w="100%" />
+                  <Field label="Justificativa" value={d.ai_analysis.justificativa} w="100%" />
+                  <Field
+                    label="Inconsistências"
+                    value={
+                      d.ai_analysis.inconsistencias.length
+                        ? d.ai_analysis.inconsistencias.map((i) => `• ${i}`).join("\n")
+                        : "Nenhuma"
+                    }
+                    w="100%"
+                  />
+                  <Field
+                    label="Resumo técnico"
+                    value={d.ai_analysis.resumo_tecnico}
+                    w="100%"
+                  />
+                  <Text style={{ fontSize: 7, color: MUTED, marginTop: 3 }}>
+                    Gerado em {new Date(d.ai_analysis.gerado_em).toLocaleString("pt-BR")} ·{" "}
+                    {d.ai_analysis.modelo_ia} · Uso consultivo.
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ fontSize: 8, color: MUTED }}>Análise por IA não solicitada.</Text>
+              )}
+            </View>
+          </>
+        )}
+
         <View style={styles.signRow}>
+
           <View style={styles.signBox}>
             {assinatura ? (
               <Image src={assinatura} style={styles.signImage} />

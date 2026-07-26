@@ -5,11 +5,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   emptyChecklistData,
   type ChecklistData,
   type ChecklistRow,
   type YesNo,
 } from "@/lib/checklist-schema";
+import { TIPO_MANUTENCAO_OPCOES } from "@/lib/ont-checklist-ai";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 
 type Props = {
@@ -234,7 +242,32 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
             />
           </div>
         </Row>
+        <div className="space-y-1.5">
+          <Label>Tipo de manutenção</Label>
+          <Select
+            value={s.tipo_manutencao ?? ""}
+            disabled={readOnly}
+            onValueChange={(value) =>
+              onDataChange((prev) => ({ ...prev, tipo_manutencao: value || null }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o tipo de manutenção" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIPO_MANUTENCAO_OPCOES.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Necessário para solicitar a análise por IA depois de preencher o checklist.
+          </p>
+        </div>
       </Section>
+
 
       <Section n={2} title="Sintoma confirmado em campo">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

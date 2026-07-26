@@ -3,6 +3,18 @@
 export type YesNo = "sim" | "nao" | null;
 export type TipoChecklist = "validacao_ont" | "instalacao";
 
+export interface StoredAiAnalysis {
+  diagnostico_provavel: string;
+  causa_raiz: string;
+  recomendacao: string;
+  justificativa: string;
+  inconsistencias: string[];
+  resumo_tecnico: string;
+  gerado_em: string;
+  modelo_ia: string;
+  tipo_manutencao: string | null;
+}
+
 // -------- ONT (validação) --------
 export interface ChecklistData {
   sintoma: {
@@ -78,6 +90,8 @@ export interface ChecklistData {
     executar_diagnostico_pos_troca: boolean;
   };
   relato: string;
+  tipo_manutencao?: string | null;
+  ai_analysis?: StoredAiAnalysis | null;
   noc: {
     autorizada: YesNo;
     analista: string;
@@ -162,6 +176,8 @@ export function emptyChecklistData(): ChecklistData {
       executar_diagnostico_pos_troca: false,
     },
     relato: "",
+    tipo_manutencao: null,
+    ai_analysis: null,
     noc: {
       autorizada: null,
       analista: "",

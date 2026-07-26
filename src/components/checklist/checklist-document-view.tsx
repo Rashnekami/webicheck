@@ -11,6 +11,8 @@ import {
   InstallationDarkDocument,
   type InstallationDocumentPart,
 } from "@/components/checklist/installation-dark-document";
+import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
+import type { StoredAiAnalysis } from "@/lib/checklist-schema";
 
 
 interface Props {
@@ -351,10 +353,17 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
                 <Field label="Modelo" value={h.modelo as string} />
                 <Field label="Serial" value={h.serial as string} />
                 <Field label="CTO/Porta" value={h.cto_porta as string} />
+                <Field
+                  label="Tipo de manutenção"
+                  value={labelTipoManutencao(
+                    (d.tipo_manutencao as unknown as string | null | undefined) ?? null,
+                  )}
+                />
               </>
             )}
           </div>
         </SectionBox>
+
 
         {isInstal ? <InstalacaoBody d={d as never} /> : <ValidacaoBody d={d as never} />}
 
@@ -842,10 +851,59 @@ function ValidacaoBody({ d }: { d: Record<string, Record<string, unknown>> }) {
         <Field label="Protocolo / OS do NOC" value={noc.protocolo as string} />
       </SectionBox>
 
+      <AiAnalysisSection
+        analysis={(d.ai_analysis as unknown as StoredAiAnalysis | null | undefined) ?? null}
+        tipoManutencao={(d.tipo_manutencao as unknown as string | null | undefined) ?? null}
+      />
+
       <TrocaBox />
     </>
   );
 }
+
+function AiAnalysisSection({
+  analysis,
+  tipoManutencao,
+}: {
+  analysis: StoredAiAnalysis | null | undefined;
+  tipoManutencao: string | null | undefined;
+}) {
+  if (!analysis && !tipoManutencao) return null;
+  return (
+    <>
+      <SectionTitle>10. Análise por IA (consultiva)</SectionTitle>
+      <SectionBox>
+        <Field label="Tipo de manutenção" value={labelTipoManutencao(tipoManutencao)} />
+        {analysis ? (
+          <>
+            <Field
+              label="Recomendação"
+              value={RECOMENDACAO_LABEL[analysis.recomendacao] ?? analysis.recomendacao}
+            />
+            <Field label="Diagnóstico provável" value={analysis.diagnostico_provavel} />
+            <Field label="Causa raiz" value={analysis.causa_raiz} />
+            <Field label="Justificativa" value={analysis.justificativa} />
+            <Field
+              label="Inconsistências"
+              value={
+                analysis.inconsistencias.length
+                  ? analysis.inconsistencias.map((item) => `• ${item}`).join("\n")
+                  : "Nenhuma"
+              }
+            />
+            <Field label="Resumo técnico" value={analysis.resumo_tecnico} />
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>
+              Gerado em {new Date(analysis.gerado_em).toLocaleString("pt-BR")} · {analysis.modelo_ia}
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 12, color: MUTED }}>Análise por IA não solicitada.</div>
+        )}
+      </SectionBox>
+    </>
+  );
+}
+
 
 function TrocaBox() {
   return null;

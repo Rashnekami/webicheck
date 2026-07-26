@@ -60,6 +60,7 @@ import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
 import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
+import { OntAiAnalysisCard } from "@/components/checklist/ont-ai-analysis-card";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   ensureChecklistSnapshot,
@@ -400,8 +401,23 @@ function ChecklistDetail() {
               canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
               fotos={fotosQuery.data ?? []}
             />
+
+            {row.status === "rascunho" && row.tecnico_id === user?.id && (
+              <OntAiAnalysisCard
+                checklistId={id}
+                analysis={(data as ChecklistData).ai_analysis ?? null}
+                tipoManutencao={(data as ChecklistData).tipo_manutencao ?? null}
+                disabled={dirty || save.isPending}
+                disabledReason={
+                  dirty || save.isPending
+                    ? "Salvando alterações... aguarde antes de solicitar a análise."
+                    : undefined
+                }
+              />
+            )}
           </>
         )}
+
 
         {row.status === "finalizado" && (
           <>

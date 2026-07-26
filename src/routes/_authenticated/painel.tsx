@@ -16,7 +16,7 @@ import {
   CheckCircle2,
   FileClock,
   Wifi,
-  BrainCircuit,
+  
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -293,12 +293,6 @@ function Painel() {
                   ? "Fiscalize atendimentos, filtre por técnico e cidade e baixe documentos."
                   : "Registre novos atendimentos ou continue rascunhos em andamento."
               }
-            />
-            <HomeNavCard
-              to="/diagnostico-inteligente"
-              icon={BrainCircuit}
-              title="Diagnóstico Inteligente"
-              description="Teste o novo NOC virtual guiado, com hipóteses, ações e reteste."
             />
             {user.isAdmin && (
               <HomeNavCard
