@@ -60,7 +60,7 @@ function finishLogin() {
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<"login" | "signup" | "forgot">("login");
+  const [tab, setTab] = useState<"login" | "interno" | "signup" | "forgot">("login");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -113,8 +113,9 @@ function AuthPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="login">E-mail</TabsTrigger>
+                <TabsTrigger value="interno">Login</TabsTrigger>
                 <TabsTrigger value="signup">Cadastrar</TabsTrigger>
                 <TabsTrigger value="forgot">Esqueci</TabsTrigger>
               </TabsList>
@@ -122,6 +123,13 @@ function AuthPage() {
               <TabsContent value="login" className="pt-4">
                 <LoginForm />
                 <GoogleButton className="mt-4" />
+              </TabsContent>
+
+              <TabsContent value="interno" className="pt-4">
+                <InternalLoginForm />
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Use o login e senha fornecidos pelo supervisor do seu provedor.
+                </p>
               </TabsContent>
 
               <TabsContent value="signup" className="pt-4">
