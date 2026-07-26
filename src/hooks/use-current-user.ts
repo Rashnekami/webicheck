@@ -12,9 +12,12 @@ export interface CurrentUser {
   city: string | null;
   active: boolean;
   assinatura: string | null;
+  provider_id: string | null;
+  platform_admin: boolean;
   roles: AppRole[];
   isAdmin: boolean;
   isWarehouse: boolean;
+  isPlatformAdmin: boolean;
 }
 
 export function useCurrentUser() {
@@ -28,7 +31,14 @@ export function useCurrentUser() {
         supabase.from("user_roles").select("role").eq("user_id", auth.user.id),
       ]);
       const roleList = (roles ?? []).map((r) => r.role as AppRole);
-      const p = profile as (typeof profile & { assinatura?: string | null }) | null;
+      const p = profile as
+        | (typeof profile & {
+            assinatura?: string | null;
+            platform_admin?: boolean | null;
+            provider_id?: string | null;
+          })
+        | null;
+      const platformAdmin = Boolean(p?.platform_admin);
       return {
         id: auth.user.id,
         email: p?.email ?? auth.user.email ?? "",
@@ -38,9 +48,12 @@ export function useCurrentUser() {
         city: p?.city ?? null,
         active: p?.active ?? true,
         assinatura: p?.assinatura ?? null,
+        provider_id: p?.provider_id ?? null,
+        platform_admin: platformAdmin,
         roles: roleList,
         isAdmin: roleList.includes("admin"),
         isWarehouse: roleList.includes("almoxarifado"),
+        isPlatformAdmin: platformAdmin,
       };
     },
     staleTime: 60_000,

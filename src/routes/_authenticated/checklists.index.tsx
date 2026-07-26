@@ -15,6 +15,7 @@ import {
 
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { createDraft, deleteChecklist, listChecklists } from "@/lib/checklists";
+import { deleteChecklistCascade } from "@/lib/platform-admin.functions";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,12 +67,17 @@ function ChecklistsList() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => deleteChecklist(id),
+    mutationFn: async (c: { id: string; status: string }) => {
+      if (c.status === "finalizado") {
+        return deleteChecklistCascade({ data: { checklistId: c.id } });
+      }
+      return deleteChecklist(c.id);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["checklists"] });
-      toast.success("Rascunho removido.");
+      toast.success("Checklist removido.");
     },
-    onError: () => toast.error("Não foi possível remover."),
+    onError: (e: Error) => toast.error(e.message || "Não foi possível remover."),
   });
 
   const items = (query.data ?? []).filter((c) => {
@@ -224,20 +230,21 @@ function ChecklistsList() {
                         </Link>
                         <div className="flex flex-col items-end gap-1.5">
                           {(c.status === "rascunho" && c.tecnico_id === user?.id) ||
-                          user?.isAdmin ? (
+                          user?.isAdmin ||
+                          user?.isPlatformAdmin ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
                                 const msg =
                                   c.status === "finalizado"
-                                    ? `Apagar checklist finalizado ${c.numero_publico || c.codigo_validacao || ""}? Esta ação é permanente.`
+                                    ? `Apagar checklist finalizado ${c.numero_publico || c.codigo_validacao || ""}? Esta ação é permanente e removerá contra-prova, tickets e evidências vinculadas.`
                                     : "Remover este rascunho?";
-                                if (confirm(msg)) remove.mutate(c.id);
+                                if (confirm(msg)) remove.mutate({ id: c.id, status: c.status });
                               }}
                               title={
-                                user?.isAdmin && c.status === "finalizado"
-                                  ? "Apagar (admin)"
+                                c.status === "finalizado"
+                                  ? "Apagar finalizado (dono)"
                                   : "Remover rascunho"
                               }
                             >

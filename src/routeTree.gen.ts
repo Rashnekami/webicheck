@@ -19,6 +19,7 @@ import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$tok
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
+import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
@@ -30,6 +31,7 @@ import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './r
 import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
 import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
 import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
+import { Route as ApiPublicAuthLoginInternalRouteImport } from './routes/api/public/auth/login-internal'
 
 const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
   id: '/completar-cadastro',
@@ -78,6 +80,11 @@ const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
 const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
   id: '/provedor',
   path: '/provedor',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPlataformaRoute = AuthenticatedPlataformaRouteImport.update({
+  id: '/plataforma',
+  path: '/plataforma',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
@@ -144,6 +151,12 @@ const ApiPublicWebiDiagnosticDeviceStartRoute =
     path: '/api/public/webi-diagnostic/device-start',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAuthLoginInternalRoute =
+  ApiPublicAuthLoginInternalRouteImport.update({
+    id: '/api/public/auth/login-internal',
+    path: '/api/public/auth/login-internal',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -154,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
+  '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -161,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -176,6 +191,7 @@ export interface FileRoutesByTo {
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/painel': typeof AuthenticatedPainelRoute
+  '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
@@ -183,6 +199,7 @@ export interface FileRoutesByTo {
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -200,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
+  '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
@@ -207,6 +225,7 @@ export interface FileRoutesById {
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   '/api/public/webi-diagnostic/my-checklists': typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -224,6 +243,7 @@ export interface FileRouteTypes {
     | '/informativos'
     | '/integracoes'
     | '/painel'
+    | '/plataforma'
     | '/provedor'
     | '/trocas-ont'
     | '/usuarios'
@@ -231,6 +251,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists/'
+    | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
     | '/api/public/webi-diagnostic/my-checklists'
@@ -246,6 +267,7 @@ export interface FileRouteTypes {
     | '/informativos'
     | '/integracoes'
     | '/painel'
+    | '/plataforma'
     | '/provedor'
     | '/trocas-ont'
     | '/usuarios'
@@ -253,6 +275,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/checklists/$id'
     | '/checklists'
+    | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
     | '/api/public/webi-diagnostic/my-checklists'
@@ -269,6 +292,7 @@ export interface FileRouteTypes {
     | '/_authenticated/informativos'
     | '/_authenticated/integracoes'
     | '/_authenticated/painel'
+    | '/_authenticated/plataforma'
     | '/_authenticated/provedor'
     | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
@@ -276,6 +300,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/checklists/'
+    | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
     | '/api/public/webi-diagnostic/my-checklists'
@@ -291,6 +316,7 @@ export interface RootRouteChildren {
   CompletarCadastroRoute: typeof CompletarCadastroRoute
   ContraProvaTokenRoute: typeof ContraProvaTokenRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
+  ApiPublicAuthLoginInternalRoute: typeof ApiPublicAuthLoginInternalRoute
   ApiPublicWebiDiagnosticDeviceStartRoute: typeof ApiPublicWebiDiagnosticDeviceStartRoute
   ApiPublicWebiDiagnosticDeviceTokenRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRoute
   ApiPublicWebiDiagnosticMyChecklistsRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRoute
@@ -370,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProvedorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/plataforma': {
+      id: '/_authenticated/plataforma'
+      path: '/plataforma'
+      fullPath: '/plataforma'
+      preLoaderRoute: typeof AuthenticatedPlataformaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/painel': {
       id: '/_authenticated/painel'
       path: '/painel'
@@ -447,6 +480,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/auth/login-internal': {
+      id: '/api/public/auth/login-internal'
+      path: '/api/public/auth/login-internal'
+      fullPath: '/api/public/auth/login-internal'
+      preLoaderRoute: typeof ApiPublicAuthLoginInternalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -455,6 +495,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
+  AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
@@ -467,6 +508,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
+  AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
@@ -485,6 +527,7 @@ const rootRouteChildren: RootRouteChildren = {
   CompletarCadastroRoute: CompletarCadastroRoute,
   ContraProvaTokenRoute: ContraProvaTokenRoute,
   ValidarTokenRoute: ValidarTokenRoute,
+  ApiPublicAuthLoginInternalRoute: ApiPublicAuthLoginInternalRoute,
   ApiPublicWebiDiagnosticDeviceStartRoute:
     ApiPublicWebiDiagnosticDeviceStartRoute,
   ApiPublicWebiDiagnosticDeviceTokenRoute:
@@ -499,13 +542,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
