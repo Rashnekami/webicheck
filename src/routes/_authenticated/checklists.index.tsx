@@ -116,7 +116,13 @@ function ChecklistsList() {
             <div>
               <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Webifibra</p>
               <h1 className="text-lg font-semibold">
-                {user?.isAdmin ? "Todos os checklists" : "Meus checklists"}
+                {user?.isAdmin
+                  ? "Todos os checklists"
+                  : user?.isSupervisor
+                    ? "Checklists da equipe"
+                    : user?.isNoc
+                      ? "Checklists do provedor"
+                      : "Meus checklists"}
               </h1>
             </div>
           </div>
