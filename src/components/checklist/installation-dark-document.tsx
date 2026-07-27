@@ -591,7 +591,7 @@ function TechnicianDocument({
   );
 }
 
-function CustomerDocument({
+export function CustomerDocument({
   payload,
   counterproof,
   separated,
