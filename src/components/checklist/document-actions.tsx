@@ -269,9 +269,9 @@ export function DocumentActions({
               ) : (
                 <Download className="mr-1.5 h-4 w-4" />
               )}
-              {row.tipo === "instalacao" ? "Imagem do técnico" : "Baixar imagem"}
+              Imagem do técnico
             </Button>
-            {row.tipo === "instalacao" && counterproof?.status === "validated" ? (
+            {counterproof?.status === "validated" ? (
               <Button
                 onClick={() => baixarImagem("customer")}
                 disabled={busyImg !== null || !publicUrl}
