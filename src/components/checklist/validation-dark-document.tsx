@@ -5,6 +5,10 @@ import type { SnapshotPayload } from "@/lib/public-checklist.functions";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 import type { ChecklistData, StoredAiAnalysis } from "@/lib/checklist-schema";
 import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
+import {
+  CustomerDocument,
+  type InstallationDocumentPart,
+} from "@/components/checklist/installation-dark-document";
 
 type Props = {
   payload: SnapshotPayload;
@@ -13,6 +17,7 @@ type Props = {
   version?: number | null;
   fixedWidth?: number;
   counterproof?: CounterproofDocumentInfo | null;
+  documentPart?: InstallationDocumentPart;
 };
 
 const C = {
