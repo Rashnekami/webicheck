@@ -12,6 +12,30 @@ async function ensurePlatformAdmin(userId: string) {
   if (!data?.platform_admin) throw new Error("Acesso restrito ao dono da plataforma.");
 }
 
+async function ensureCanDeleteChecklist(userId: string, checklistId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("platform_admin, provider_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile?.platform_admin) return;
+  const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+  if (!isAdmin) throw new Error("Somente administradores podem apagar checklists finalizados.");
+  const { data: cl } = await supabaseAdmin
+    .from("checklists")
+    .select("provider_id")
+    .eq("id", checklistId)
+    .maybeSingle();
+  if (!cl) throw new Error("Checklist não encontrado.");
+  if (cl.provider_id !== profile?.provider_id)
+    throw new Error("Checklist pertence a outro provedor.");
+}
+
+
 export const deleteChecklistCascade = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { checklistId: string }) => {
