@@ -43,7 +43,7 @@ export const deleteChecklistCascade = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data, context }) => {
-    await ensurePlatformAdmin(context.userId);
+    await ensureCanDeleteChecklist(context.userId, data.checklistId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Coletar case_id para apagar todos os relacionados do caso, se for a última revisão
