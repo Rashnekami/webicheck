@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Resolve o provider a partir do Host/subdomínio da requisição.
@@ -15,6 +17,39 @@ export interface ResolvedProvider {
   name: string;
   active: boolean;
 }
+
+// `providers` e `profiles.provider_id` ainda não existem em
+// src/integrations/supabase/types.ts (as migrations desta fase ainda não
+// foram aplicadas em produção). Este tipo estende o Database gerado
+// apenas no nível de tipos — nenhuma migration é aplicada e nenhum
+// comportamento em runtime muda — para tipar as queries abaixo sem usar
+// `any`. Remover quando os types forem regenerados após aplicar o schema.
+type ProviderAwareDatabase = Database & {
+  public: Database["public"] & {
+    Tables: Database["public"]["Tables"] & {
+      providers: {
+        Row: ResolvedProvider;
+        Insert: ResolvedProvider;
+        Update: Partial<ResolvedProvider>;
+        Relationships: [];
+      };
+      profiles: {
+        Row: Database["public"]["Tables"]["profiles"]["Row"] & {
+          provider_id: string | null;
+        };
+        Insert: Database["public"]["Tables"]["profiles"]["Insert"] & {
+          provider_id?: string | null;
+        };
+        Update: Database["public"]["Tables"]["profiles"]["Update"] & {
+          provider_id?: string | null;
+        };
+        Relationships: [];
+      };
+    };
+  };
+};
+
+type ProviderAwareClient = SupabaseClient<ProviderAwareDatabase>;
 
 // - "root": sem contexto de provider (domínio raiz, www, localhost,
 //   previews etc.) — comportamento atual mantido.
@@ -73,8 +108,8 @@ function classifyHost(
 // provider do subdomínio ANTES de qualquer sessão existir.
 // NOTA: `providers` ainda não existe em src/integrations/supabase/types.ts
 // (as migrations desta fase ainda não foram aplicadas em produção). O
-// cast `as any` abaixo é temporário — remover quando os types forem
-// regenerados após aplicar o schema.
+// cast abaixo via `ProviderAwareClient` é temporário — remover quando os
+// types forem regenerados após aplicar o schema.
 export const resolveCurrentProvider = createServerFn({ method: "POST" }).handler(
   async (): Promise<ProviderResolution> => {
     const host = resolveEffectiveHost();
@@ -86,7 +121,7 @@ export const resolveCurrentProvider = createServerFn({ method: "POST" }).handler
     const { supabaseAdmin } = await import(
       "@/integrations/supabase/client.server"
     );
-    const { data, error } = await (supabaseAdmin as any)
+    const { data, error } = await (supabaseAdmin as unknown as ProviderAwareClient)
       .from("providers")
       .select("id, slug, name, active")
       .eq("slug", classified.slug)
@@ -113,7 +148,7 @@ export const isAllowedForProvider = createServerFn({ method: "POST" })
       );
       const [{ data: profile, error: profileError }, { data: roles, error: rolesError }] =
         await Promise.all([
-          (supabaseAdmin as any)
+          (supabaseAdmin as unknown as ProviderAwareClient)
             .from("profiles")
             .select("provider_id")
             .eq("id", context.userId)
@@ -126,7 +161,7 @@ export const isAllowedForProvider = createServerFn({ method: "POST" })
 
       if (profileError || rolesError) return false;
 
-      const profileProviderId = (profile as any)?.provider_id ?? null;
+      const profileProviderId = profile?.provider_id ?? null;
       const isAdmin = (roles ?? []).some(
         (r: { role: string }) => r.role === "admin",
       );
@@ -173,7 +208,7 @@ export const ensureProviderBinding = createServerFn({ method: "POST" })
       );
 
       const { data: providerRow, error: providerError } = await (
-        supabaseAdmin as any
+        supabaseAdmin as unknown as ProviderAwareClient
       )
         .from("providers")
         .select("id, active")
@@ -195,7 +230,9 @@ export const ensureProviderBinding = createServerFn({ method: "POST" })
       // Trava atômica: só afeta a linha se provider_id ainda for NULL.
       // Concorrência é resolvida pelo próprio banco — não precisamos de
       // lock explícito porque o WHERE é reavaliado sob a linha bloqueada.
-      const { error: updateError } = await (supabaseAdmin as any)
+      const { error: updateError } = await (
+        supabaseAdmin as unknown as ProviderAwareClient
+      )
         .from("profiles")
         .update({ provider_id: providerRow.id })
         .eq("id", context.userId)
@@ -205,7 +242,7 @@ export const ensureProviderBinding = createServerFn({ method: "POST" })
       // Confirma o estado final lendo de novo — só sucesso se o valor
       // salvo for exatamente o provider resolvido agora.
       const { data: finalProfile, error: finalError } = await (
-        supabaseAdmin as any
+        supabaseAdmin as unknown as ProviderAwareClient
       )
         .from("profiles")
         .select("provider_id")
