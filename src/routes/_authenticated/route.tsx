@@ -7,6 +7,36 @@ import {
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
+import {
+  resolveCurrentProvider,
+  ensureProviderBinding,
+  isAllowedForProvider,
+} from "@/lib/provider-resolution.functions";
+
+// Gate obrigatório de provider: única implementação, usada tanto pelo
+// beforeLoad quanto pelo useEffect abaixo — cobre toda rota autenticada,
+// inclusive o retorno do fluxo OAuth (que sempre passa por aqui antes de
+// renderizar qualquer conteúdo protegido). Nunca cai em "root" por omissão
+// em caso de erro — falha de resolução bloqueia (fail-closed).
+async function checkProviderGate(): Promise<boolean> {
+  try {
+    const resolution = await resolveCurrentProvider();
+    if (resolution.mode === "root") return true;
+    if (resolution.mode === "invalid") return false;
+    if (!resolution.provider.active) return false;
+
+    // Tenta vincular um profile ainda sem provider (novo cadastro) ao
+    // provider do Host atual. Nunca grava provider_id diretamente aqui —
+    // quem faz isso, com trava atômica, é a própria função server-side.
+    await ensureProviderBinding();
+
+    return await isAllowedForProvider({
+      data: { providerId: resolution.provider.id },
+    });
+  } catch {
+    return false;
+  }
+}
 
 // Managed gate — a autenticação depende do localStorage (sem SSR).
 export const Route = createFileRoute("/_authenticated")({
@@ -15,6 +45,11 @@ export const Route = createFileRoute("/_authenticated")({
     if (typeof window === "undefined") return;
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    const allowed = await checkProviderGate();
+    if (!allowed) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
+    }
     return { user: data.user };
   },
   component: AuthenticatedLayout,
@@ -25,10 +60,20 @@ function AuthenticatedLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) navigate({ to: "/auth", replace: true });
-      else setReady(true);
-    });
+    (async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      const allowed = await checkProviderGate();
+      if (!allowed) {
+        await supabase.auth.signOut();
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      setReady(true);
+    })();
   }, [navigate]);
 
   if (!ready) {
