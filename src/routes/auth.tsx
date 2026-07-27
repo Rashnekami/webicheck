@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +8,12 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import {
+  resolveCurrentProvider,
+  isAllowedForProvider,
+  type ProviderResolution,
+  type ResolvedProvider,
+} from "@/lib/provider-resolution.functions";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SignaturePad } from "@/components/signature-pad";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldAlert } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
 
 
@@ -69,6 +76,12 @@ function AuthPage() {
   const [checking, setChecking] = useState(true);
   const [tab, setTab] = useState<"login" | "signup" | "forgot">("login");
 
+  const providerQuery = useQuery({
+    queryKey: ["host-provider-context"],
+    queryFn: () => resolveCurrentProvider(),
+    staleTime: 5 * 60_000,
+  });
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/painel", replace: true });
@@ -76,13 +89,46 @@ function AuthPage() {
     });
   }, [navigate]);
 
-  if (checking) {
+  if (checking || providerQuery.isLoading) {
     return (
       <div className="brand-gradient flex min-h-screen items-center justify-center">
         <WebifibraLogo size={72} className="animate-pulse" />
       </div>
     );
   }
+
+  // Falha ao resolver o provider (erro de rede/servidor): nunca cai em modo
+  // "root" por omissão — trata como bloqueio até conseguir verificar de novo.
+  if (providerQuery.isError) {
+    return (
+      <BlockedScreen
+        title="Não foi possível verificar o provedor"
+        message="Tente novamente em instantes. Se o problema persistir, contate o suporte."
+      />
+    );
+  }
+
+  const context: ProviderResolution = providerQuery.data ?? { mode: "root" };
+
+  if (context.mode === "invalid") {
+    return (
+      <BlockedScreen
+        title="Subdomínio inválido"
+        message="Este endereço não corresponde a nenhum provedor cadastrado. Verifique o link ou contate quem forneceu o acesso."
+      />
+    );
+  }
+
+  if (context.mode === "provider" && !context.provider.active) {
+    return (
+      <BlockedScreen
+        title="Provedor desativado"
+        message={`O acesso de ${context.provider.name} está desativado no momento. Contate o administrador.`}
+      />
+    );
+  }
+
+  const provider = context.mode === "provider" ? context.provider : null;
 
   return (
     <div className="brand-gradient flex min-h-screen items-center justify-center px-4 py-10">
@@ -92,6 +138,11 @@ function AuthPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Webifibra</h1>
             <p className="text-sm opacity-90">Checklist Técnico de Campo</p>
+            {provider && (
+              <p className="mt-1 text-xs font-medium uppercase tracking-wider opacity-80">
+                {provider.name}
+              </p>
+            )}
           </div>
         </div>
 
@@ -115,13 +166,13 @@ function AuthPage() {
               </TabsList>
 
               <TabsContent value="login" className="pt-4">
-                <LoginForm />
-                <GoogleButton className="mt-4" />
+                <LoginForm provider={provider} />
+                <GoogleButton className="mt-4" provider={provider} />
               </TabsContent>
 
               <TabsContent value="signup" className="pt-4">
                 <SignupForm onDone={() => setTab("login")} />
-                <GoogleButton className="mt-4" />
+                <GoogleButton className="mt-4" provider={provider} />
                 <p className="mt-3 text-xs text-muted-foreground">
                   Novos cadastros são criados como técnico. A liberação
                   administrativa é feita por um administrador.
@@ -154,7 +205,21 @@ function AuthPage() {
   );
 }
 
-function LoginForm() {
+function BlockedScreen({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="brand-gradient flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 text-center shadow-xl">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+          <ShieldAlert className="h-8 w-8 text-amber-500" />
+        </div>
+        <h1 className="text-lg font-semibold">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function LoginForm({ provider }: { provider: ResolvedProvider | null }) {
   const navigate = useNavigate();
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -171,6 +236,20 @@ function LoginForm() {
       }
       return;
     }
+
+    // Login NUNCA grava provider_id — só valida. Uma conta já vinculada a
+    // outro provider jamais é "migrada" por entrar em outro subdomínio.
+    if (provider) {
+      const allowed = await isAllowedForProvider({
+        data: { providerId: provider.id },
+      });
+      if (!allowed) {
+        await supabase.auth.signOut();
+        toast.error("Esta conta não pertence a este provedor.");
+        return;
+      }
+    }
+
     navigate({ to: "/painel", replace: true });
   }
 
@@ -253,6 +332,10 @@ function SignupForm({ onDone }: { onDone: () => void }) {
     }
     // Persistir assinatura: precisa da sessão. Se signUp criou sessão, gravar já;
     // caso contrário, guardar em localStorage para gravar após confirmação/login.
+    // O vínculo com o provider NUNCA é feito aqui — é feito pelo servidor
+    // (ensureProviderBinding, chamado pelo gate de /_authenticated) na
+    // primeira vez que existir uma sessão válida, seja ela imediata ou
+    // vinda da confirmação por e-mail.
     if (data.session && data.user) {
       await supabase
         .from("profiles")
@@ -388,7 +471,13 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function GoogleButton({ className }: { className?: string }) {
+function GoogleButton({
+  className,
+  provider,
+}: {
+  className?: string;
+  provider: ResolvedProvider | null;
+}) {
   const [loading, setLoading] = useState(false);
   async function onClick() {
     setLoading(true);
@@ -402,6 +491,17 @@ function GoogleButton({ className }: { className?: string }) {
     }
     // Se result.redirected => o navegador vai redirecionar; se não, sessão já foi setada.
     if (!result.redirected) {
+      if (provider) {
+        const allowed = await isAllowedForProvider({
+          data: { providerId: provider.id },
+        });
+        if (!allowed) {
+          setLoading(false);
+          await supabase.auth.signOut();
+          toast.error("Esta conta não pertence a este provedor.");
+          return;
+        }
+      }
       window.location.href = "/painel";
     }
   }
