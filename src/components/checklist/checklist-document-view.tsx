@@ -215,6 +215,7 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
         version={version}
         fixedWidth={fixedWidth}
         counterproof={counterproof}
+        documentPart={documentPart}
       />
     );
   },

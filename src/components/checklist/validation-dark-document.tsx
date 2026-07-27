@@ -5,6 +5,10 @@ import type { SnapshotPayload } from "@/lib/public-checklist.functions";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 import type { ChecklistData, StoredAiAnalysis } from "@/lib/checklist-schema";
 import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
+import {
+  CustomerDocument,
+  type InstallationDocumentPart,
+} from "@/components/checklist/installation-dark-document";
 
 type Props = {
   payload: SnapshotPayload;
@@ -13,6 +17,7 @@ type Props = {
   version?: number | null;
   fixedWidth?: number;
   counterproof?: CounterproofDocumentInfo | null;
+  documentPart?: InstallationDocumentPart;
 };
 
 const C = {
@@ -487,7 +492,7 @@ function AiPanel({
 
 export const ValidationDarkDocument = forwardRef<HTMLDivElement, Props>(
   function ValidationDarkDocument(
-    { payload, publicUrl, shortHash, version, fixedWidth, counterproof },
+    { payload, publicUrl, shortHash, version, fixedWidth, counterproof, documentPart = "combined" },
     ref,
   ) {
     const h = payload.header;
@@ -504,10 +509,32 @@ export const ValidationDarkDocument = forwardRef<HTMLDivElement, Props>(
 
     const trocaFeita = (h as { troca_realizada?: boolean | null }).troca_realizada === true;
 
+    if (documentPart === "customer" && counterproof?.status === "validated") {
+      return (
+        <div
+          ref={ref}
+          data-checklist-document
+          data-document-part="customer"
+          style={{
+            width: fixedWidth ? `${fixedWidth}px` : "100%",
+            maxWidth: fixedWidth ? `${fixedWidth}px` : "900px",
+            padding: fixedWidth ? 18 : 10,
+            boxSizing: "border-box",
+            background: C.page,
+            color: C.text,
+            fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          }}
+        >
+          <CustomerDocument payload={payload} counterproof={counterproof} />
+        </div>
+      );
+    }
+
     return (
       <div
         ref={ref}
         data-checklist-document
+        data-document-part={documentPart}
         style={{
           width: fixedWidth ? `${fixedWidth}px` : "100%",
           maxWidth: fixedWidth ? `${fixedWidth}px` : "900px",
