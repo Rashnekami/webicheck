@@ -161,9 +161,16 @@ function AuthPage() {
             >
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
+                <TabsTrigger value="signup" disabled={!provider}>
+                  Cadastrar
+                </TabsTrigger>
                 <TabsTrigger value="forgot">Esqueci</TabsTrigger>
               </TabsList>
+              {!provider && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">
+                  Cadastro disponível apenas pelo endereço do seu provedor.
+                </p>
+              )}
 
               <TabsContent value="login" className="pt-4">
                 <LoginForm provider={provider} />
@@ -171,7 +178,7 @@ function AuthPage() {
               </TabsContent>
 
               <TabsContent value="signup" className="pt-4">
-                <SignupForm onDone={() => setTab("login")} />
+                <SignupForm provider={provider} onDone={() => setTab("login")} />
                 <GoogleButton className="mt-4" provider={provider} />
                 <p className="mt-3 text-xs text-muted-foreground">
                   Novos cadastros são criados como técnico. A liberação
@@ -299,7 +306,13 @@ function LoginForm({ provider }: { provider: ResolvedProvider | null }) {
   );
 }
 
-function SignupForm({ onDone }: { onDone: () => void }) {
+function SignupForm({
+  provider,
+  onDone,
+}: {
+  provider: ResolvedProvider | null;
+  onDone: () => void;
+}) {
   const navigate = useNavigate();
   const [signature, setSignature] = useState<string | null>(null);
   const [signatureError, setSignatureError] = useState<string | null>(null);
@@ -309,6 +322,14 @@ function SignupForm({ onDone }: { onDone: () => void }) {
   });
 
   async function onSubmit(values: z.infer<typeof signupSchema>) {
+    // Falha fechado: mesmo que a aba tenha sido alcançada por algum outro
+    // caminho além do clique normal, sem provider não há cadastro. Este
+    // componente só valida o contexto — o vínculo com o provider continua
+    // sendo feito exclusivamente por ensureProviderBinding no servidor.
+    if (!provider) {
+      toast.error("Cadastro disponível apenas pelo endereço do seu provedor.");
+      return;
+    }
     if (!signature) {
       setSignatureError("Desenhe sua assinatura antes de continuar.");
       return;

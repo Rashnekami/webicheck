@@ -9,7 +9,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // sempre o client de service_role (importado dinamicamente dentro do
 // handler, mesma convenção de client.server.ts), nunca o client anon.
 
-export const ROOT_DOMAIN = "checktecnico.life";
+// Lido em runtime (não em VITE_/import.meta.env: nunca precisa ir para o
+// bundle do cliente) para permitir um domínio raiz diferente por ambiente
+// (ex.: staging). Sem a env var, mantém o domínio de produção.
+function getRootDomain(): string {
+  return process.env.ROOT_DOMAIN?.trim().toLowerCase() || "checktecnico.life";
+}
 
 export interface ResolvedProvider {
   id: string;
@@ -92,9 +97,10 @@ function classifyHost(
   | { mode: "candidate"; slug: string }
   | { mode: "invalid"; slug: string } {
   if (!host) return { mode: "root" };
-  if (host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}`) return { mode: "root" };
+  const rootDomain = getRootDomain();
+  if (host === rootDomain || host === `www.${rootDomain}`) return { mode: "root" };
 
-  const suffix = `.${ROOT_DOMAIN}`;
+  const suffix = `.${rootDomain}`;
   if (!host.endsWith(suffix)) return { mode: "root" }; // fora do nosso domínio (dev/preview/etc.)
 
   const slug = host.slice(0, -suffix.length);
