@@ -427,6 +427,7 @@ export type Database = {
           finalizado_em: string | null
           hora_atendimento: string | null
           id: string
+          intervention_code: string | null
           is_current: boolean
           locked_for_rework: boolean
           modelo: string | null
@@ -472,6 +473,7 @@ export type Database = {
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
+          intervention_code?: string | null
           is_current?: boolean
           locked_for_rework?: boolean
           modelo?: string | null
@@ -517,6 +519,7 @@ export type Database = {
           finalizado_em?: string | null
           hora_atendimento?: string | null
           id?: string
+          intervention_code?: string | null
           is_current?: boolean
           locked_for_rework?: boolean
           modelo?: string | null
@@ -723,6 +726,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      intervention_code_counters: {
+        Row: {
+          code_year: number
+          last_value: number
+          provider_id: string
+          tipo: string
+        }
+        Insert: {
+          code_year: number
+          last_value?: number
+          provider_id: string
+          tipo: string
+        }
+        Update: {
+          code_year?: number
+          last_value?: number
+          provider_id?: string
+          tipo?: string
+        }
+        Relationships: []
       }
       ont_exchange_ticket_counters: {
         Row: {
@@ -1265,7 +1289,13 @@ export type Database = {
     Enums: {
       app_role: "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc"
       checklist_status: "rascunho" | "finalizado"
-      checklist_tipo: "validacao_ont" | "instalacao" | "remapeamento_cto"
+      checklist_tipo:
+        | "validacao_ont"
+        | "instalacao"
+        | "remapeamento_cto"
+        | "rompimento"
+        | "readequacao"
+        | "melhoria_sinal"
       foto_categoria:
         | "etiqueta"
         | "leds"
@@ -1402,7 +1432,14 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "tecnico", "almoxarifado", "supervisor", "noc"],
       checklist_status: ["rascunho", "finalizado"],
-      checklist_tipo: ["validacao_ont", "instalacao", "remapeamento_cto"],
+      checklist_tipo: [
+        "validacao_ont",
+        "instalacao",
+        "remapeamento_cto",
+        "rompimento",
+        "readequacao",
+        "melhoria_sinal",
+      ],
       foto_categoria: [
         "etiqueta",
         "leds",
