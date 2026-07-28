@@ -308,6 +308,7 @@ export function RemapeamentoForm({
               lng: data.localizacao.gps_original.lng,
             }}
             disabled={readOnly}
+            confirmed={!!data.localizacao.confirmada}
             onConfirm={confirmMarker}
           />
         ) : (
@@ -316,13 +317,21 @@ export function RemapeamentoForm({
           </div>
         )}
 
-        {data.localizacao.confirmada && (
-          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-            <div className="rounded-lg border border-blue-500/20 bg-[#041126] p-2">
-              <div className="text-slate-400">Coordenada confirmada</div>
-              <div className="font-mono text-cyan-200">
+        {data.localizacao.confirmada ? (
+          <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2">
+              <div className="flex items-center gap-1.5 text-emerald-300">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="font-semibold uppercase tracking-wider">Localização da CTO confirmada</span>
+              </div>
+              <div className="mt-1 font-mono text-emerald-100">
                 {data.localizacao.confirmada.lat.toFixed(6)}, {data.localizacao.confirmada.lng.toFixed(6)}
               </div>
+              {data.localizacao.confirmada_em && (
+                <div className="mt-0.5 text-[10px] text-emerald-300/80">
+                  em {new Date(data.localizacao.confirmada_em).toLocaleString("pt-BR")}
+                </div>
+              )}
             </div>
             <a
               className="rounded-lg border border-cyan-500/40 bg-[#041126] p-2 text-cyan-300 hover:bg-blue-950"
@@ -333,7 +342,12 @@ export function RemapeamentoForm({
               Abrir no Google Maps
             </a>
           </div>
+        ) : (
+          <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-200">
+            ⚠ A localização da CTO ainda não foi confirmada. Sem confirmação manual o remapeamento não pode ser finalizado.
+          </div>
         )}
+
       </Section>
 
       {/* 3 Foto ANTES */}
