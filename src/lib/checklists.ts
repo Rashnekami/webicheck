@@ -71,15 +71,32 @@ function mergeInstalacaoData(saved: Record<string, unknown>): InstalacaoData {
   } as InstalacaoData;
 }
 
+function mergeRemapeamentoData(saved: Record<string, unknown>): RemapeamentoData {
+  const base = emptyRemapeamentoData();
+  return {
+    ...base,
+    ...saved,
+    identificacao: { ...base.identificacao, ...(isRecord(saved.identificacao) ? saved.identificacao : {}) },
+    localizacao: { ...base.localizacao, ...(isRecord(saved.localizacao) ? saved.localizacao : {}) },
+    splitter: { ...base.splitter, ...(isRecord(saved.splitter) ? saved.splitter : {}) },
+    alimentacao: { ...base.alimentacao, ...(isRecord(saved.alimentacao) ? saved.alimentacao : {}) },
+    portas: Array.isArray(saved.portas) ? (saved.portas as RemapeamentoData["portas"]) : base.portas,
+    fusao: { ...base.fusao, ...(isRecord(saved.fusao) ? saved.fusao : {}) },
+    resultado: { ...base.resultado, ...(isRecord(saved.resultado) ? saved.resultado : {}) },
+  } as RemapeamentoData;
+}
+
 function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
   const savedData =
     row.dados && typeof row.dados === "object" && !Array.isArray(row.dados) ? row.dados : {};
-  return {
-    ...row,
-    tipo,
-    dados: tipo === "instalacao" ? mergeInstalacaoData(savedData) : mergeChecklistData(savedData),
-  } as unknown as ChecklistRow;
+  const dados =
+    tipo === "instalacao"
+      ? mergeInstalacaoData(savedData)
+      : tipo === "remapeamento_cto"
+        ? mergeRemapeamentoData(savedData)
+        : mergeChecklistData(savedData);
+  return { ...row, tipo, dados } as unknown as ChecklistRow;
 }
 
 export async function listChecklists(opts: {
