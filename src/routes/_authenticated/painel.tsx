@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FileClock,
   Wifi,
+  MapPin,
   
 } from "lucide-react";
 
@@ -310,6 +311,13 @@ function Painel() {
                 description="Consulte ticket, equipamento retirado, serial e motivo."
               />
             )}
+            <HomeNavCard
+              to="/remapeamentos"
+              icon={MapPin}
+              title="Remapeamentos"
+              description="CTOs/NAPs remapeadas com código RMAP, mapa satélite e indicadores."
+            />
+
             <HomeNavCard
               to="/informativos"
               icon={Megaphone}

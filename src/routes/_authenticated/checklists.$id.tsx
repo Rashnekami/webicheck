@@ -341,7 +341,7 @@ function ChecklistDetail() {
             {row.status === "finalizado" ? (
               <Badge className="bg-emerald-500/20 text-white hover:bg-emerald-500/30">
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                {row.codigo_validacao}
+                {(row as ChecklistRow & { rmap_code?: string | null }).rmap_code || row.codigo_validacao}
               </Badge>
             ) : save.isPending ? (
               <Badge className="bg-white/20 text-white">

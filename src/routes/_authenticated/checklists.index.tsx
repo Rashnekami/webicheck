@@ -243,6 +243,11 @@ function ChecklistsList() {
                                 }) || ""
                               : `Atualizado em ${new Date(c.updated_at).toLocaleString("pt-BR")}`}
                           </p>
+                          {(c as { rmap_code?: string | null }).rmap_code && (
+                            <p className="mt-1 text-xs font-semibold text-cyan-400">
+                              RMAP: {(c as { rmap_code?: string | null }).rmap_code}
+                            </p>
+                          )}
                           {c.exchange_ticket_code && (
                             <p className="mt-1 text-xs font-semibold text-amber-400">
                               Ticket da troca: {c.exchange_ticket_code}
