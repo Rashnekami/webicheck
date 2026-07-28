@@ -1,7 +1,27 @@
 // Shape completo dos dados dinâmicos dos checklists (armazenados em JSONB)
 
 export type YesNo = "sim" | "nao" | null;
-export type TipoChecklist = "validacao_ont" | "instalacao" | "remapeamento_cto";
+export type TipoChecklist =
+  | "validacao_ont"
+  | "instalacao"
+  | "remapeamento_cto"
+  | "rompimento"
+  | "readequacao"
+  | "melhoria_sinal";
+
+/** Tipos que compartilham o formulário unificado de intervenção de rede. */
+export type TipoIntervencao = "rompimento" | "readequacao" | "melhoria_sinal";
+
+export const TIPOS_INTERVENCAO: TipoIntervencao[] = [
+  "rompimento",
+  "readequacao",
+  "melhoria_sinal",
+];
+
+export function isIntervencao(tipo: TipoChecklist): tipo is TipoIntervencao {
+  return (TIPOS_INTERVENCAO as string[]).includes(tipo);
+}
+
 
 export interface StoredAiAnalysis {
   diagnostico_provavel: string;
@@ -352,13 +372,137 @@ export function emptyRemapeamentoData(): RemapeamentoData {
 }
 
 
-export function emptyDadosFor(
-  tipo: TipoChecklist,
-): ChecklistData | InstalacaoData | RemapeamentoData {
+// -------- Intervenções de rede (rompimento / readequação / melhoria de sinal) --------
+
+export type IntervencaoUrgencia = "baixa" | "media" | "alta" | "critica";
+export type IntervencaoEstado = "resolvido" | "paliativo" | "pendente";
+export type OtdrMomento = "antes" | "depois";
+
+/** Ponto georreferenciado da rota da intervenção, confirmado manualmente. */
+export interface IntervencaoPonto {
+  id: string;
+  tipo: MapAtivoTipo;
+  lat: number;
+  lng: number;
+  descricao: string;
+  confirmed_at: string | null;
+}
+
+export interface OtdrMedicao {
+  id: string;
+  momento: OtdrMomento;
+  fibra: string;
+  distancia_km: string;
+  atenuacao_db: string;
+  perda_evento_db: string;
+  observacao: string;
+}
+
+export interface OtdrLaudo {
+  id: string;
+  momento: OtdrMomento;
+  storage_path: string;
+  filename: string;
+  size_bytes: number;
+  uploaded_at: string;
+}
+
+export interface IntervencaoData {
+  contexto: {
+    descricao: string;
+    causa: string;
+    urgencia: IntervencaoUrgencia | null;
+    afetados_estimados: string;
+    inicio_interrupcao: string;
+    fim_interrupcao: string;
+    cto_codigo: string;
+  };
+  rota: {
+    pontos: IntervencaoPonto[];
+    extensao_estimada_m: string;
+    gps_tecnico: RemapGpsPoint | null;
+    meta: RemapMapMeta | null;
+    snapshot: MapSnapshotInfo | null;
+  };
+  materiais: {
+    cabo_tipo: string;
+    cabo_metros: string;
+    fusoes_qtd: string;
+    conectores_qtd: string;
+    postes_qtd: string;
+    outros: string;
+  };
+  otdr: {
+    realizado: YesNo;
+    medicoes: OtdrMedicao[];
+    laudos: OtdrLaudo[];
+  };
+  sinal: {
+    antes_dbm: string;
+    depois_dbm: string;
+    cliente_afetado: string;
+  };
+  execucao: {
+    equipe: string;
+    inicio: string;
+    fim: string;
+    concluida: YesNo;
+    pendencia: string;
+  };
+  resultado: {
+    estado: IntervencaoEstado | null;
+    observacoes: string;
+  };
+  ai_analysis?: StoredAiAnalysis | null;
+}
+
+export function emptyIntervencaoData(): IntervencaoData {
+  return {
+    contexto: {
+      descricao: "",
+      causa: "",
+      urgencia: null,
+      afetados_estimados: "",
+      inicio_interrupcao: "",
+      fim_interrupcao: "",
+      cto_codigo: "",
+    },
+    rota: {
+      pontos: [],
+      extensao_estimada_m: "",
+      gps_tecnico: null,
+      meta: null,
+      snapshot: null,
+    },
+    materiais: {
+      cabo_tipo: "",
+      cabo_metros: "",
+      fusoes_qtd: "",
+      conectores_qtd: "",
+      postes_qtd: "",
+      outros: "",
+    },
+    otdr: { realizado: null, medicoes: [], laudos: [] },
+    sinal: { antes_dbm: "", depois_dbm: "", cliente_afetado: "" },
+    execucao: { equipe: "", inicio: "", fim: "", concluida: null, pendencia: "" },
+    resultado: { estado: null, observacoes: "" },
+    ai_analysis: null,
+  };
+}
+
+export type AnyChecklistData =
+  | ChecklistData
+  | InstalacaoData
+  | RemapeamentoData
+  | IntervencaoData;
+
+export function emptyDadosFor(tipo: TipoChecklist): AnyChecklistData {
   if (tipo === "instalacao") return emptyInstalacaoData();
   if (tipo === "remapeamento_cto") return emptyRemapeamentoData();
+  if (isIntervencao(tipo)) return emptyIntervencaoData();
   return emptyChecklistData();
 }
+
 
 export type ChecklistStatus = "rascunho" | "finalizado";
 
@@ -377,7 +521,7 @@ export interface ChecklistRow {
   cto_porta: string | null;
   data_atendimento: string | null;
   hora_atendimento: string | null;
-  dados: ChecklistData | InstalacaoData | RemapeamentoData;
+  dados: AnyChecklistData;
   codigo_validacao: string | null;
   numero_publico: string | null;
   revision_number: number;
@@ -393,6 +537,8 @@ export interface ChecklistRow {
   serial_ont_instalada: string | null;
   exchange_ticket_code: string | null;
   rmap_code?: string | null;
+  intervention_code?: string | null;
+
   review_status?: "pendente" | "aprovado" | "reprovado" | null;
   review_comment?: string | null;
   reviewed_by?: string | null;
@@ -426,5 +572,25 @@ export const TIPO_LABEL: Record<TipoChecklist, string> = {
   validacao_ont: "Validação de ONT",
   instalacao: "Instalação",
   remapeamento_cto: "Remapeamento de CTO/NAP",
+  rompimento: "Rompimento de fibra",
+  readequacao: "Readequação de rede",
+  melhoria_sinal: "Melhoria de sinal",
 };
+
+/** Prefixo do código sequencial gerado no banco ao finalizar a intervenção. */
+export const INTERVENCAO_PREFIX: Record<TipoIntervencao, string> = {
+  rompimento: "RPT",
+  readequacao: "RDEA",
+  melhoria_sinal: "MSIG",
+};
+
+export const INTERVENCAO_DESCRICAO: Record<TipoIntervencao, string> = {
+  rompimento:
+    "Rota do rompimento, fusões executadas, materiais aplicados e laudo OTDR antes/depois.",
+  readequacao:
+    "Reorganização de rota, troca de cabo ou remanejamento de infraestrutura com evidência cartográfica.",
+  melhoria_sinal:
+    "Correção de atenuação: potência antes/depois, fusões e comprovação técnica do ganho.",
+};
+
 

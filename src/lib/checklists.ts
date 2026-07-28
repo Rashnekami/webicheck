@@ -3,11 +3,15 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import {
   emptyChecklistData,
   emptyInstalacaoData,
+  emptyIntervencaoData,
   emptyRemapeamentoData,
+  isIntervencao,
+  type AnyChecklistData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type IntervencaoData,
   type RemapeamentoData,
   type TipoChecklist,
 } from "./checklist-schema";
@@ -20,7 +24,7 @@ type ChecklistDbRow = Database["public"]["Tables"]["checklists"]["Row"];
 type ChecklistDbInsert = Database["public"]["Tables"]["checklists"]["Insert"];
 type ChecklistDbUpdate = Database["public"]["Tables"]["checklists"]["Update"];
 
-function checklistDataAsJson(data: ChecklistData | InstalacaoData | RemapeamentoData): Json {
+function checklistDataAsJson(data: AnyChecklistData): Json {
   return data as unknown as Json;
 }
 
@@ -86,6 +90,34 @@ function mergeRemapeamentoData(saved: Record<string, unknown>): RemapeamentoData
   } as RemapeamentoData;
 }
 
+function mergeIntervencaoData(saved: Record<string, unknown>): IntervencaoData {
+  const base = emptyIntervencaoData();
+  const rota = isRecord(saved.rota) ? saved.rota : {};
+  const otdr = isRecord(saved.otdr) ? saved.otdr : {};
+  return {
+    ...base,
+    ...saved,
+    contexto: { ...base.contexto, ...(isRecord(saved.contexto) ? saved.contexto : {}) },
+    rota: {
+      ...base.rota,
+      ...rota,
+      pontos: Array.isArray(rota.pontos) ? (rota.pontos as IntervencaoData["rota"]["pontos"]) : [],
+    },
+    materiais: { ...base.materiais, ...(isRecord(saved.materiais) ? saved.materiais : {}) },
+    otdr: {
+      ...base.otdr,
+      ...otdr,
+      medicoes: Array.isArray(otdr.medicoes)
+        ? (otdr.medicoes as IntervencaoData["otdr"]["medicoes"])
+        : [],
+      laudos: Array.isArray(otdr.laudos) ? (otdr.laudos as IntervencaoData["otdr"]["laudos"]) : [],
+    },
+    sinal: { ...base.sinal, ...(isRecord(saved.sinal) ? saved.sinal : {}) },
+    execucao: { ...base.execucao, ...(isRecord(saved.execucao) ? saved.execucao : {}) },
+    resultado: { ...base.resultado, ...(isRecord(saved.resultado) ? saved.resultado : {}) },
+  } as IntervencaoData;
+}
+
 function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
   const savedData =
@@ -95,7 +127,9 @@ function normalizeRow(row: ChecklistDbRow): ChecklistRow {
       ? mergeInstalacaoData(savedData)
       : tipo === "remapeamento_cto"
         ? mergeRemapeamentoData(savedData)
-        : mergeChecklistData(savedData);
+        : isIntervencao(tipo)
+          ? mergeIntervencaoData(savedData)
+          : mergeChecklistData(savedData);
   return { ...row, tipo, dados } as unknown as ChecklistRow;
 }
 
@@ -142,7 +176,9 @@ export async function createDraft(
       ? emptyInstalacaoData()
       : tipo === "remapeamento_cto"
         ? emptyRemapeamentoData()
-        : emptyChecklistData();
+        : isIntervencao(tipo)
+          ? emptyIntervencaoData()
+          : emptyChecklistData();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("provider_id")
@@ -182,7 +218,7 @@ export async function updateChecklist(
       | "modelo_ont_instalada"
       | "serial_ont_instalada"
     >
-  > & { dados?: ChecklistData | InstalacaoData | RemapeamentoData },
+  > & { dados?: AnyChecklistData },
 ): Promise<void> {
   const { dados, ...fields } = patch;
   const databasePatch: ChecklistDbUpdate = {

@@ -17,6 +17,8 @@ import {
   FileClock,
   Wifi,
   MapPin,
+  Zap,
+
   
 } from "lucide-react";
 
@@ -317,6 +319,14 @@ function Painel() {
               title="Remapeamentos"
               description="CTOs/NAPs remapeadas com código RMAP, mapa satélite e indicadores."
             />
+
+            <HomeNavCard
+              to="/intervencoes"
+              icon={Zap}
+              title="Intervenções de rede"
+              description="Rompimentos, readequações e melhorias de sinal com rota, OTDR e indicadores."
+            />
+
 
             <HomeNavCard
               to="/informativos"
