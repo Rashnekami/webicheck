@@ -611,6 +611,144 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                   </table>
                 </Panel>
               ) : null}
+
+              <Panel title="Dados da ocorrência">
+                <InfoGrid
+                  items={[
+                    { label: "CTO/NAP relacionada", value: inter.contexto?.cto_codigo ?? "" },
+                    {
+                      label: "Clientes afetados",
+                      value: inter.contexto?.afetados_estimados ?? "",
+                    },
+                    {
+                      label: "Início da interrupção",
+                      value: fmtDateTime(inter.contexto?.inicio_interrupcao),
+                    },
+                    {
+                      label: "Normalização",
+                      value: fmtDateTime(inter.contexto?.fim_interrupcao),
+                    },
+                  ]}
+                />
+              </Panel>
+
+              <Panel title="Materiais aplicados">
+                <InfoGrid
+                  items={[
+                    { label: "Tipo de cabo", value: inter.materiais?.cabo_tipo ?? "" },
+                    { label: "Cabo (m)", value: inter.materiais?.cabo_metros ?? "" },
+                    { label: "Fusões", value: inter.materiais?.fusoes_qtd ?? "" },
+                    { label: "Conectores", value: inter.materiais?.conectores_qtd ?? "" },
+                    { label: "Postes", value: inter.materiais?.postes_qtd ?? "" },
+                  ]}
+                />
+                {inter.materiais?.outros ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Body>{inter.materiais.outros}</Body>
+                  </div>
+                ) : null}
+              </Panel>
+
+              <Panel
+                title={`Medições OTDR${inter.otdr?.realizado === "sim" ? "" : " — ensaio não realizado"}`}
+              >
+                {(inter.otdr?.medicoes ?? []).length > 0 ? (
+                  <Table
+                    columns={[
+                      { key: "momento", label: "MOMENTO" },
+                      { key: "fibra", label: "FIBRA" },
+                      { key: "dist", label: "DIST. (KM)" },
+                      { key: "aten", label: "ATENUAÇÃO (dB)" },
+                      { key: "perda", label: "PERDA EVENTO" },
+                      { key: "obs", label: "OBS." },
+                    ]}
+                    rows={(inter.otdr?.medicoes ?? []).map((m) => ({
+                      momento: (
+                        <span style={{ color: m.momento === "antes" ? C.amber : C.green }}>
+                          {m.momento === "antes" ? "Antes" : "Depois"}
+                        </span>
+                      ),
+                      fibra: m.fibra || "—",
+                      dist: m.distancia_km || "—",
+                      aten: m.atenuacao_db || "—",
+                      perda: m.perda_evento_db || "—",
+                      obs: m.observacao || "—",
+                    }))}
+                  />
+                ) : (
+                  <Body>Nenhuma medição registrada.</Body>
+                )}
+                <Chips
+                  items={[
+                    `Laudos anexados: ${(inter.otdr?.laudos ?? []).length}`,
+                    ...(inter.otdr?.laudos ?? []).map(
+                      (l) => `${l.momento === "antes" ? "Antes" : "Depois"}: ${l.filename}`,
+                    ),
+                  ]}
+                />
+              </Panel>
+
+              <Panel title="Potência óptica">
+                <InfoGrid
+                  items={[
+                    { label: "Antes (dBm)", value: inter.sinal?.antes_dbm ?? "" },
+                    { label: "Depois (dBm)", value: inter.sinal?.depois_dbm ?? "" },
+                    {
+                      label: "Ganho apurado",
+                      value: ganho != null ? `${ganho > 0 ? "+" : ""}${ganho} dB` : "—",
+                    },
+                    { label: "Referência", value: inter.sinal?.cliente_afetado ?? "" },
+                  ]}
+                />
+              </Panel>
+
+              <Panel title="Execução e resultado">
+                <InfoGrid
+                  items={[
+                    { label: "Equipe", value: inter.execucao?.equipe ?? "" },
+                    { label: "Início", value: inter.execucao?.inicio ?? "" },
+                    { label: "Fim", value: inter.execucao?.fim ?? "" },
+                    {
+                      label: "Concluída",
+                      value:
+                        inter.execucao?.concluida === "sim"
+                          ? "Sim"
+                          : inter.execucao?.concluida === "nao"
+                            ? "Não"
+                            : "—",
+                    },
+                    { label: "Estado", value: ESTADO_LABEL[inter.resultado?.estado ?? ""] ?? "—" },
+                    { label: "Pendência", value: inter.execucao?.pendencia ?? "" },
+                  ]}
+                />
+                {inter.resultado?.observacoes ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Body>{inter.resultado.observacoes}</Body>
+                  </div>
+                ) : null}
+              </Panel>
+
+              {inter.ai_analysis ? (
+                <Panel title="Revisão consultiva por IA">
+                  <Body>Diagnóstico: {inter.ai_analysis.diagnostico_provavel}</Body>
+                  <Body>Causa raiz: {inter.ai_analysis.causa_raiz}</Body>
+                  <Body>
+                    Recomendação:{" "}
+                    {INTERVENCAO_RECOMENDACAO_LABEL[inter.ai_analysis.recomendacao] ??
+                      inter.ai_analysis.recomendacao}
+                  </Body>
+                  <Body>{inter.ai_analysis.resumo_tecnico}</Body>
+                  {inter.ai_analysis.inconsistencias?.length ? (
+                    <p style={{ color: C.amber, fontSize: 12, margin: "6px 0 0" }}>
+                      Pontos de atenção: {inter.ai_analysis.inconsistencias.join(" · ")}
+                    </p>
+                  ) : null}
+                  <div style={{ color: C.muted, fontSize: 10, marginTop: 6 }}>
+                    Gerado em {fmtDateTime(inter.ai_analysis.gerado_em)} · modelo{" "}
+                    {inter.ai_analysis.modelo_ia}
+                  </div>
+                </Panel>
+              ) : null}
             </>
           )}
 
