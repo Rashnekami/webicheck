@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { drawMarker, projectToPixel, tileGridFor } from "@/lib/map-static";
+import { blitRgba, drawMarker, projectToPixel, tileGridFor } from "@/lib/map-static";
 
 describe("map-static", () => {
   it("cobre a imagem inteira com tiles", () => {
@@ -38,5 +38,17 @@ describe("map-static", () => {
     const ring = (20 * w + 26) * 4;
     expect(buf[ring]).toBe(255);
     expect(buf[ring + 3]).toBe(255);
+  });
+}
+
+  it("compõe tiles mesmo com deslocamento fracionário", () => {
+    const w = 8;
+    const h = 8;
+    const dest = new Uint8Array(w * h * 4);
+    const src = new Uint8Array(4 * 4 * 4).fill(200);
+    blitRgba(dest, w, h, src, 4, 4, 1.7, 2.3);
+    const i = (2 * w + 2) * 4;
+    expect(dest[i]).toBe(200);
+    expect(dest[i + 3]).toBe(255);
   });
 });
