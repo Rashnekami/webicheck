@@ -230,6 +230,17 @@ function UsersPage() {
         />
       </div>
 
+      {currentUser && (
+        <CityExceptionManager
+          providerId={currentUser.provider_id}
+          currentUserId={currentUser.id}
+          technicians={(usersQuery.data ?? []).map((u) => ({
+            id: u.id,
+            full_name: u.full_name,
+          }))}
+        />
+      )}
+
       {usersQuery.isLoading && (
         <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" /> Carregando usuários…
