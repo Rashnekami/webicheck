@@ -1,7 +1,27 @@
 // Shape completo dos dados dinâmicos dos checklists (armazenados em JSONB)
 
 export type YesNo = "sim" | "nao" | null;
-export type TipoChecklist = "validacao_ont" | "instalacao" | "remapeamento_cto";
+export type TipoChecklist =
+  | "validacao_ont"
+  | "instalacao"
+  | "remapeamento_cto"
+  | "rompimento"
+  | "readequacao"
+  | "melhoria_sinal";
+
+/** Tipos que compartilham o formulário unificado de intervenção de rede. */
+export type TipoIntervencao = "rompimento" | "readequacao" | "melhoria_sinal";
+
+export const TIPOS_INTERVENCAO: TipoIntervencao[] = [
+  "rompimento",
+  "readequacao",
+  "melhoria_sinal",
+];
+
+export function isIntervencao(tipo: TipoChecklist): tipo is TipoIntervencao {
+  return (TIPOS_INTERVENCAO as string[]).includes(tipo);
+}
+
 
 export interface StoredAiAnalysis {
   diagnostico_provavel: string;
