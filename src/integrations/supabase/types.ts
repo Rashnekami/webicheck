@@ -575,6 +575,78 @@ export type Database = {
           },
         ]
       }
+      city_access_exceptions: {
+        Row: {
+          checklist_id: string | null
+          city: string
+          city_key: string | null
+          created_at: string
+          expires_at: string | null
+          granted_by: string
+          id: string
+          os: string
+          provider_id: string
+          reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          technician_id: string
+        }
+        Insert: {
+          checklist_id?: string | null
+          city: string
+          city_key?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_by: string
+          id?: string
+          os: string
+          provider_id: string
+          reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          technician_id: string
+        }
+        Update: {
+          checklist_id?: string | null
+          city?: string
+          city_key?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string
+          id?: string
+          os?: string
+          provider_id?: string
+          reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          technician_id?: string
+        }
+        Relationships: []
+      }
+      city_territories: {
+        Row: {
+          city_key: string
+          city_label: string
+          created_at: string
+          territory_code: string
+          territory_name: string
+        }
+        Insert: {
+          city_key: string
+          city_label: string
+          created_at?: string
+          territory_code: string
+          territory_name: string
+        }
+        Update: {
+          city_key?: string
+          city_label?: string
+          created_at?: string
+          territory_code?: string
+          territory_name?: string
+        }
+        Relationships: []
+      }
       customer_counterproof_events: {
         Row: {
           actor_type: string
@@ -856,6 +928,7 @@ export type Database = {
         Row: {
           active: boolean
           assinatura: string | null
+          cities_configured_at: string | null
           city: string | null
           created_at: string
           email: string
@@ -871,6 +944,7 @@ export type Database = {
         Insert: {
           active?: boolean
           assinatura?: string | null
+          cities_configured_at?: string | null
           city?: string | null
           created_at?: string
           email: string
@@ -886,6 +960,7 @@ export type Database = {
         Update: {
           active?: boolean
           assinatura?: string | null
+          cities_configured_at?: string | null
           city?: string | null
           created_at?: string
           email?: string
@@ -1061,6 +1136,30 @@ export type Database = {
           },
         ]
       }
+      user_cities: {
+        Row: {
+          city: string
+          city_key: string | null
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          city: string
+          city_key?: string | null
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          city?: string
+          city_key?: string | null
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1229,6 +1328,10 @@ export type Database = {
         Args: { _tipo: Database["public"]["Enums"]["checklist_tipo"] }
         Returns: Json
       }
+      has_city_exception: {
+        Args: { _city: string; _os: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1263,6 +1366,7 @@ export type Database = {
           report_sequence: number
         }[]
       }
+      norm_city: { Args: { _city: string }; Returns: string }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
       review_checklist: {
         Args: { _comment?: string; _decision: string; _id: string }
@@ -1285,6 +1389,11 @@ export type Database = {
         Args: { _city: string; _supervisor: string }
         Returns: boolean
       }
+      user_can_access_city: {
+        Args: { _city: string; _user_id: string }
+        Returns: boolean
+      }
+      user_territories: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc"
