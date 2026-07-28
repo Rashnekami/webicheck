@@ -39,6 +39,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { ChecklistForm } from "@/components/checklist/checklist-form";
 import { InstalacaoForm } from "@/components/checklist/instalacao-form";
 import { RemapeamentoForm } from "@/components/checklist/remapeamento-form";
+import { IntervencaoForm } from "@/components/checklist/intervencao-form";
 import {
   deleteFoto,
   finalizeChecklist,
@@ -51,15 +52,21 @@ import {
 import {
   FOTO_CATEGORIAS,
   TIPO_LABEL,
+  isIntervencao,
+  type AnyChecklistData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type IntervencaoData,
   type RemapeamentoData,
+  type TipoIntervencao,
 } from "@/lib/checklist-schema";
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
 import { generateRemapeamentoPdf } from "@/components/checklist/remapeamento-pdf";
+import { generateIntervencaoPdf } from "@/components/checklist/intervencao-pdf";
+import { IntervencaoAiCard } from "@/components/checklist/intervencao-ai-card";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-card";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
@@ -142,7 +149,7 @@ function ChecklistDetail() {
     : (ownerQuery.data?.assinatura ?? null);
 
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData | InstalacaoData | RemapeamentoData | null>(null);
+  const [data, setData] = useState<AnyChecklistData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -248,6 +255,15 @@ function ChecklistDetail() {
       const ativoOk = d.localizacao.ativo?.confirmed || !!d.localizacao.confirmada;
       if (!ativoOk) errs.push("Confirmação manual da localização da CTO no mapa");
       if (!d.splitter.tipo) errs.push("Tipo do splitter");
+    } else if (isIntervencao(tipo)) {
+      const d = data as IntervencaoData;
+      if (!d.contexto.causa) errs.push("Causa da intervenção");
+      if (!d.contexto.descricao?.trim()) errs.push("Descrição da ocorrência");
+      if (d.rota.pontos.length === 0) errs.push("Pelo menos um ponto georreferenciado no mapa");
+      if (!d.resultado.estado) errs.push("Estado final da intervenção");
+      if (tipo === "melhoria_sinal" && (!d.sinal.antes_dbm || !d.sinal.depois_dbm)) {
+        errs.push("Potência óptica antes e depois");
+      }
     }
     return errs;
   }, [header, data, tipo]);
@@ -278,6 +294,13 @@ function ChecklistDetail() {
           assinatura: tecnicoAssinatura,
           publicUrl,
           counterproof: counterproofDocument,
+        });
+      } else if (isIntervencao(tipo)) {
+        await generateIntervencaoPdf({
+          row: merged,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
+          publicUrl,
         });
       } else if (tipo === "remapeamento_cto") {
         await generateRemapeamentoPdf({
@@ -315,7 +338,7 @@ function ChecklistDetail() {
   return (
     <div
       className={
-        tipo === "instalacao"
+        tipo === "instalacao" || isIntervencao(tipo)
           ? "webi-page min-h-screen bg-[#020817] pb-24"
           : "webi-page min-h-screen pb-24"
       }
@@ -343,7 +366,9 @@ function ChecklistDetail() {
             {row.status === "finalizado" ? (
               <Badge className="bg-emerald-500/20 text-white hover:bg-emerald-500/30">
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                {(row as ChecklistRow & { rmap_code?: string | null }).rmap_code || row.codigo_validacao}
+                {row.intervention_code ||
+                  (row as ChecklistRow & { rmap_code?: string | null }).rmap_code ||
+                  row.codigo_validacao}
               </Badge>
             ) : save.isPending ? (
               <Badge className="bg-white/20 text-white">
@@ -383,6 +408,44 @@ function ChecklistDetail() {
               setDirty(true);
             }}
           />
+        ) : isIntervencao(tipo) ? (
+          <>
+            <IntervencaoForm
+              tipo={tipo as TipoIntervencao}
+              header={{
+                os: header.os ?? null,
+                cliente: header.cliente ?? null,
+                cidade: header.cidade ?? null,
+                endereco: header.endereco ?? null,
+                data_atendimento: header.data_atendimento ?? null,
+                hora_atendimento: header.hora_atendimento ?? null,
+              }}
+              data={data as IntervencaoData}
+              checklistId={row.id}
+              tecnicoId={row.tecnico_id}
+              readOnly={readOnly}
+              onHeaderChange={(patch) => {
+                setHeader((p) => ({ ...p, ...patch }));
+                setDirty(true);
+              }}
+              onDataChange={(fn) => {
+                setData((p) => fn(p as IntervencaoData));
+                setDirty(true);
+              }}
+            />
+            {row.status === "rascunho" && row.tecnico_id === user?.id && (
+              <IntervencaoAiCard
+                checklistId={id}
+                analysis={(data as IntervencaoData).ai_analysis ?? null}
+                disabled={dirty || save.isPending}
+                disabledReason={
+                  dirty || save.isPending
+                    ? "Salvando alterações... aguarde antes de solicitar a análise."
+                    : undefined
+                }
+              />
+            )}
+          </>
         ) : tipo === "remapeamento_cto" ? (
           <RemapeamentoForm
             header={{
@@ -493,6 +556,12 @@ function ChecklistDetail() {
                   <span className="text-muted-foreground">Código de validação:</span>{" "}
                   <b>{row.codigo_validacao}</b>
                 </p>
+                {row.intervention_code && (
+                  <p>
+                    <span className="text-muted-foreground">Código da intervenção:</span>{" "}
+                    <b>{row.intervention_code}</b>
+                  </p>
+                )}
                 {row.exchange_ticket_code && (
                   <p>
                     <span className="text-muted-foreground">Ticket da troca:</span>{" "}
