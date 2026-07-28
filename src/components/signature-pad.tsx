@@ -137,14 +137,20 @@ function FullscreenSignature({
     updateOrientation();
     window.requestAnimationFrame(setup);
     const prev = document.body.style.overflow;
+    const prevPointerEvents = document.body.style.pointerEvents;
+    const prevTouchAction = document.body.style.touchAction;
     const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
+    document.body.style.pointerEvents = "auto";
+    document.body.style.touchAction = "none";
     document.documentElement.style.overscrollBehavior = "none";
     window.addEventListener("resize", setup);
     window.addEventListener("resize", updateOrientation);
     window.addEventListener("orientationchange", updateOrientation);
     return () => {
       document.body.style.overflow = prev;
+      document.body.style.pointerEvents = prevPointerEvents;
+      document.body.style.touchAction = prevTouchAction;
       document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
       window.removeEventListener("resize", setup);
       window.removeEventListener("resize", updateOrientation);
@@ -188,11 +194,19 @@ function FullscreenSignature({
   }
   function onDown(e: React.PointerEvent) {
     e.preventDefault();
-    (e.target as Element).setPointerCapture(e.pointerId);
+    canvasRef.current?.setPointerCapture(e.pointerId);
     const point = pos(e);
     if (!point) return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = "rgb(15 23 42)";
+      ctx.fill();
+    }
     drawingRef.current = true;
     lastRef.current = point;
+    setHasInk(true);
   }
   function onMove(e: React.PointerEvent) {
     if (!drawingRef.current) return;
@@ -212,7 +226,7 @@ function FullscreenSignature({
   function onUp() {
     if (!drawingRef.current) return;
     drawingRef.current = false;
-    setHasInk(true);
+    lastRef.current = null;
   }
   function clear() {
     const canvas = canvasRef.current;
@@ -232,7 +246,11 @@ function FullscreenSignature({
   }
 
   const overlay = (
-    <div ref={shellRef} className="fixed inset-0 z-[2147483647] overflow-hidden bg-white">
+    <div
+      ref={shellRef}
+      className="pointer-events-auto fixed inset-0 z-[2147483647] overflow-hidden bg-white"
+      onContextMenu={(event) => event.preventDefault()}
+    >
       <div
         className={cn(
           "bg-white text-slate-950",
@@ -248,7 +266,7 @@ function FullscreenSignature({
           onPointerUp={onUp}
           onPointerCancel={onUp}
           onPointerLeave={onUp}
-          className="h-full w-full touch-none bg-white"
+          className="pointer-events-auto h-full w-full touch-none select-none bg-white"
         />
       </div>
       <Button
