@@ -271,6 +271,13 @@ function ChecklistDetail() {
           publicUrl,
           counterproof: counterproofDocument,
         });
+      } else if (tipo === "remapeamento_cto") {
+        await generateRemapeamentoPdf({
+          row: merged,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
+          publicUrl,
+        });
       } else {
         await generateChecklistPdf({
           row: merged,
