@@ -1,9 +1,32 @@
+import jpeg from "jpeg-js";
 import UPNG from "upng-js";
 
 import { blitRgba, drawMarker, projectToPixel, tileGridFor, TILE_SIZE } from "./map-static";
 
 const STATIC_TILES_BASE =
   "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1";
+/** Serviço raster de imagem aérea (satélite) do ArcGIS. */
+const IMAGERY_TILES_BASE =
+  "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile";
+
+function isImageryStyle(style: string): boolean {
+  return style.startsWith("arcgis/imagery");
+}
+
+/** Decodifica PNG (tiles vetorizados) ou JPEG (satélite) para RGBA. */
+function decodeTile(bytes: Uint8Array): { rgba: Uint8Array; width: number; height: number } {
+  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+  if (isJpeg) {
+    const img = jpeg.decode(bytes, { useTArray: true });
+    return { rgba: new Uint8Array(img.data), width: img.width, height: img.height };
+  }
+  const decoded = UPNG.decode(bytes.buffer as ArrayBuffer);
+  return {
+    rgba: new Uint8Array(UPNG.toRGBA8(decoded)[0]),
+    width: decoded.width,
+    height: decoded.height,
+  };
+}
 
 export class MapSnapshotNotConfiguredError extends Error {
   constructor() {
