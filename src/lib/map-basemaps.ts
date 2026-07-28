@@ -61,15 +61,18 @@ export function basemapStyleUrl(style: string, _token?: string | null): any {
   const satelite = style.includes("imagery");
   const hibrido = style === "arcgis/imagery";
   const sources: Record<string, unknown> = {
-    base: rasterSource(satelite ? ESRI_TILES.imagery : ESRI_TILES.streets),
+    base: satelite
+      ? rasterSource(ESRI_TILES.imagery, 18)
+      : rasterSource(ESRI_TILES.streets, 19),
   };
   const layers: Array<Record<string, unknown>> = [
     { id: "base", type: "raster", source: "base" },
   ];
   if (hibrido) {
-    sources.labels = rasterSource(ESRI_TILES.labels);
+    sources.labels = rasterSource(ESRI_TILES.labels, 16);
     layers.push({ id: "labels", type: "raster", source: "labels" });
   }
+
   return { version: 8, sources, layers };
 }
 
