@@ -31,6 +31,7 @@ import {
 } from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 import { listProviderSupervisors } from "@/lib/supervisor.functions";
+import { CityExceptionManager } from "@/components/admin/city-exception-manager";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
