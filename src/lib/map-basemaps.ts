@@ -34,15 +34,22 @@ const ESRI_TILES = {
     "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
 };
 
-function rasterSource(url: string) {
+/**
+ * `maxzoom` marca até onde o serviço realmente tem tiles. Acima disso o
+ * MapLibre reamostra (overzoom) o último nível disponível em vez de pedir
+ * tiles inexistentes — era isso que gerava o retângulo cinza
+ * "Map data not yet available" ao aproximar/centralizar no GPS.
+ */
+function rasterSource(url: string, maxzoom: number) {
   return {
     type: "raster" as const,
     tiles: [url],
     tileSize: 256,
-    maxzoom: 19,
+    maxzoom,
     attribution: MAP_ATTRIBUTION_NOTE,
   };
 }
+
 
 /**
  * Estilo MapLibre gerado localmente a partir dos serviços raster públicos da
