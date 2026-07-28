@@ -87,9 +87,14 @@ export function blitRgba(
   src: Uint8Array,
   srcW: number,
   srcH: number,
-  dx: number,
-  dy: number,
+  dxRaw: number,
+  dyRaw: number,
 ) {
+  // dx/dy chegam fracionários (o centro raramente cai na borda de um tile).
+  // Índices fracionários em TypedArray são descartados silenciosamente, o que
+  // deixava o mosaico todo preto — por isso arredondamos aqui.
+  const dx = Math.round(dxRaw);
+  const dy = Math.round(dyRaw);
   for (let y = 0; y < srcH; y++) {
     const ty = dy + y;
     if (ty < 0 || ty >= destH) continue;
