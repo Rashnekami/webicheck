@@ -6,12 +6,12 @@ import {
   BASEMAP_OPTIONS,
   DEFAULT_BASEMAP_MODE,
   MAP_ATTRIBUTION_NOTE,
-  arcgisBrowserKey,
   basemapModeForStyle,
   basemapStyleFor,
   basemapStyleUrl,
   type BasemapMode,
 } from "@/lib/map-basemaps";
+import { useArcgisBrowserKey } from "@/lib/use-arcgis-key";
 
 type Point = { lat: number; lng: number };
 
@@ -50,7 +50,7 @@ export function MapPicker({
   ativoLabel = "CTO",
   onConfirm,
 }: Props) {
-  const apiKey = arcgisBrowserKey();
+  const { key: apiKey, loading: keyLoading } = useArcgisBrowserKey();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const ativoMarkerRef = useRef<any>(null);
@@ -86,7 +86,10 @@ export function MapPicker({
           center: [initialTarget.lng, initialTarget.lat],
           zoom: 18,
           maxZoom: 22,
-          attributionControl: false,
+          attributionControl: {
+            compact: true,
+            customAttribution: MAP_ATTRIBUTION_NOTE,
+          },
         });
         mapRef.current = map;
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
@@ -161,11 +164,17 @@ export function MapPicker({
     setMoved(false);
   };
 
+  if (!apiKey && keyLoading) {
+    return (
+      <div className="h-80 w-full animate-pulse rounded-xl border border-blue-500/30 bg-[#041126]" />
+    );
+  }
+
   if (!apiKey) {
     return (
       <div className="space-y-2 rounded-xl border border-amber-500/40 bg-[#041126] p-3 text-sm text-slate-300">
         <p className="text-amber-200">
-          Mapa indisponível: configure <code>VITE_ARCGIS_API_KEY</code>. Informe as coordenadas
+          Mapa indisponível: configure <code>ARCGIS_WEB_API_KEY</code>. Informe as coordenadas
           manualmente enquanto isso.
         </p>
         <div className="grid grid-cols-2 gap-2">
