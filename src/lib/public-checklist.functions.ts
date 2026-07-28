@@ -38,6 +38,18 @@ export interface PublicSnapshotView {
   latest_public_token: string | null;
   latest_checklist_code: string | null;
   latest_revision_number: number | null;
+  /** Evidências fotográficas (URLs assinadas) para documentos de rede. */
+  fotos: PublicFoto[];
+  /** Evidência cartográfica assinada (remapeamento / intervenções). */
+  map_url: string | null;
+}
+
+export interface PublicFoto {
+  id: string;
+  categoria: string;
+  label: string;
+  legenda: string | null;
+  uri: string;
 }
 
 export interface AdminSnapshotSummary {
@@ -286,6 +298,8 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
       latest_public_token: null,
       latest_checklist_code: null,
       latest_revision_number: null,
+      fotos: [],
+      map_url: null,
     };
 
     const token = (data.token ?? "").trim();
@@ -412,7 +426,86 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
         latest_public_token,
         latest_checklist_code,
         latest_revision_number,
+        fotos: [],
+        map_url: null,
       };
+    }
+
+    const payload = snap.snapshot_data as unknown as SnapshotPayload;
+    let fotos: PublicFoto[] = [];
+    let map_url: string | null = null;
+
+    try {
+      const { data: chk } = await supabaseAdmin
+        .from("checklists")
+        .select("tipo, dados")
+        .eq("id", snap.checklist_id)
+        .maybeSingle();
+
+      // Snapshots antigos podem não ter gravado o tipo — usa o da linha real
+      // para que o documento público use o modelo correspondente.
+      if (chk?.tipo) payload.tipo = chk.tipo as SnapshotPayload["tipo"];
+
+      const tipo = payload.tipo;
+      const isRede =
+        tipo === "remapeamento_cto" ||
+        tipo === "rompimento" ||
+        tipo === "readequacao" ||
+        tipo === "melhoria_sinal";
+
+      if (isRede) {
+        const PUBLIC_FOTO_LABEL: Record<string, string> = {
+          etiqueta: "Etiqueta",
+          leds: "LEDs",
+          fonte: "Fonte",
+          teste_cabeado: "Teste cabeado",
+          teste_wifi: "Teste Wi-Fi",
+          antes: "Antes da intervenção",
+          depois: "Depois da intervenção",
+          outro: "Outro",
+        };
+        const dados = (chk?.dados ?? payload.dados ?? {}) as Record<string, any>;
+        if (!payload.dados || Object.keys(payload.dados).length === 0) {
+          payload.dados = dados as SnapshotPayload["dados"];
+        }
+        const snapshotPath =
+          tipo === "remapeamento_cto"
+            ? (dados?.localizacao?.snapshot?.snapshot_path ?? null)
+            : (dados?.rota?.snapshot?.snapshot_path ?? null);
+        if (snapshotPath) {
+          const signed = await supabaseAdmin.storage
+            .from("map-snapshots")
+            .createSignedUrl(snapshotPath, 3600);
+          map_url = signed.data?.signedUrl ?? null;
+        }
+
+        const { data: fotoRows } = await supabaseAdmin
+          .from("checklist_fotos")
+          .select("id, categoria, legenda, storage_path, created_at")
+          .eq("checklist_id", snap.checklist_id)
+          .order("created_at", { ascending: true });
+
+        const weight = (c: string) => (c === "antes" ? 0 : c === "depois" ? 1 : 2);
+        const ordered = [...(fotoRows ?? [])].sort((a, b) => weight(a.categoria) - weight(b.categoria));
+        const signedFotos = await Promise.all(
+          ordered.map(async (f) => {
+            const signed = await supabaseAdmin.storage
+              .from("evidencias")
+              .createSignedUrl(f.storage_path, 3600);
+            if (!signed.data?.signedUrl) return null;
+            return {
+              id: f.id,
+              categoria: f.categoria as string,
+              label: PUBLIC_FOTO_LABEL[f.categoria as string] ?? "Evidência",
+              legenda: f.legenda,
+              uri: signed.data.signedUrl,
+            } satisfies PublicFoto;
+          }),
+        );
+        fotos = signedFotos.filter((f): f is PublicFoto => f !== null);
+      }
+    } catch (e) {
+      console.warn("public evidence resolve failed", e);
     }
 
     return {
@@ -421,9 +514,11 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
       finalized_at: snap.finalized_at,
       document_hash: snap.document_hash,
       short_hash: shortHash,
-      payload: snap.snapshot_data as unknown as SnapshotPayload,
+      payload,
       latest_public_token,
       latest_checklist_code,
       latest_revision_number,
+      fotos,
+      map_url,
     };
   });
