@@ -301,6 +301,7 @@ function ChecklistDetail() {
           tecnicoNome,
           assinatura: tecnicoAssinatura,
           publicUrl,
+          fotos: fotosQuery.data ?? [],
         });
       } else if (tipo === "remapeamento_cto") {
         await generateRemapeamentoPdf({
@@ -308,6 +309,7 @@ function ChecklistDetail() {
           tecnicoNome,
           assinatura: tecnicoAssinatura,
           publicUrl,
+          fotos: fotosQuery.data ?? [],
         });
       } else {
         await generateChecklistPdf({
@@ -433,6 +435,15 @@ function ChecklistDetail() {
                 setDirty(true);
               }}
             />
+            <FotosSection
+              checklistId={id}
+              tecnicoId={row.tecnico_id}
+              readOnly={readOnly}
+              canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
+              fotos={fotosQuery.data ?? []}
+              categorias={FOTO_CATEGORIAS_REDE}
+              titulo="Evidências fotográficas (antes e depois)"
+            />
             {row.status === "rascunho" && row.tecnico_id === user?.id && (
               <IntervencaoAiCard
                 checklistId={id}
@@ -468,6 +479,17 @@ function ChecklistDetail() {
               setData((p) => fn(p as RemapeamentoData));
               setDirty(true);
             }}
+          />
+        ) : null}
+        {tipo === "remapeamento_cto" ? (
+          <FotosSection
+            checklistId={id}
+            tecnicoId={row.tecnico_id}
+            readOnly={readOnly}
+            canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
+            fotos={fotosQuery.data ?? []}
+            categorias={FOTO_CATEGORIAS_REDE}
+            titulo="Evidências fotográficas da CTO (antes e depois)"
           />
         ) : (
           <>
@@ -535,6 +557,7 @@ function ChecklistDetail() {
               isAdmin={!!user?.isAdmin}
               onDownloadPdf={handlePdf}
               pdfBusy={pdfBusy}
+              fotos={fotosQuery.data ?? []}
             />
 
             <CaseRevisionsPanel
@@ -682,15 +705,19 @@ function FotosSection({
   readOnly,
   canDelete,
   fotos,
+  categorias = FOTO_CATEGORIAS,
+  titulo = "Fotos de evidência",
 }: {
   checklistId: string;
   tecnicoId: string;
   readOnly: boolean;
   canDelete: boolean;
   fotos: FotoRow[];
+  categorias?: { value: FotoRow["categoria"]; label: string }[];
+  titulo?: string;
 }) {
   const qc = useQueryClient();
-  const [cat, setCat] = useState<FotoRow["categoria"]>("etiqueta");
+  const [cat, setCat] = useState<FotoRow["categoria"]>(categorias[0]?.value ?? "etiqueta");
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -717,7 +744,7 @@ function FotosSection({
     <Card>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">Fotos de evidência</h3>
+          <h3 className="text-base font-semibold">{titulo}</h3>
           <span className="text-xs text-muted-foreground">
             {fotos.length} anexada{fotos.length === 1 ? "" : "s"}
           </span>
@@ -732,7 +759,7 @@ function FotosSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FOTO_CATEGORIAS.map((c) => (
+                  {categorias.map((c) => (
                     <SelectItem key={c.value} value={c.value}>
                       {c.label}
                     </SelectItem>
