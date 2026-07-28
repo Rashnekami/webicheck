@@ -12,14 +12,14 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active, city, provider_id, platform_admin")
+      .select("active, city, provider_id, platform_admin, cities_configured_at")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
     }
-    if (!profile.city?.trim() || !profile.provider_id) {
+    if (!profile.provider_id || !profile.cities_configured_at) {
       throw redirect({ to: "/completar-cadastro" });
     }
     const { data: provider } = await supabase
