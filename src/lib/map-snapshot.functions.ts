@@ -96,7 +96,7 @@ export const generateMapSnapshot = createServerFn({ method: "POST" })
     };
     const { error: updateError } = await supabaseAdmin
       .from("checklists")
-      .update({ dados: nextDados })
+      .update({ dados: nextDados as unknown as Record<string, never> })
       .eq("id", row.id);
     if (updateError) throw new Error(`Falha ao gravar snapshot no checklist: ${updateError.message}`);
 
