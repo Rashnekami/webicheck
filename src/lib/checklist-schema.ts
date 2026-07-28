@@ -212,8 +212,87 @@ export function emptyInstalacaoData(): InstalacaoData {
 }
 
 
-export function emptyDadosFor(tipo: TipoChecklist): ChecklistData | InstalacaoData {
-  return tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+// -------- Remapeamento de CTO/NAP --------
+export type SplitterKind = "1x4" | "1x8" | "1x16" | "outro";
+export type RemapPortStatus = "ocupada" | "livre" | "nao_identificado";
+
+export interface RemapGpsPoint {
+  lat: number;
+  lng: number;
+  accuracy_m?: number | null;
+  captured_at?: string | null;
+}
+
+export interface RemapPort {
+  numero: number;
+  cor: string; // slug da cor, ex: "azul"
+  cor_custom?: string | null;
+  status: RemapPortStatus;
+  cliente?: string;
+  cliente_id?: string;
+  potencia_dbm?: string; // string para permitir vazio/decimal com vírgula
+}
+
+export interface RemapFusaoItem {
+  fibra: string;
+  motivo: string;
+  antes_dbm: string;
+  depois_dbm: string;
+}
+
+export interface RemapeamentoData {
+  identificacao: {
+    setor: string;
+    cto_codigo: string;
+  };
+  localizacao: {
+    gps_original: RemapGpsPoint | null;
+    confirmada: { lat: number; lng: number } | null;
+    distancia_m: number | null;
+  };
+  splitter: {
+    tipo: SplitterKind | null;
+    tipo_outro: string;
+    potencia_entrada_dbm: string;
+  };
+  alimentacao: {
+    cabo: string;
+    tubo: string;
+    fibra: string;
+    cor_fibra: string;
+    origem: string;
+    observacao: string;
+  };
+  portas: RemapPort[];
+  fusao: {
+    necessaria: YesNo;
+    itens: RemapFusaoItem[];
+  };
+  resultado: {
+    estado: "sim" | "parcialmente" | null;
+    pendencia: string;
+  };
+}
+
+export function emptyRemapeamentoData(): RemapeamentoData {
+  return {
+    identificacao: { setor: "", cto_codigo: "" },
+    localizacao: { gps_original: null, confirmada: null, distancia_m: null },
+    splitter: { tipo: null, tipo_outro: "", potencia_entrada_dbm: "" },
+    alimentacao: { cabo: "", tubo: "", fibra: "", cor_fibra: "", origem: "", observacao: "" },
+    portas: [],
+    fusao: { necessaria: null, itens: [] },
+    resultado: { estado: null, pendencia: "" },
+  };
+}
+
+
+export function emptyDadosFor(
+  tipo: TipoChecklist,
+): ChecklistData | InstalacaoData | RemapeamentoData {
+  if (tipo === "instalacao") return emptyInstalacaoData();
+  if (tipo === "remapeamento_cto") return emptyRemapeamentoData();
+  return emptyChecklistData();
 }
 
 export type ChecklistStatus = "rascunho" | "finalizado";
@@ -233,7 +312,7 @@ export interface ChecklistRow {
   cto_porta: string | null;
   data_atendimento: string | null;
   hora_atendimento: string | null;
-  dados: ChecklistData | InstalacaoData;
+  dados: ChecklistData | InstalacaoData | RemapeamentoData;
   codigo_validacao: string | null;
   numero_publico: string | null;
   revision_number: number;
@@ -280,4 +359,6 @@ export const FOTO_CATEGORIAS: {
 export const TIPO_LABEL: Record<TipoChecklist, string> = {
   validacao_ont: "Validação de ONT",
   instalacao: "Instalação",
+  remapeamento_cto: "Remapeamento de CTO/NAP",
 };
+
