@@ -570,5 +570,25 @@ export const TIPO_LABEL: Record<TipoChecklist, string> = {
   validacao_ont: "Validação de ONT",
   instalacao: "Instalação",
   remapeamento_cto: "Remapeamento de CTO/NAP",
+  rompimento: "Rompimento de fibra",
+  readequacao: "Readequação de rede",
+  melhoria_sinal: "Melhoria de sinal",
 };
+
+/** Prefixo do código sequencial gerado no banco ao finalizar a intervenção. */
+export const INTERVENCAO_PREFIX: Record<TipoIntervencao, string> = {
+  rompimento: "RPT",
+  readequacao: "RDEA",
+  melhoria_sinal: "MSIG",
+};
+
+export const INTERVENCAO_DESCRICAO: Record<TipoIntervencao, string> = {
+  rompimento:
+    "Rota do rompimento, fusões executadas, materiais aplicados e laudo OTDR antes/depois.",
+  readequacao:
+    "Reorganização de rota, troca de cabo ou remanejamento de infraestrutura com evidência cartográfica.",
+  melhoria_sinal:
+    "Correção de atenuação: potência antes/depois, fusões e comprovação técnica do ganho.",
+};
+
 
