@@ -22,6 +22,7 @@ import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authen
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedIntervencoesRouteImport } from './routes/_authenticated/intervencoes'
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -99,6 +100,12 @@ const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   path: '/painel',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedIntervencoesRoute =
+  AuthenticatedIntervencoesRouteImport.update({
+    id: '/intervencoes',
+    path: '/intervencoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedIntegracoesRoute =
   AuthenticatedIntegracoesRouteImport.update({
     id: '/integracoes',
@@ -173,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
+  '/intervencoes': typeof AuthenticatedIntervencoesRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
@@ -198,6 +206,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
+  '/intervencoes': typeof AuthenticatedIntervencoesRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
@@ -225,6 +234,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
+  '/_authenticated/intervencoes': typeof AuthenticatedIntervencoesRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/informativos'
     | '/integracoes'
+    | '/intervencoes'
     | '/painel'
     | '/plataforma'
     | '/provedor'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/informativos'
     | '/integracoes'
+    | '/intervencoes'
     | '/painel'
     | '/plataforma'
     | '/provedor'
@@ -303,6 +315,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/informativos'
     | '/_authenticated/integracoes'
+    | '/_authenticated/intervencoes'
     | '/_authenticated/painel'
     | '/_authenticated/plataforma'
     | '/_authenticated/provedor'
@@ -430,6 +443,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPainelRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/intervencoes': {
+      id: '/_authenticated/intervencoes'
+      path: '/intervencoes'
+      fullPath: '/intervencoes'
+      preLoaderRoute: typeof AuthenticatedIntervencoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/integracoes': {
       id: '/_authenticated/integracoes'
       path: '/integracoes'
@@ -514,6 +534,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
+  AuthenticatedIntervencoesRoute: typeof AuthenticatedIntervencoesRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
@@ -528,6 +549,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
+  AuthenticatedIntervencoesRoute: AuthenticatedIntervencoesRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
