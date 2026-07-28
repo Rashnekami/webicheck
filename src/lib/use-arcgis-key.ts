@@ -11,6 +11,13 @@ import { arcgisBrowserKey } from "@/lib/map-basemaps";
 let cached: string | null | undefined;
 let inflight: Promise<string | null> | null = null;
 
+/**
+ * Os basemaps agora usam serviços raster públicos da Esri, que não exigem
+ * token. Mantemos este hook (e o valor sentinela) para não quebrar os
+ * componentes que aguardavam a chave antes de montar o mapa.
+ */
+const PUBLIC_SENTINEL = "public";
+
 function loadKey(): Promise<string | null> {
   const envKey = arcgisBrowserKey();
   if (envKey) {
@@ -21,12 +28,12 @@ function loadKey(): Promise<string | null> {
   if (!inflight) {
     inflight = arcgisWebKey()
       .then((res) => {
-        cached = res?.key ?? null;
+        cached = res?.key ?? PUBLIC_SENTINEL;
         return cached;
       })
       .catch(() => {
-        cached = null;
-        return null;
+        cached = PUBLIC_SENTINEL;
+        return cached;
       })
       .finally(() => {
         inflight = null;
@@ -34,6 +41,7 @@ function loadKey(): Promise<string | null> {
   }
   return inflight;
 }
+
 
 export function useArcgisBrowserKey(): { key: string | null; loading: boolean } {
   const [key, setKey] = useState<string | null>(cached ?? null);
