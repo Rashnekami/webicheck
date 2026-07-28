@@ -294,15 +294,16 @@ function ChecklistsList() {
       </main>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Qual checklist você quer preencher?</DialogTitle>
             <DialogDescription>
               Escolha o tipo de atendimento. Cada modelo tem seus próprios campos e gera um PDF
               específico.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="-mx-1 grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain px-1 pb-1 sm:grid-cols-3">
+
             <button
               type="button"
               disabled={create.isPending}
