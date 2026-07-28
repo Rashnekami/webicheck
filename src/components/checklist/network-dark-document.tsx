@@ -10,6 +10,7 @@ import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fiber
 import {
   CAUSA_OPCOES,
   ESTADO_LABEL,
+  INTERVENCAO_RECOMENDACAO_LABEL,
   PONTO_LABEL,
   URGENCIA_LABEL,
   routeLengthMeters,
@@ -75,6 +76,12 @@ function fmtDate(value?: unknown) {
   return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString("pt-BR");
 }
 
+function fmtDateTime(value?: unknown) {
+  if (!value) return "—";
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("pt-BR");
+}
+
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section
@@ -86,9 +93,91 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
         marginTop: 12,
       }}
     >
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text }}>{title}</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          style={{
+            display: "inline-block",
+            width: 4,
+            height: 16,
+            borderRadius: 4,
+            background: C.cyan,
+          }}
+        />
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text }}>{title}</h3>
+      </div>
       <div style={{ marginTop: 10 }}>{children}</div>
     </section>
+  );
+}
+
+/** Tabela genérica em tema dark, espelhando o layout dos PDFs. */
+function Table({
+  columns,
+  rows,
+}: {
+  columns: { key: string; label: string; width?: string; align?: "left" | "right" }[];
+  rows: Record<string, React.ReactNode>[];
+}) {
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+      <thead>
+        <tr style={{ color: C.muted, textAlign: "left" }}>
+          {columns.map((c) => (
+            <th
+              key={c.key}
+              style={{
+                padding: "4px 2px",
+                width: c.width,
+                textAlign: c.align ?? "left",
+                fontSize: 10,
+                letterSpacing: 0.5,
+              }}
+            >
+              {c.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i} style={{ borderTop: "1px solid #12335c" }}>
+            {columns.map((c) => (
+              <td key={c.key} style={{ padding: "5px 2px", textAlign: c.align ?? "left" }}>
+                {r[c.key] ?? "—"}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Chips({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+      {items.map((t, i) => (
+        <span
+          key={i}
+          style={{
+            border: `1px solid ${C.border}`,
+            borderRadius: 999,
+            padding: "2px 8px",
+            fontSize: 10,
+            color: C.muted,
+          }}
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Body({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ color: C.text, fontSize: 12, margin: "0 0 4px", lineHeight: 1.5 }}>{children}</p>
   );
 }
 
@@ -400,6 +489,70 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                   </tbody>
                 </table>
               </Panel>
+
+              <Panel title="Alimentação da CTO">
+                <InfoGrid
+                  items={[
+                    { label: "Cabo", value: remap.alimentacao?.cabo ?? "" },
+                    { label: "Tubo", value: remap.alimentacao?.tubo ?? "" },
+                    { label: "Fibra", value: remap.alimentacao?.fibra ?? "" },
+                    { label: "Cor da fibra", value: remap.alimentacao?.cor_fibra ?? "" },
+                  ]}
+                />
+                {remap.alimentacao?.origem ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Body>Origem: {remap.alimentacao.origem}</Body>
+                  </div>
+                ) : null}
+                {remap.alimentacao?.observacao ? <Body>{remap.alimentacao.observacao}</Body> : null}
+              </Panel>
+
+              <Panel title="Fusões realizadas">
+                {(remap.fusao?.itens ?? []).length > 0 ? (
+                  <Table
+                    columns={[
+                      { key: "fibra", label: "FIBRA" },
+                      { key: "motivo", label: "MOTIVO" },
+                      { key: "antes", label: "ANTES (dBm)", align: "right" },
+                      { key: "depois", label: "DEPOIS (dBm)", align: "right" },
+                    ]}
+                    rows={(remap.fusao?.itens ?? []).map((f) => ({
+                      fibra: f.fibra || "—",
+                      motivo: f.motivo || "—",
+                      antes: f.antes_dbm || "—",
+                      depois: f.depois_dbm || "—",
+                    }))}
+                  />
+                ) : (
+                  <Body>
+                    {remap.fusao?.necessaria === "nao"
+                      ? "Nenhuma fusão necessária."
+                      : "Nenhuma fusão registrada."}
+                  </Body>
+                )}
+              </Panel>
+
+              <Panel title="Resultado do remapeamento">
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: remap.resultado?.estado === "sim" ? C.green : C.amber,
+                  }}
+                >
+                  {remap.resultado?.estado === "sim"
+                    ? "CTO remapeada integralmente."
+                    : remap.resultado?.estado === "parcialmente"
+                      ? "CTO remapeada parcialmente."
+                      : "Resultado não informado."}
+                </p>
+                {remap.resultado?.pendencia ? (
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>
+                    Pendências: {remap.resultado.pendencia}
+                  </div>
+                ) : null}
+              </Panel>
             </>
           ) : (
             <>
@@ -456,6 +609,144 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                       ))}
                     </tbody>
                   </table>
+                </Panel>
+              ) : null}
+
+              <Panel title="Dados da ocorrência">
+                <InfoGrid
+                  items={[
+                    { label: "CTO/NAP relacionada", value: inter.contexto?.cto_codigo ?? "" },
+                    {
+                      label: "Clientes afetados",
+                      value: inter.contexto?.afetados_estimados ?? "",
+                    },
+                    {
+                      label: "Início da interrupção",
+                      value: fmtDateTime(inter.contexto?.inicio_interrupcao),
+                    },
+                    {
+                      label: "Normalização",
+                      value: fmtDateTime(inter.contexto?.fim_interrupcao),
+                    },
+                  ]}
+                />
+              </Panel>
+
+              <Panel title="Materiais aplicados">
+                <InfoGrid
+                  items={[
+                    { label: "Tipo de cabo", value: inter.materiais?.cabo_tipo ?? "" },
+                    { label: "Cabo (m)", value: inter.materiais?.cabo_metros ?? "" },
+                    { label: "Fusões", value: inter.materiais?.fusoes_qtd ?? "" },
+                    { label: "Conectores", value: inter.materiais?.conectores_qtd ?? "" },
+                    { label: "Postes", value: inter.materiais?.postes_qtd ?? "" },
+                  ]}
+                />
+                {inter.materiais?.outros ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Body>{inter.materiais.outros}</Body>
+                  </div>
+                ) : null}
+              </Panel>
+
+              <Panel
+                title={`Medições OTDR${inter.otdr?.realizado === "sim" ? "" : " — ensaio não realizado"}`}
+              >
+                {(inter.otdr?.medicoes ?? []).length > 0 ? (
+                  <Table
+                    columns={[
+                      { key: "momento", label: "MOMENTO" },
+                      { key: "fibra", label: "FIBRA" },
+                      { key: "dist", label: "DIST. (KM)" },
+                      { key: "aten", label: "ATENUAÇÃO (dB)" },
+                      { key: "perda", label: "PERDA EVENTO" },
+                      { key: "obs", label: "OBS." },
+                    ]}
+                    rows={(inter.otdr?.medicoes ?? []).map((m) => ({
+                      momento: (
+                        <span style={{ color: m.momento === "antes" ? C.amber : C.green }}>
+                          {m.momento === "antes" ? "Antes" : "Depois"}
+                        </span>
+                      ),
+                      fibra: m.fibra || "—",
+                      dist: m.distancia_km || "—",
+                      aten: m.atenuacao_db || "—",
+                      perda: m.perda_evento_db || "—",
+                      obs: m.observacao || "—",
+                    }))}
+                  />
+                ) : (
+                  <Body>Nenhuma medição registrada.</Body>
+                )}
+                <Chips
+                  items={[
+                    `Laudos anexados: ${(inter.otdr?.laudos ?? []).length}`,
+                    ...(inter.otdr?.laudos ?? []).map(
+                      (l) => `${l.momento === "antes" ? "Antes" : "Depois"}: ${l.filename}`,
+                    ),
+                  ]}
+                />
+              </Panel>
+
+              <Panel title="Potência óptica">
+                <InfoGrid
+                  items={[
+                    { label: "Antes (dBm)", value: inter.sinal?.antes_dbm ?? "" },
+                    { label: "Depois (dBm)", value: inter.sinal?.depois_dbm ?? "" },
+                    {
+                      label: "Ganho apurado",
+                      value: ganho != null ? `${ganho > 0 ? "+" : ""}${ganho} dB` : "—",
+                    },
+                    { label: "Referência", value: inter.sinal?.cliente_afetado ?? "" },
+                  ]}
+                />
+              </Panel>
+
+              <Panel title="Execução e resultado">
+                <InfoGrid
+                  items={[
+                    { label: "Equipe", value: inter.execucao?.equipe ?? "" },
+                    { label: "Início", value: inter.execucao?.inicio ?? "" },
+                    { label: "Fim", value: inter.execucao?.fim ?? "" },
+                    {
+                      label: "Concluída",
+                      value:
+                        inter.execucao?.concluida === "sim"
+                          ? "Sim"
+                          : inter.execucao?.concluida === "nao"
+                            ? "Não"
+                            : "—",
+                    },
+                    { label: "Estado", value: ESTADO_LABEL[inter.resultado?.estado ?? ""] ?? "—" },
+                    { label: "Pendência", value: inter.execucao?.pendencia ?? "" },
+                  ]}
+                />
+                {inter.resultado?.observacoes ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Body>{inter.resultado.observacoes}</Body>
+                  </div>
+                ) : null}
+              </Panel>
+
+              {inter.ai_analysis ? (
+                <Panel title="Revisão consultiva por IA">
+                  <Body>Diagnóstico: {inter.ai_analysis.diagnostico_provavel}</Body>
+                  <Body>Causa raiz: {inter.ai_analysis.causa_raiz}</Body>
+                  <Body>
+                    Recomendação:{" "}
+                    {INTERVENCAO_RECOMENDACAO_LABEL[inter.ai_analysis.recomendacao] ??
+                      inter.ai_analysis.recomendacao}
+                  </Body>
+                  <Body>{inter.ai_analysis.resumo_tecnico}</Body>
+                  {inter.ai_analysis.inconsistencias?.length ? (
+                    <p style={{ color: C.amber, fontSize: 12, margin: "6px 0 0" }}>
+                      Pontos de atenção: {inter.ai_analysis.inconsistencias.join(" · ")}
+                    </p>
+                  ) : null}
+                  <div style={{ color: C.muted, fontSize: 10, marginTop: 6 }}>
+                    Gerado em {fmtDateTime(inter.ai_analysis.gerado_em)} · modelo{" "}
+                    {inter.ai_analysis.modelo_ia}
+                  </div>
                 </Panel>
               ) : null}
             </>
