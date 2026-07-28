@@ -537,6 +537,8 @@ export interface ChecklistRow {
   serial_ont_instalada: string | null;
   exchange_ticket_code: string | null;
   rmap_code?: string | null;
+  intervention_code?: string | null;
+
   review_status?: "pendente" | "aprovado" | "reprovado" | null;
   review_comment?: string | null;
   reviewed_by?: string | null;
