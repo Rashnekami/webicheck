@@ -76,6 +76,12 @@ function fmtDate(value?: unknown) {
   return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString("pt-BR");
 }
 
+function fmtDateTime(value?: unknown) {
+  if (!value) return "—";
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString("pt-BR");
+}
+
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section
@@ -87,9 +93,91 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
         marginTop: 12,
       }}
     >
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text }}>{title}</h3>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          style={{
+            display: "inline-block",
+            width: 4,
+            height: 16,
+            borderRadius: 4,
+            background: C.cyan,
+          }}
+        />
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: C.text }}>{title}</h3>
+      </div>
       <div style={{ marginTop: 10 }}>{children}</div>
     </section>
+  );
+}
+
+/** Tabela genérica em tema dark, espelhando o layout dos PDFs. */
+function Table({
+  columns,
+  rows,
+}: {
+  columns: { key: string; label: string; width?: string; align?: "left" | "right" }[];
+  rows: Record<string, React.ReactNode>[];
+}) {
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+      <thead>
+        <tr style={{ color: C.muted, textAlign: "left" }}>
+          {columns.map((c) => (
+            <th
+              key={c.key}
+              style={{
+                padding: "4px 2px",
+                width: c.width,
+                textAlign: c.align ?? "left",
+                fontSize: 10,
+                letterSpacing: 0.5,
+              }}
+            >
+              {c.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i} style={{ borderTop: "1px solid #12335c" }}>
+            {columns.map((c) => (
+              <td key={c.key} style={{ padding: "5px 2px", textAlign: c.align ?? "left" }}>
+                {r[c.key] ?? "—"}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Chips({ items }: { items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+      {items.map((t, i) => (
+        <span
+          key={i}
+          style={{
+            border: `1px solid ${C.border}`,
+            borderRadius: 999,
+            padding: "2px 8px",
+            fontSize: 10,
+            color: C.muted,
+          }}
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Body({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ color: C.text, fontSize: 12, margin: "0 0 4px", lineHeight: 1.5 }}>{children}</p>
   );
 }
 
