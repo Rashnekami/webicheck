@@ -169,6 +169,8 @@ function ValidarPage() {
             publicUrl={publicUrl}
             shortHash={data.short_hash}
             version={data.version}
+            fotos={data.fotos ?? []}
+            mapUrl={data.map_url ?? null}
           />
         </div>
 
