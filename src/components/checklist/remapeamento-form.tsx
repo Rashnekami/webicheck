@@ -152,9 +152,11 @@ export function RemapeamentoForm({
           accuracy_m: Math.round(pos.coords.accuracy ?? 0),
           captured_at: new Date().toISOString(),
         };
+        // O GPS registra apenas a posição do TÉCNICO e centraliza o mapa.
+        // A localização do ativo (CTO) nunca é preenchida automaticamente.
         onDataChange((p) => ({
           ...p,
-          localizacao: { ...p.localizacao, gps_original: gps, confirmada: p.localizacao.confirmada ?? { lat: gps.lat, lng: gps.lng } },
+          localizacao: { ...p.localizacao, gps_original: gps },
         }));
         setCapturing(false);
       },
@@ -166,23 +168,39 @@ export function RemapeamentoForm({
     );
   };
 
-  const confirmMarker = (lat: number, lng: number) => {
+  const confirmMarker = (lat: number, lng: number, meta: MapConfirmMeta) => {
     onDataChange((p) => {
-      const distancia =
-        p.localizacao.gps_original
-          ? haversineMeters(p.localizacao.gps_original, { lat, lng })
-          : null;
+      const distancia = p.localizacao.gps_original
+        ? haversineMeters(p.localizacao.gps_original, { lat, lng })
+        : null;
+      const agora = new Date().toISOString();
       return {
         ...p,
         localizacao: {
           ...p.localizacao,
+          ativo: {
+            tipo: "CTO",
+            lat,
+            lng,
+            confirmed: true,
+            confirmed_at: agora,
+            confirmed_by: tecnicoId ?? null,
+          },
+          meta: {
+            map_provider: "arcgis",
+            map_engine: "maplibre",
+            basemap_style: meta.basemap_style,
+            zoom: meta.zoom,
+            gps_accuracy_m: p.localizacao.gps_original?.accuracy_m ?? null,
+            distancia_tecnico_ativo_m: distancia,
+          },
           confirmada: { lat, lng },
-          confirmada_em: new Date().toISOString(),
+          confirmada_em: agora,
           distancia_m: distancia,
         },
       };
     });
-    toast.success("Posição da CTO confirmada.");
+    toast.success("Localização da CTO confirmada.");
   };
 
   // Fusões
