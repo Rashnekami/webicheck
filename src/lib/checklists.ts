@@ -3,10 +3,12 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import {
   emptyChecklistData,
   emptyInstalacaoData,
+  emptyRemapeamentoData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type RemapeamentoData,
   type TipoChecklist,
 } from "./checklist-schema";
 
