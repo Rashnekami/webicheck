@@ -38,6 +38,7 @@ import {
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { ChecklistForm } from "@/components/checklist/checklist-form";
 import { InstalacaoForm } from "@/components/checklist/instalacao-form";
+import { RemapeamentoForm } from "@/components/checklist/remapeamento-form";
 import {
   deleteFoto,
   finalizeChecklist,
@@ -54,9 +55,11 @@ import {
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type RemapeamentoData,
 } from "@/lib/checklist-schema";
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
+import { generateRemapeamentoPdf } from "@/components/checklist/remapeamento-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-card";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
