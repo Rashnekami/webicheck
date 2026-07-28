@@ -10,6 +10,7 @@ import {
   basemapStyleUrl,
   type BasemapMode,
 } from "@/lib/map-basemaps";
+import { useArcgisBrowserKey } from "@/lib/use-arcgis-key";
 import {
   ArrowLeft,
   BarChart3,
