@@ -120,12 +120,14 @@ function FullscreenSignature({
   const setup = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const currentImage = hasInk ? canvas.toDataURL("image/png") : value || null;
+    const currentImage =
+      hasInk && canvas.dataset.ready === "true" ? canvas.toDataURL("image/png") : value || null;
     const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     canvas.width = Math.floor(rect.width * ratio);
     canvas.height = Math.floor(rect.height * ratio);
+    canvas.dataset.ready = "true";
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
