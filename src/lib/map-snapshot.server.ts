@@ -81,32 +81,79 @@ export async function renderStaticMapPng(args: RenderSnapshotArgs): Promise<Rend
 
   const width = args.width ?? 1024;
   const height = args.height ?? 640;
-  const zoom = Math.max(1, Math.min(20, Math.round(args.zoom || 18)));
   const style = args.style && args.style.startsWith("arcgis/") ? args.style : "arcgis/imagery";
+  const imagery = isImageryStyle(style);
+  // O serviço World_Imagery não publica tiles acima de z18 em boa parte do
+  // Brasil (404). Limitamos o zoom máximo e ainda assim reamostramos o tile
+  // pai quando algum nível faltar, em vez de falhar a geração inteira.
+  const maxZoom = imagery ? 18 : 19;
+  const zoom = Math.max(1, Math.min(maxZoom, Math.round(args.zoom || 18)));
 
   const grid = tileGridFor(args.center, zoom, width, height);
   const canvas = new Uint8Array(width * height * 4);
 
-  const imagery = isImageryStyle(style);
+  /** Recorta a região correspondente em um tile pai e amplia para 256x256. */
+  function upscaleFromParent(
+    src: { rgba: Uint8Array; width: number; height: number },
+    subX: number,
+    subY: number,
+    factor: number,
+  ) {
+    const out = new Uint8Array(TILE_SIZE * TILE_SIZE * 4);
+    const region = src.width / factor;
+    for (let y = 0; y < TILE_SIZE; y++) {
+      const sy = Math.min(src.height - 1, Math.floor(subY * region + (y * region) / TILE_SIZE));
+      for (let x = 0; x < TILE_SIZE; x++) {
+        const sx = Math.min(src.width - 1, Math.floor(subX * region + (x * region) / TILE_SIZE));
+        const s = (sy * src.width + sx) * 4;
+        const d = (y * TILE_SIZE + x) * 4;
+        out[d] = src.rgba[s];
+        out[d + 1] = src.rgba[s + 1];
+        out[d + 2] = src.rgba[s + 2];
+        out[d + 3] = 255;
+      }
+    }
+    return { rgba: out, width: TILE_SIZE, height: TILE_SIZE };
+  }
+
+  function tileUrl(z: number, x: number, y: number) {
+    return imagery
+      ? `${IMAGERY_TILES_BASE}/${z}/${y}/${x}?token=${encodeURIComponent(token!)}`
+      : `${STATIC_TILES_BASE}/${style}/static/tile/${z}/${y}/${x}`;
+  }
+
+  async function fetchTile(tile: { z: number; x: number; y: number }) {
+    let lastStatus = 0;
+    for (let d = 0; d <= 4; d++) {
+      const z = tile.z - d;
+      if (z < 1) break;
+      const f = Math.pow(2, d);
+      const x = Math.floor(tile.x / f);
+      const y = Math.floor(tile.y / f);
+      const res = await fetch(
+        tileUrl(z, x, y),
+        imagery ? undefined : { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) {
+        lastStatus = res.status;
+        continue;
+      }
+      const decoded = decodeTile(new Uint8Array(await res.arrayBuffer()));
+      if (d === 0) return decoded;
+      return upscaleFromParent(decoded, tile.x % f, tile.y % f, f);
+    }
+    throw new Error(
+      `Falha ao obter imagem do mapa em ${tile.z}/${tile.x}/${tile.y} (${lastStatus || "sem resposta"}).`,
+    );
+  }
 
   await Promise.all(
     grid.tiles.map(async (tile) => {
-      // Satélite: serviço raster World_Imagery (exige token em query string).
-      // Demais estilos: static basemap tiles com Authorization Bearer, sem
-      // token na URL. Em nenhum caso o token é registrado em log ou erro.
-      const url = imagery
-        ? `${IMAGERY_TILES_BASE}/${tile.z}/${tile.y}/${tile.x}?token=${encodeURIComponent(token)}`
-        : `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}`;
-      const res = await fetch(
-        url,
-        imagery ? undefined : { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!res.ok) throw new Error(`Falha ao obter tile ${tile.z}/${tile.x}/${tile.y} (${res.status}).`);
-      const buf = new Uint8Array(await res.arrayBuffer());
-      const decoded = decodeTile(buf);
+      const decoded = await fetchTile(tile);
       blitRgba(canvas, width, height, decoded.rgba, decoded.width, decoded.height, tile.dx, tile.dy);
     }),
   );
+
 
   for (const point of args.points ?? []) {
     const p = projectToPixel(point, args.center, zoom, width, height);
