@@ -48,7 +48,7 @@ function AuthenticatedLayout() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active, city, provider_id, platform_admin")
+        .select("active, city, provider_id, platform_admin, cities_configured_at")
         .eq("id", data.user.id)
         .maybeSingle();
       if (!profile?.active) {
@@ -56,7 +56,7 @@ function AuthenticatedLayout() {
         navigate({ to: "/auth", replace: true });
         return;
       }
-      if (!profile.city?.trim() || !profile.provider_id) {
+      if (!profile.provider_id || !profile.cities_configured_at) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
