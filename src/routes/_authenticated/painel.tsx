@@ -18,8 +18,7 @@ import {
   Wifi,
   MapPin,
   Zap,
-
-  
+  KeyRound,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -328,6 +327,12 @@ function Painel() {
             />
 
 
+            <HomeNavCard
+              to="/minha-conta"
+              icon={KeyRound}
+              title="Minha conta"
+              description="Vincule sua conta Google para entrar sem digitar login e senha."
+            />
             <HomeNavCard
               to="/informativos"
               icon={Megaphone}

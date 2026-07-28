@@ -32,15 +32,6 @@ export const Route = createFileRoute("/auth")({
 });
 
 const emailSchema = z.string().trim().email({ message: "Informe um e-mail válido" }).max(255);
-const passwordSchema = z
-  .string()
-  .min(6, { message: "A senha deve ter pelo menos 6 caracteres" })
-  .max(72);
-
-const loginSchema = z.object({
-  email: emailSchema,
-  password: passwordSchema,
-});
 const forgotSchema = z.object({ email: emailSchema });
 
 function finishLogin() {
@@ -52,7 +43,7 @@ function finishLogin() {
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<"login" | "interno" | "forgot">("login");
+  const [tab, setTab] = useState<"login" | "forgot">("login");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -101,26 +92,18 @@ function AuthPage() {
         <Card className="shadow-xl">
           <CardHeader className="pb-2">
             <CardTitle>Acessar plataforma</CardTitle>
-            <CardDescription>Use seu e-mail cadastrado para entrar.</CardDescription>
+            <CardDescription>Use o provedor, login e senha, ou entre com Google se sua conta já estiver vinculada.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="login">E-mail</TabsTrigger>
-                <TabsTrigger value="interno">Login</TabsTrigger>
-                <TabsTrigger value="forgot">Esqueci</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="forgot">Recuperar acesso</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login" className="pt-4">
-                <LoginForm />
-                <GoogleButton className="mt-4" />
-              </TabsContent>
-
-              <TabsContent value="interno" className="pt-4">
                 <InternalLoginForm />
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Use o login e senha fornecidos pelo supervisor do seu provedor.
-                </p>
+                <GoogleButton className="mt-4" />
               </TabsContent>
 
               <TabsContent value="forgot" className="pt-4">
@@ -145,78 +128,6 @@ function AuthPage() {
         </p>
       </div>
     </div>
-  );
-}
-
-function LoginForm() {
-  const navigate = useNavigate();
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-  });
-
-  async function onSubmit(values: z.infer<typeof loginSchema>) {
-    const { data, error } = await supabase.auth.signInWithPassword(values);
-    if (error) {
-      if (error.message.toLowerCase().includes("invalid")) {
-        toast.error("E-mail ou senha inválidos.");
-      } else {
-        toast.error("Não foi possível entrar. Tente novamente.");
-      }
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("active, city")
-      .eq("id", data.user.id)
-      .maybeSingle();
-    if (!profile?.active) {
-      await supabase.auth.signOut();
-      toast.error("Seu acesso está inativo. Procure um administrador.");
-      return;
-    }
-
-    if (!profile.city?.trim()) {
-      navigate({ to: "/completar-cadastro", replace: true });
-      return;
-    }
-
-    finishLogin();
-  }
-
-  return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="login-email">E-mail</Label>
-        <Input
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          {...form.register("email")}
-        />
-        {form.formState.errors.email && (
-          <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="login-password">Senha</Label>
-        <Input
-          id="login-password"
-          type="password"
-          autoComplete="current-password"
-          {...form.register("password")}
-        />
-        {form.formState.errors.password && (
-          <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
-        )}
-      </div>
-      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Entrar
-      </Button>
-    </form>
   );
 }
 
