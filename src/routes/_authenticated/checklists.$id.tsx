@@ -142,7 +142,7 @@ function ChecklistDetail() {
     : (ownerQuery.data?.assinatura ?? null);
 
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
+  const [data, setData] = useState<ChecklistData | InstalacaoData | RemapeamentoData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
