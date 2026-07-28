@@ -23,12 +23,17 @@ export function SignaturePad({
 }: SignaturePadProps) {
   const [open, setOpen] = useState(false);
   const hasInk = !!value;
+  const openPad = useCallback(() => {
+    document.documentElement.requestFullscreen?.().catch(() => undefined);
+    window.screen?.orientation?.lock?.("landscape").catch(() => undefined);
+    setOpen(true);
+  }, []);
 
   return (
     <div className={cn("space-y-2", className)}>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openPad}
         className="relative flex w-full items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-white shadow-inner"
         style={{ height }}
       >
@@ -56,6 +61,7 @@ export function SignaturePad({
         </p>
         <div className="flex items-center gap-1">
           <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <Button type="button" variant="outline" size="sm" onClick={openPad}>
             <Maximize2 className="mr-1 h-4 w-4" /> {hasInk ? "Refazer" : "Assinar"}
           </Button>
           <Button
