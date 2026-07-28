@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
-import { MapPicker } from "@/components/checklist/map-picker";
+import { MapPicker, type MapConfirmMeta } from "@/components/checklist/map-picker";
 import {
   FIBER_COLORS,
   computeSplitterStats,
