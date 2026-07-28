@@ -319,6 +319,14 @@ function Painel() {
             />
 
             <HomeNavCard
+              to="/intervencoes"
+              icon={Zap}
+              title="Intervenções de rede"
+              description="Rompimentos, readequações e melhorias de sinal com rota, OTDR e indicadores."
+            />
+
+
+            <HomeNavCard
               to="/informativos"
               icon={Megaphone}
               title="Informativos"
