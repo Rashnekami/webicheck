@@ -20,7 +20,7 @@ type ChecklistDbRow = Database["public"]["Tables"]["checklists"]["Row"];
 type ChecklistDbInsert = Database["public"]["Tables"]["checklists"]["Insert"];
 type ChecklistDbUpdate = Database["public"]["Tables"]["checklists"]["Update"];
 
-function checklistDataAsJson(data: ChecklistData | InstalacaoData): Json {
+function checklistDataAsJson(data: ChecklistData | InstalacaoData | RemapeamentoData): Json {
   return data as unknown as Json;
 }
 
