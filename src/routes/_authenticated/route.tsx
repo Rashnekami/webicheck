@@ -12,6 +12,7 @@ import {
   ensureProviderBinding,
   isAllowedForProvider,
 } from "@/lib/provider-resolution.functions";
+import { getMyAuthStatus } from "@/lib/user-management.functions";
 
 // Gate obrigatório de provider: única implementação, usada tanto pelo
 // beforeLoad quanto pelo useEffect abaixo — cobre toda rota autenticada,
@@ -50,6 +51,8 @@ export const Route = createFileRoute("/_authenticated")({
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
     }
+    const status = await getMyAuthStatus();
+    if (status.must_change_password) throw redirect({ to: "/trocar-senha" });
     return { user: data.user };
   },
   component: AuthenticatedLayout,
@@ -70,6 +73,11 @@ function AuthenticatedLayout() {
       if (!allowed) {
         await supabase.auth.signOut();
         navigate({ to: "/auth", replace: true });
+        return;
+      }
+      const status = await getMyAuthStatus();
+      if (status.must_change_password) {
+        navigate({ to: "/trocar-senha", replace: true });
         return;
       }
       setReady(true);

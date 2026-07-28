@@ -26,7 +26,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SignaturePad } from "@/components/signature-pad";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
 
@@ -46,35 +45,29 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-const emailSchema = z
-  .string()
-  .trim()
-  .email({ message: "Informe um e-mail válido" })
-  .max(255);
 const passwordSchema = z
   .string()
-  .min(6, { message: "A senha deve ter pelo menos 6 caracteres" })
+  .min(1, { message: "Informe a senha" })
   .max(72);
 
 const loginSchema = z.object({
-  email: emailSchema,
-  password: passwordSchema,
-});
-const signupSchema = z.object({
-  full_name: z
+  provedor: z
     .string()
     .trim()
-    .min(2, { message: "Informe seu nome completo" })
-    .max(120),
-  email: emailSchema,
+    .min(1, { message: "Informe o provedor" })
+    .max(63),
+  login: z
+    .string()
+    .trim()
+    .min(1, { message: "Informe o login" })
+    .max(32),
   password: passwordSchema,
 });
-const forgotSchema = z.object({ email: emailSchema });
 
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<"login" | "signup" | "forgot">("login");
+  const [tab, setTab] = useState<"login" | "forgot">("login");
 
   const providerQuery = useQuery({
     queryKey: ["host-provider-context"],
@@ -83,6 +76,22 @@ function AuthPage() {
   });
 
   useEffect(() => {
+    // O retorno do OAuth do Google traz o erro do trigger de bloqueio
+    // (fase 2 da migration) como query/hash param, não como exceção JS.
+    const params = new URLSearchParams(
+      window.location.search || window.location.hash.replace(/^#/, "?"),
+    );
+    const errorDescription = params.get("error_description");
+    if (errorDescription?.includes("google_signup_blocked")) {
+      toast.error(
+        "Este e-mail do Google ainda não está vinculado a nenhuma conta. Peça a um administrador/supervisor para vincular seu acesso.",
+      );
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (params.get("error")) {
+      toast.error("Não foi possível entrar com Google.");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) navigate({ to: "/painel", replace: true });
       else setChecking(false);
@@ -150,7 +159,8 @@ function AuthPage() {
           <CardHeader className="pb-2">
             <CardTitle>Acessar plataforma</CardTitle>
             <CardDescription>
-              Use seu e-mail cadastrado para entrar.
+              Use seu provedor, login e senha, ou entre com Google se sua
+              conta já estiver vinculada.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -159,35 +169,18 @@ function AuthPage() {
               onValueChange={(v) => setTab(v as typeof tab)}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
-                <TabsTrigger value="signup" disabled={!provider}>
-                  Cadastrar
-                </TabsTrigger>
-                <TabsTrigger value="forgot">Esqueci</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="forgot">Recuperar acesso</TabsTrigger>
               </TabsList>
-              {!provider && (
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  Cadastro disponível apenas pelo endereço do seu provedor.
-                </p>
-              )}
 
               <TabsContent value="login" className="pt-4">
                 <LoginForm provider={provider} />
                 <GoogleButton className="mt-4" provider={provider} />
               </TabsContent>
 
-              <TabsContent value="signup" className="pt-4">
-                <SignupForm provider={provider} onDone={() => setTab("login")} />
-                <GoogleButton className="mt-4" provider={provider} />
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Novos cadastros são criados como técnico. A liberação
-                  administrativa é feita por um administrador.
-                </p>
-              </TabsContent>
-
               <TabsContent value="forgot" className="pt-4">
-                <ForgotForm onDone={() => setTab("login")} />
+                <ForgotForm />
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -230,17 +223,43 @@ function LoginForm({ provider }: { provider: ResolvedProvider | null }) {
   const navigate = useNavigate();
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { provedor: provider?.slug ?? "", login: "", password: "" },
   });
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
-    const { error } = await supabase.auth.signInWithPassword(values);
+    // A tela web sempre passa pela mesma Auth API central que o Webi
+    // Diagnostic usa (POST /api/auth/login) — um único caminho de
+    // verificação de senha, nunca duas implementações divergentes.
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: values.provedor,
+          login: values.login,
+          senha: values.password,
+        }),
+      });
+    } catch {
+      toast.error("Não foi possível conectar. Tente novamente.");
+      return;
+    }
+    if (!res.ok) {
+      toast.error("Provedor, login ou senha inválidos.");
+      return;
+    }
+    const result = (await res.json()) as {
+      token: string;
+      refresh_token: string;
+    };
+
+    const { error } = await supabase.auth.setSession({
+      access_token: result.token,
+      refresh_token: result.refresh_token,
+    });
     if (error) {
-      if (error.message.toLowerCase().includes("invalid")) {
-        toast.error("E-mail ou senha inválidos.");
-      } else {
-        toast.error("Não foi possível entrar. Tente novamente.");
-      }
+      toast.error("Não foi possível iniciar a sessão. Tente novamente.");
       return;
     }
 
@@ -263,17 +282,31 @@ function LoginForm({ provider }: { provider: ResolvedProvider | null }) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="login-email">E-mail</Label>
+        <Label htmlFor="login-provedor">Provedor</Label>
         <Input
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          {...form.register("email")}
+          id="login-provedor"
+          autoComplete="organization"
+          readOnly={!!provider}
+          className={provider ? "bg-muted" : undefined}
+          {...form.register("provedor")}
         />
-        {form.formState.errors.email && (
+        {form.formState.errors.provedor && (
           <p className="text-xs text-destructive">
-            {form.formState.errors.email.message}
+            {form.formState.errors.provedor.message}
+          </p>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="login-login">Login</Label>
+        <Input
+          id="login-login"
+          autoComplete="username"
+          placeholder="Ex.: TEC01"
+          {...form.register("login")}
+        />
+        {form.formState.errors.login && (
+          <p className="text-xs text-destructive">
+            {form.formState.errors.login.message}
           </p>
         )}
       </div>
@@ -306,189 +339,24 @@ function LoginForm({ provider }: { provider: ResolvedProvider | null }) {
   );
 }
 
-function SignupForm({
-  provider,
-  onDone,
-}: {
-  provider: ResolvedProvider | null;
-  onDone: () => void;
-}) {
-  const navigate = useNavigate();
-  const [signature, setSignature] = useState<string | null>(null);
-  const [signatureError, setSignatureError] = useState<string | null>(null);
-  const form = useForm<z.infer<typeof signupSchema>>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { full_name: "", email: "", password: "" },
-  });
-
-  async function onSubmit(values: z.infer<typeof signupSchema>) {
-    // Falha fechado: mesmo que a aba tenha sido alcançada por algum outro
-    // caminho além do clique normal, sem provider não há cadastro. Este
-    // componente só valida o contexto — o vínculo com o provider continua
-    // sendo feito exclusivamente por ensureProviderBinding no servidor.
-    if (!provider) {
-      toast.error("Cadastro disponível apenas pelo endereço do seu provedor.");
-      return;
-    }
-    if (!signature) {
-      setSignatureError("Desenhe sua assinatura antes de continuar.");
-      return;
-    }
-    setSignatureError(null);
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: values.full_name },
-      },
-    });
-    if (error) {
-      toast.error(
-        error.message.includes("registered")
-          ? "Este e-mail já está cadastrado."
-          : "Não foi possível criar a conta.",
-      );
-      return;
-    }
-    // Persistir assinatura: precisa da sessão. Se signUp criou sessão, gravar já;
-    // caso contrário, guardar em localStorage para gravar após confirmação/login.
-    // O vínculo com o provider NUNCA é feito aqui — é feito pelo servidor
-    // (ensureProviderBinding, chamado pelo gate de /_authenticated) na
-    // primeira vez que existir uma sessão válida, seja ela imediata ou
-    // vinda da confirmação por e-mail.
-    if (data.session && data.user) {
-      await supabase
-        .from("profiles")
-        .update({ assinatura: signature } as never)
-        .eq("id", data.user.id);
-    } else {
-      try {
-        localStorage.setItem("webifibra.pending_signature", signature);
-      } catch {
-        /* ignore */
-      }
-    }
-    if (data.session) {
-      toast.success("Conta criada com sucesso.");
-      navigate({ to: "/painel", replace: true });
-    } else {
-      toast.success(
-        "Cadastro realizado. Verifique seu e-mail para confirmar o acesso.",
-      );
-      onDone();
-    }
-  }
-
+// Não há autoatendimento de recuperação: o login usa um e-mail sintético
+// (login@provedor.internal) sem caixa de entrada real, então
+// resetPasswordForEmail do Supabase não se aplica aqui. Recuperação é
+// sempre mediada por um admin/supervisor, que gera uma nova senha
+// temporária pela tela de administração de usuários.
+function ForgotForm() {
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="su-name">Nome completo</Label>
-        <Input id="su-name" autoComplete="name" {...form.register("full_name")} />
-        {form.formState.errors.full_name && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.full_name.message}
-          </p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="su-email">E-mail</Label>
-        <Input
-          id="su-email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          {...form.register("email")}
-        />
-        {form.formState.errors.email && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.email.message}
-          </p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="su-pwd">Senha</Label>
-        <Input
-          id="su-pwd"
-          type="password"
-          autoComplete="new-password"
-          {...form.register("password")}
-        />
-        {form.formState.errors.password && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.password.message}
-          </p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label>Assinatura</Label>
-        <SignaturePad value={signature} onChange={setSignature} height={150} />
-        {signatureError && (
-          <p className="text-xs text-destructive">{signatureError}</p>
-        )}
-      </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-      >
-        {form.formState.isSubmitting && (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
-        Criar conta
-      </Button>
-    </form>
-  );
-}
-
-function ForgotForm({ onDone }: { onDone: () => void }) {
-  const form = useForm<z.infer<typeof forgotSchema>>({
-    resolver: zodResolver(forgotSchema),
-    defaultValues: { email: "" },
-  });
-
-  async function onSubmit(values: z.infer<typeof forgotSchema>) {
-    const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) {
-      toast.error("Não foi possível enviar o e-mail de recuperação.");
-      return;
-    }
-    toast.success("Se o e-mail existir, você receberá as instruções.");
-    onDone();
-  }
-
-  return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="fg-email">E-mail cadastrado</Label>
-        <Input
-          id="fg-email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          {...form.register("email")}
-        />
-        {form.formState.errors.email && (
-          <p className="text-xs text-destructive">
-            {form.formState.errors.email.message}
-          </p>
-        )}
-      </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-      >
-        {form.formState.isSubmitting && (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
-        Enviar instruções
-      </Button>
-    </form>
+    <div className="space-y-3 text-sm text-muted-foreground">
+      <p>
+        Não é possível recuperar o acesso sozinho. Fale com um
+        administrador ou supervisor: ele pode gerar uma nova senha
+        temporária para o seu login.
+      </p>
+      <p>
+        Se você entra normalmente com o Google, use o botão{" "}
+        <strong>Continuar com Google</strong> na aba Login.
+      </p>
+    </div>
   );
 }
 
