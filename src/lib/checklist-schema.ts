@@ -214,7 +214,13 @@ export function emptyInstalacaoData(): InstalacaoData {
 
 // -------- Remapeamento de CTO/NAP --------
 export type SplitterKind = "1x4" | "1x8" | "1x16" | "outro";
-export type RemapPortStatus = "ocupada" | "livre" | "nao_identificado";
+// "nao_identificado" mantido por retrocompatibilidade dos registros já salvos.
+export type RemapPortStatus =
+  | "ocupada"
+  | "livre"
+  | "reserva"
+  | "nao_identificada"
+  | "nao_identificado";
 
 export interface RemapGpsPoint {
   lat: number;
