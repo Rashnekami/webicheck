@@ -1,6 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import "maplibre-gl/dist/maplibre-gl.css";
+import {
+  BASEMAP_OPTIONS,
+  DEFAULT_BASEMAP_MODE,
+  MAP_ATTRIBUTION_NOTE,
+  arcgisBrowserKey,
+  basemapStyleFor,
+  type BasemapMode,
+} from "@/lib/map-basemaps";
 import {
   ArrowLeft,
   BarChart3,
