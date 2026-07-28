@@ -521,7 +521,7 @@ export interface ChecklistRow {
   cto_porta: string | null;
   data_atendimento: string | null;
   hora_atendimento: string | null;
-  dados: ChecklistData | InstalacaoData | RemapeamentoData;
+  dados: AnyChecklistData;
   codigo_validacao: string | null;
   numero_publico: string | null;
   revision_number: number;
