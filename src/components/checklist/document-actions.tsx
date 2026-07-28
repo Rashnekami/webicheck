@@ -35,7 +35,9 @@ import {
 } from "@/lib/public-checklist.functions";
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
 import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-export";
-import type { ChecklistRow } from "@/lib/checklist-schema";
+import type { ChecklistRow, FotoRow, IntervencaoData, RemapeamentoData } from "@/lib/checklist-schema";
+import { resolveFotoSignedUrls } from "@/lib/checklist-photo-uris";
+import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
@@ -47,6 +49,7 @@ interface Props {
   onDownloadPdf: (publicUrl?: string | null) => void;
   pdfBusy: boolean;
   counterproof?: CounterproofDocumentInfo | null;
+  fotos?: FotoRow[];
 }
 
 export function DocumentActions({
@@ -57,6 +60,7 @@ export function DocumentActions({
   onDownloadPdf,
   pdfBusy,
   counterproof: counterproofProp,
+  fotos = [],
 }: Props) {
   const qc = useQueryClient();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -65,6 +69,31 @@ export function DocumentActions({
   const technicianDocRef = useRef<HTMLDivElement>(null);
   const customerDocRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  const isRede =
+    row.tipo === "remapeamento_cto" ||
+    row.tipo === "rompimento" ||
+    row.tipo === "readequacao" ||
+    row.tipo === "melhoria_sinal";
+
+  const fotosResolved = useQuery({
+    queryKey: ["doc-fotos", row.id, fotos.map((f) => f.id).join(",")],
+    queryFn: () => resolveFotoSignedUrls(fotos),
+    enabled: isRede && fotos.length > 0,
+  });
+
+  const mapSnapshotPath =
+    row.tipo === "remapeamento_cto"
+      ? ((row.dados as RemapeamentoData)?.localizacao?.snapshot?.snapshot_path ?? null)
+      : isRede
+        ? ((row.dados as IntervencaoData)?.rota?.snapshot?.snapshot_path ?? null)
+        : null;
+
+  const mapUrlQuery = useQuery({
+    queryKey: ["doc-map", mapSnapshotPath],
+    queryFn: () => getMapSnapshotUrl({ data: { path: mapSnapshotPath as string } }),
+    enabled: !!mapSnapshotPath,
+  });
 
   const snapQuery = useQuery({
     queryKey: ["snapshot", row.id],
@@ -404,6 +433,8 @@ export function DocumentActions({
           fixedWidth={880}
           counterproof={counterproof}
           documentPart={counterproof?.status === "validated" ? "technician" : "combined"}
+          fotos={fotosResolved.data ?? []}
+          mapUrl={mapUrlQuery.data ?? null}
         />
         {counterproof?.status === "validated" ? (
           <ChecklistDocumentView
@@ -429,6 +460,8 @@ export function DocumentActions({
               shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
               version={snap?.version ?? 1}
               counterproof={counterproof}
+              fotos={fotosResolved.data ?? []}
+              mapUrl={mapUrlQuery.data ?? null}
             />
           </div>
         </DialogContent>

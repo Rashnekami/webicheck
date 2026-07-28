@@ -2,9 +2,10 @@ import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/r
 import QRCode from "qrcode";
 
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
-import type { ChecklistRow, RemapeamentoData } from "@/lib/checklist-schema";
+import type { ChecklistRow, FotoRow, RemapeamentoData } from "@/lib/checklist-schema";
 import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fibers";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
+import { resolveFotoDataUris, type ResolvedFoto } from "@/lib/checklist-photo-uris";
 
 const C = {
   page: "#020817",
@@ -165,6 +166,27 @@ const s = StyleSheet.create({
   qr: { width: 42, height: 42, borderRadius: 4, marginRight: 8 },
   authTitle: { color: C.cyan, fontSize: 7.5, fontWeight: 700 },
   authText: { color: C.muted, fontSize: 6.3, marginTop: 2 },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 },
+  photoCell: { width: "50%", paddingHorizontal: 3, paddingBottom: 6 },
+  photoInner: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 7,
+    padding: 4,
+    backgroundColor: "#041126",
+  },
+  photoTag: {
+    borderRadius: 4,
+    paddingVertical: 1.6,
+    paddingHorizontal: 5,
+    fontSize: 6.4,
+    fontWeight: 700,
+    color: "#ffffff",
+    alignSelf: "flex-start",
+    marginBottom: 3,
+  },
+  photoImage: { width: "100%", height: 118, objectFit: "cover", borderRadius: 5 },
+  photoCaption: { color: C.muted, fontSize: 6.2, marginTop: 2 },
   footer: {
     marginTop: 6,
     paddingTop: 4,
@@ -201,9 +223,15 @@ type Params = {
   tecnicoNome: string;
   assinatura?: string | null;
   publicUrl?: string | null;
+  fotos?: FotoRow[];
 };
 
-type RenderParams = Params & { logoUri: string; qrUri: string; mapUri: string };
+type RenderParams = Omit<Params, "fotos"> & {
+  logoUri: string;
+  qrUri: string;
+  mapUri: string;
+  fotos: ResolvedFoto[];
+};
 
 function RemapeamentoDocument({
   row,
@@ -213,6 +241,7 @@ function RemapeamentoDocument({
   logoUri,
   qrUri,
   mapUri,
+  fotos,
 }: RenderParams) {
   const d = row.dados as RemapeamentoData;
   const stats = computeSplitterStats(d);
@@ -351,6 +380,47 @@ function RemapeamentoDocument({
             })}
           </View>
 
+          {/* Evidências fotográficas */}
+          <View style={s.panel} wrap={false}>
+            <Text style={s.panelTitle}>Evidências fotográficas (antes e depois)</Text>
+            {fotos.length === 0 ? (
+              <Text style={s.mapMissing}>
+                Nenhuma foto de evidência anexada a esta revisão. Registre as fotos da CTO antes e
+                depois do remapeamento.
+              </Text>
+            ) : (
+              <View style={s.photoGrid}>
+                {fotos.map((f) => (
+                  <View key={f.id} style={s.photoCell}>
+                    <View style={s.photoInner}>
+                      <Text
+                        style={[
+                          s.photoTag,
+                          {
+                            backgroundColor:
+                              f.categoria === "antes"
+                                ? "#8a3b12"
+                                : f.categoria === "depois"
+                                  ? "#1b7f3b"
+                                  : "#0c45a5",
+                          },
+                        ]}
+                      >
+                        {f.categoria === "antes"
+                          ? "ANTES"
+                          : f.categoria === "depois"
+                            ? "DEPOIS"
+                            : f.label.toUpperCase()}
+                      </Text>
+                      <Image src={f.uri} style={s.photoImage} />
+                      {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
           {/* Resultado + assinatura */}
           <View style={s.panel}>
             <Text style={s.panelTitle}>Resultado do remapeamento</Text>
@@ -421,7 +491,8 @@ async function resolveMapUri(row: ChecklistRow): Promise<string> {
 }
 
 export async function buildRemapeamentoPdfBlob(params: Params): Promise<Blob> {
-  const [logoUri, qrUri, mapUri] = await Promise.all([
+  const { fotos: fotoRows, ...rest } = params;
+  const [logoUri, qrUri, mapUri, fotos] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
     params.publicUrl
       ? QRCode.toDataURL(params.publicUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" }).catch(
@@ -429,9 +500,16 @@ export async function buildRemapeamentoPdfBlob(params: Params): Promise<Blob> {
         )
       : Promise.resolve(""),
     resolveMapUri(params.row),
+    resolveFotoDataUris(fotoRows ?? []).catch(() => [] as ResolvedFoto[]),
   ]);
   return await pdf(
-    <RemapeamentoDocument {...params} logoUri={logoUri} qrUri={qrUri} mapUri={mapUri} />,
+    <RemapeamentoDocument
+      {...rest}
+      logoUri={logoUri}
+      qrUri={qrUri}
+      mapUri={mapUri}
+      fotos={fotos}
+    />,
   ).toBlob();
 }
 

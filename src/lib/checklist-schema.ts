@@ -550,7 +550,15 @@ export interface FotoRow {
   id: string;
   checklist_id: string;
   tecnico_id: string;
-  categoria: "etiqueta" | "leds" | "fonte" | "teste_cabeado" | "teste_wifi" | "outro";
+  categoria:
+    | "etiqueta"
+    | "leds"
+    | "fonte"
+    | "teste_cabeado"
+    | "teste_wifi"
+    | "antes"
+    | "depois"
+    | "outro";
   storage_path: string;
   legenda: string | null;
   created_at: string;
@@ -565,8 +573,25 @@ export const FOTO_CATEGORIAS: {
   { value: "fonte", label: "Fonte/conexões" },
   { value: "teste_cabeado", label: "Teste cabeado" },
   { value: "teste_wifi", label: "Teste Wi-Fi" },
+  { value: "antes", label: "Antes da intervenção" },
+  { value: "depois", label: "Depois da intervenção" },
   { value: "outro", label: "Outro" },
 ];
+
+/** Categorias de evidência usadas em intervenções de rede (CTO, rompimento etc.). */
+export const FOTO_CATEGORIAS_REDE: {
+  value: FotoRow["categoria"];
+  label: string;
+}[] = [
+  { value: "antes", label: "Antes da intervenção" },
+  { value: "depois", label: "Depois da intervenção" },
+  { value: "etiqueta", label: "Etiqueta / identificação" },
+  { value: "outro", label: "Outro" },
+];
+
+export function fotoCategoriaLabel(value: FotoRow["categoria"]): string {
+  return FOTO_CATEGORIAS.find((c) => c.value === value)?.label ?? value;
+}
 
 export const TIPO_LABEL: Record<TipoChecklist, string> = {
   validacao_ont: "Validação de ONT",

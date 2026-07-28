@@ -2,7 +2,12 @@ import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/r
 import QRCode from "qrcode";
 
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
-import type { ChecklistRow, IntervencaoData, TipoIntervencao } from "@/lib/checklist-schema";
+import type {
+  ChecklistRow,
+  FotoRow,
+  IntervencaoData,
+  TipoIntervencao,
+} from "@/lib/checklist-schema";
 import { TIPO_LABEL } from "@/lib/checklist-schema";
 import {
   CAUSA_OPCOES,
@@ -14,6 +19,7 @@ import {
   signalGainDb,
 } from "@/lib/intervencao";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
+import { resolveFotoDataUris, type ResolvedFoto } from "@/lib/checklist-photo-uris";
 
 const C = {
   page: "#020817",
@@ -130,6 +136,27 @@ const s = StyleSheet.create({
   },
   signatureImage: { width: 120, height: 40, objectFit: "contain", marginBottom: 2 },
   signatureLabel: { color: C.muted, fontSize: 6.6 },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 },
+  photoCell: { width: "50%", paddingHorizontal: 3, paddingBottom: 6 },
+  photoInner: {
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 7,
+    padding: 4,
+    backgroundColor: "#041126",
+  },
+  photoTag: {
+    borderRadius: 4,
+    paddingVertical: 1.6,
+    paddingHorizontal: 5,
+    fontSize: 6.4,
+    fontWeight: 700,
+    color: "#ffffff",
+    alignSelf: "flex-start",
+    marginBottom: 3,
+  },
+  photoImage: { width: "100%", height: 118, objectFit: "cover", borderRadius: 5 },
+  photoCaption: { color: C.muted, fontSize: 6.2, marginTop: 2 },
   qrBox: { alignItems: "center", marginTop: 8 },
   qr: { width: 74, height: 74 },
   footer: {
@@ -149,9 +176,15 @@ type Params = {
   tecnicoNome: string;
   assinatura?: string | null;
   publicUrl?: string | null;
+  fotos?: FotoRow[];
 };
 
-type DocProps = Params & { logoUri: string; qrUri: string; mapUri: string };
+type DocProps = Omit<Params, "fotos"> & {
+  logoUri: string;
+  qrUri: string;
+  mapUri: string;
+  fotos: ResolvedFoto[];
+};
 
 function Info({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
@@ -182,6 +215,7 @@ function IntervencaoDocument({
   logoUri,
   qrUri,
   mapUri,
+  fotos,
 }: DocProps) {
   const tipo = row.tipo as TipoIntervencao;
   const d = row.dados as IntervencaoData;
@@ -385,6 +419,45 @@ function IntervencaoDocument({
             </View>
           ) : null}
 
+          <View style={s.panel} wrap={false}>
+            <Text style={s.panelTitle}>Evidências fotográficas (antes e depois)</Text>
+            {fotos.length === 0 ? (
+              <Text style={s.body}>
+                Nenhuma foto de evidência anexada a esta revisão.
+              </Text>
+            ) : (
+              <View style={s.photoGrid}>
+                {fotos.map((f) => (
+                  <View key={f.id} style={s.photoCell}>
+                    <View style={s.photoInner}>
+                      <Text
+                        style={[
+                          s.photoTag,
+                          {
+                            backgroundColor:
+                              f.categoria === "antes"
+                                ? "#8a3b12"
+                                : f.categoria === "depois"
+                                  ? "#1b7f3b"
+                                  : "#0c45a5",
+                          },
+                        ]}
+                      >
+                        {f.categoria === "antes"
+                          ? "ANTES"
+                          : f.categoria === "depois"
+                            ? "DEPOIS"
+                            : f.label.toUpperCase()}
+                      </Text>
+                      <Image src={f.uri} style={s.photoImage} />
+                      {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
           <View style={s.signatureRow}>
             <View style={s.signatureBox}>
               {assinatura ? <Image src={assinatura} style={s.signatureImage} /> : null}
@@ -437,7 +510,8 @@ async function resolveMapUri(row: ChecklistRow): Promise<string> {
 }
 
 export async function buildIntervencaoPdfBlob(params: Params): Promise<Blob> {
-  const [logoUri, qrUri, mapUri] = await Promise.all([
+  const { fotos: fotoRows, ...rest } = params;
+  const [logoUri, qrUri, mapUri, fotos] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
     params.publicUrl
       ? QRCode.toDataURL(params.publicUrl, {
@@ -447,9 +521,16 @@ export async function buildIntervencaoPdfBlob(params: Params): Promise<Blob> {
         }).catch(() => "")
       : Promise.resolve(""),
     resolveMapUri(params.row),
+    resolveFotoDataUris(fotoRows ?? []).catch(() => [] as ResolvedFoto[]),
   ]);
   return await pdf(
-    <IntervencaoDocument {...params} logoUri={logoUri} qrUri={qrUri} mapUri={mapUri} />,
+    <IntervencaoDocument
+      {...rest}
+      logoUri={logoUri}
+      qrUri={qrUri}
+      mapUri={mapUri}
+      fotos={fotos}
+    />,
   ).toBlob();
 }
 
