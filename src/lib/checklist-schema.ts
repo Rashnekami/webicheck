@@ -1,7 +1,7 @@
 // Shape completo dos dados dinâmicos dos checklists (armazenados em JSONB)
 
 export type YesNo = "sim" | "nao" | null;
-export type TipoChecklist = "validacao_ont" | "instalacao";
+export type TipoChecklist = "validacao_ont" | "instalacao" | "remapeamento_cto";
 
 export interface StoredAiAnalysis {
   diagnostico_provavel: string;
