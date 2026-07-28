@@ -492,7 +492,8 @@ function ChecklistDetail() {
             categorias={FOTO_CATEGORIAS_REDE}
             titulo="Evidências fotográficas da CTO (antes e depois)"
           />
-        ) : (
+        ) : null}
+        {tipo === "validacao_ont" ? (
           <>
             <ChecklistForm
               header={{
@@ -545,7 +546,7 @@ function ChecklistDetail() {
               />
             )}
           </>
-        )}
+        ) : null}
 
 
         {row.status === "finalizado" && (
