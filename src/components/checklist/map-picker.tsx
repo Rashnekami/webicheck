@@ -1,124 +1,178 @@
-import { useEffect, useRef, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, Crosshair, MapPin } from "lucide-react";
+import "maplibre-gl/dist/maplibre-gl.css";
+
+import {
+  BASEMAP_OPTIONS,
+  DEFAULT_BASEMAP_MODE,
+  MAP_ATTRIBUTION_NOTE,
+  arcgisBrowserKey,
+  basemapModeForStyle,
+  basemapStyleFor,
+  type BasemapMode,
+} from "@/lib/map-basemaps";
 
 type Point = { lat: number; lng: number };
 
+export type MapConfirmMeta = {
+  basemap_style: string;
+  zoom: number;
+};
+
 type Props = {
   center: Point;
-  userLocation?: Point | null;
+  userLocation?: (Point & { accuracy_m?: number | null }) | null;
   marker?: Point | null;
   disabled?: boolean;
   confirmed?: boolean;
-  onConfirm: (lat: number, lng: number) => void;
+  initialStyle?: string | null;
+  ativoLabel?: string;
+  onConfirm: (lat: number, lng: number, meta: MapConfirmMeta) => void;
 };
 
 /**
- * MapPicker satélite/híbrido baseado em Google Maps JS API,
- * com marcadores distintos para o GPS do técnico (círculo azul) e para
- * a CTO/NAP (pino vermelho, arrastável). A confirmação só é liberada
- * depois que o técnico move o pino ou clica em outra posição.
- * Fallback: coordenadas manuais quando a chave não estiver disponível.
+ * Seletor de localização do ativo (CTO/NAP) sobre MapLibre GL JS com basemaps
+ * do ArcGIS Location Platform.
+ *
+ * Regras:
+ * - O GPS representa o TÉCNICO e apenas centraliza a câmera.
+ * - O ativo só é gravado após confirmação explícita do técnico.
+ * - Reabrir um checklist confirmado nunca substitui a posição pelo GPS atual.
  */
-export function MapPicker({ center, userLocation, marker, disabled, confirmed, onConfirm }: Props) {
-  const key = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
-  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
-  const ref = useRef<HTMLDivElement>(null);
+export function MapPicker({
+  center,
+  userLocation,
+  marker,
+  disabled,
+  confirmed,
+  initialStyle,
+  ativoLabel = "CTO",
+  onConfirm,
+}: Props) {
+  const apiKey = arcgisBrowserKey();
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const [ready, setReady] = useState(false);
+  const basemapRef = useRef<any>(null);
+  const ativoMarkerRef = useRef<any>(null);
+  const gpsMarkerRef = useRef<any>(null);
+  const [mode, setMode] = useState<BasemapMode>(
+    initialStyle ? basemapModeForStyle(initialStyle) : DEFAULT_BASEMAP_MODE,
+  );
   const [moved, setMoved] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState({
     lat: (marker ?? center).lat.toString(),
     lng: (marker ?? center).lng.toString(),
   });
 
-  useEffect(() => {
-    if (!key) return;
-    // @ts-expect-error injected global
-    if (window.google?.maps) {
-      setReady(true);
-      return;
-    }
-    (window as unknown as { initWebiMap?: () => void }).initWebiMap = () => setReady(true);
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=initWebiMap${channel ? `&channel=${channel}` : ""}`;
-    s.async = true;
-    document.head.appendChild(s);
-  }, [key, channel]);
-
-  useEffect(() => {
-    if (!ready || !ref.current || mapRef.current) return;
-    const g = (window as any).google;
-    const map = new g.maps.Map(ref.current, {
-      center: userLocation ?? center,
-      zoom: 20,
-      mapTypeId: "hybrid",
-      tilt: 0,
-      streetViewControl: false,
-      fullscreenControl: false,
-      mapTypeControl: true,
-    });
-    mapRef.current = map;
-    if (userLocation) {
-      new g.maps.Marker({
-        position: userLocation,
-        map,
-        icon: {
-          path: g.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: "#00c6ff",
-          fillOpacity: 0.9,
-          strokeColor: "#ffffff",
-          strokeWeight: 3,
-        },
-        title: "Sua posição (GPS do técnico)",
-        zIndex: 1,
-      });
-      new g.maps.Circle({
-        map,
-        center: userLocation,
-        radius: 15,
-        fillColor: "#00c6ff",
-        fillOpacity: 0.08,
-        strokeColor: "#00c6ff",
-        strokeOpacity: 0.4,
-        strokeWeight: 1,
-      });
-    }
-    const initial = marker ?? center;
-    markerRef.current = new g.maps.Marker({
-      position: initial,
-      map,
-      draggable: !disabled,
-      title: "CTO / NAP — arraste para a posição real",
-      label: {
-        text: "CTO",
-        color: "#ffffff",
-        fontSize: "11px",
-        fontWeight: "700",
-      },
-      zIndex: 2,
-    });
-    if (!disabled) {
-      markerRef.current.addListener("dragend", () => setMoved(true));
-      map.addListener("click", (e: any) => {
-        if (!e.latLng) return;
-        markerRef.current?.setPosition(e.latLng);
-        setMoved(true);
-      });
-    }
+  const initialTarget = useMemo(
+    () => marker ?? userLocation ?? center,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+    [],
+  );
 
-  const confirm = () => {
-    const pos = markerRef.current?.getPosition();
-    if (pos) onConfirm(pos.lat(), pos.lng());
+  useEffect(() => {
+    if (!apiKey || !containerRef.current || mapRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const maplibre = await import("maplibre-gl");
+        const { BasemapStyle } = await import("@esri/maplibre-arcgis");
+        if (cancelled || !containerRef.current) return;
+
+        const map = new maplibre.Map({
+          container: containerRef.current,
+          center: [initialTarget.lng, initialTarget.lat],
+          zoom: 18,
+          maxZoom: 22,
+          attributionControl: false,
+        });
+        mapRef.current = map;
+        map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+
+        // Attribution Esri/ArcGIS é obrigatória e é adicionada pelo BasemapStyle.
+        basemapRef.current = BasemapStyle.applyStyle(map, {
+          style: basemapStyleFor(mode),
+          token: apiKey,
+        });
+
+        // Marcador do técnico (GPS): ícone circular com rótulo próprio.
+        if (userLocation) {
+          const gpsEl = document.createElement("div");
+          gpsEl.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center">
+            <div style="width:18px;height:18px;border-radius:50%;background:#00c6ff;border:3px solid #fff;box-shadow:0 0 0 4px rgba(0,198,255,.25)"></div>
+            <span style="margin-top:2px;font:700 10px/1 system-ui;color:#fff;text-shadow:0 1px 3px #000">TÉCNICO</span>
+          </div>`;
+          gpsMarkerRef.current = new maplibre.Marker({ element: gpsEl })
+            .setLngLat([userLocation.lng, userLocation.lat])
+            .addTo(map);
+        }
+
+        // Marcador do ativo: pino arrastável, ícone e rótulo diferentes do GPS.
+        const ativoEl = document.createElement("div");
+        ativoEl.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;cursor:grab">
+          <span style="margin-bottom:2px;font:800 10px/1 system-ui;color:#fff;background:#e11d48;border-radius:4px;padding:2px 5px">${ativoLabel}</span>
+          <svg width="26" height="34" viewBox="0 0 24 32"><path d="M12 0C5.9 0 1 4.9 1 11c0 8 11 21 11 21s11-13 11-21C23 4.9 18.1 0 12 0z" fill="#e11d48" stroke="#fff" stroke-width="2"/><circle cx="12" cy="11" r="4" fill="#fff"/></svg>
+        </div>`;
+        const ativoMarker = new maplibre.Marker({
+          element: ativoEl,
+          draggable: !disabled,
+          anchor: "bottom",
+        })
+          .setLngLat([initialTarget.lng, initialTarget.lat])
+          .addTo(map);
+        ativoMarkerRef.current = ativoMarker;
+
+        if (!disabled) {
+          ativoMarker.on("dragend", () => setMoved(true));
+          map.on("click", (e: any) => {
+            ativoMarker.setLngLat(e.lngLat);
+            setMoved(true);
+          });
+        }
+        map.on("load", () => setReady(true));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Falha ao carregar o mapa.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove?.();
+      mapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey]);
+
+  // Troca de camada (mapa / satélite / híbrido) preservando os marcadores.
+  useEffect(() => {
+    if (!basemapRef.current) return;
+    basemapRef.current.updateStyle({ style: basemapStyleFor(mode) });
+  }, [mode]);
+
+  const centerOnGps = () => {
+    if (!userLocation || !mapRef.current) return;
+    // Apenas movimenta a câmera — não altera o marcador do ativo.
+    mapRef.current.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 19 });
   };
 
-  if (!key) {
+  const confirm = () => {
+    const pos = ativoMarkerRef.current?.getLngLat?.();
+    if (!pos) return;
+    onConfirm(pos.lat, pos.lng, {
+      basemap_style: basemapStyleFor(mode),
+      zoom: Math.round((mapRef.current?.getZoom?.() ?? 18) * 100) / 100,
+    });
+    setMoved(false);
+  };
+
+  if (!apiKey) {
     return (
-      <div className="space-y-2 rounded-xl border border-blue-500/30 bg-[#041126] p-3 text-sm text-slate-300">
-        <p>Insira as coordenadas manualmente (mapa indisponível).</p>
+      <div className="space-y-2 rounded-xl border border-amber-500/40 bg-[#041126] p-3 text-sm text-slate-300">
+        <p className="text-amber-200">
+          Mapa indisponível: configure <code>VITE_ARCGIS_API_KEY</code>. Informe as coordenadas
+          manualmente enquanto isso.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <input
             className="rounded-md border border-cyan-500/35 bg-[#031027] px-2 py-1 font-mono text-slate-100"
@@ -140,28 +194,67 @@ export function MapPicker({ center, userLocation, marker, disabled, confirmed, o
           onClick={() => {
             const lat = parseFloat(manual.lat);
             const lng = parseFloat(manual.lng);
-            if (Number.isFinite(lat) && Number.isFinite(lng)) onConfirm(lat, lng);
+            if (Number.isFinite(lat) && Number.isFinite(lng))
+              onConfirm(lat, lng, { basemap_style: "manual", zoom: 0 });
           }}
         >
-          Confirmar posição
+          Confirmar localização da {ativoLabel}
         </button>
       </div>
     );
   }
 
-  const canConfirm = moved && !disabled;
+  const canConfirm = !disabled && (moved || !confirmed);
 
   return (
     <div className="space-y-2">
-      <div ref={ref} className="h-80 w-full overflow-hidden rounded-xl border border-blue-500/40" />
+      <div className="flex flex-wrap items-center gap-1.5">
+        {BASEMAP_OPTIONS.map((opt) => (
+          <button
+            key={opt.mode}
+            type="button"
+            onClick={() => setMode(opt.mode)}
+            className={
+              "rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition " +
+              (mode === opt.mode
+                ? "border-cyan-400 bg-blue-600 text-white"
+                : "border-blue-500/40 bg-[#071b3a] text-slate-300")
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
+        {userLocation && (
+          <button
+            type="button"
+            onClick={centerOnGps}
+            className="ml-auto rounded-md border border-cyan-500/50 bg-[#041126] px-3 py-1.5 text-xs font-semibold text-cyan-200"
+          >
+            <Crosshair className="mr-1 inline h-3.5 w-3.5" />
+            Centralizar no meu GPS
+          </button>
+        )}
+      </div>
+
+      <div
+        ref={containerRef}
+        className="h-80 w-full overflow-hidden rounded-xl border border-blue-500/40"
+      />
+      {error && <p className="text-xs text-rose-300">Erro no mapa: {error}</p>}
+      <p className="text-[10px] uppercase tracking-wider text-slate-500">
+        {MAP_ATTRIBUTION_NOTE}
+        {ready ? "" : " · carregando…"}
+      </p>
+
       {!disabled && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-400">
-            {confirmed
+            <MapPin className="mr-1 inline h-3.5 w-3.5 text-rose-400" />
+            {confirmed && !moved
               ? "Posição confirmada. Arraste novamente e reconfirme se precisar corrigir."
-              : moved
-                ? "Pino movido. Toque em confirmar para registrar a posição da CTO."
-                : "Arraste o pino vermelho para o poste da CTO ou toque no mapa. Sem confirmação, o remapeamento não pode ser finalizado."}
+              : "Aproxime pelo satélite, identifique o poste e arraste o pino sobre a " +
+                ativoLabel +
+                ". O GPS não define a posição do ativo."}
           </p>
           <button
             type="button"
@@ -174,7 +267,7 @@ export function MapPicker({ center, userLocation, marker, disabled, confirmed, o
             }
           >
             <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />
-            {confirmed ? "Reconfirmar posição da CTO" : "Confirmar posição da CTO"}
+            {confirmed ? `Reconfirmar localização da ${ativoLabel}` : `Confirmar localização da ${ativoLabel}`}
           </button>
         </div>
       )}
