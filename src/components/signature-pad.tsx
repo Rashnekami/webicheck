@@ -272,8 +272,7 @@ function FullscreenSignature({
     </div>
   );
 
-    </div>
-  );
+
 
   return typeof document === "undefined" ? null : createPortal(overlay, document.body);
 }
