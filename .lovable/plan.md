@@ -1,56 +1,116 @@
-# Supervisores, NOC e Castro
+# Remapeamento de CTO/NAP — novo tipo de Checklist
 
-## 1. Cidades
-- Adicionar **Castro** em `src/lib/profile-cities.ts` (agora 6 cidades).
+## Princípio
+Reaproveitar 100% da infraestrutura de Checklist já existente (rascunho/autosave, técnico, provedor, cidade, código público, fotos, versões, permissões, snapshots, PDF/dossiê, finalização). O remapeamento entra apenas como mais um valor no enum `checklist_tipo` e um novo formulário/documento dedicado.
 
-## 2. Banco (uma migration)
-- Enum `app_role`: adicionar `'supervisor'` e `'noc'`.
-- `profiles`: nova coluna `supervisor_id uuid REFERENCES auth.users(id)` (técnico → supervisor).
-- Nova tabela `supervisor_cities (supervisor_id, city, provider_id)` — cidades que cada supervisor supervisiona (M2M).
-- `checklists`: colunas de revisão de supervisor:
-  - `review_status text` (`pendente`, `aprovado`, `reprovado`) — default `pendente` quando finalizado.
-  - `review_comment text`, `reviewed_by uuid`, `reviewed_at timestamptz`.
-  - `locked_for_rework bool` — quando true, técnico é obrigado a criar revisão (Rn) antes de novo envio.
-- Funções `SECURITY DEFINER`:
-  - `is_supervisor_of(_supervisor uuid, _tecnico uuid) → bool`
-  - `supervisor_covers_city(_supervisor uuid, _city text) → bool`
-  - `review_checklist(_id uuid, _decision text, _comment text)` — só supervisor do técnico, seta review_status/locked_for_rework, cria evento.
-- RLS atualizada:
-  - **checklists SELECT**: acrescenta `supervisor` (vê checklists dos técnicos atribuídos OU dentro das cidades cobertas) e `noc` (vê tudo do provedor, read-only).
-  - **checklists UPDATE**: bloqueia edição quando `locked_for_rework=true` (só destrava via `create_checklist_revision`).
-  - **profiles**: supervisor lê/edita perfis dos seus técnicos; NOC lê perfis do provedor.
-  - **provider_login_accounts**: supervisor pode gerenciar credenciais dos técnicos do seu escopo.
-- Trigger em `checklists`: ao finalizar, seta `review_status='pendente'`.
-- GRANTs para `authenticated` em todas as novas tabelas/colunas.
+## 1. Banco (migration única)
 
-## 3. Server functions
-- `src/lib/supervisor.functions.ts`
-  - `listSupervisorScope()` — cidades cobertas + técnicos vinculados.
-  - `reviewChecklist({ id, decision, comment })` — chama RPC.
-  - `assignTechnicianToSupervisor({ tecnicoId, supervisorId })` — admin/platform.
-- `src/lib/admin-users.functions.ts` (existente): estender criação/edição para escolher **papel** (`tecnico | supervisor | noc | admin | almoxarifado`), cidades cobertas (supervisor) e supervisor vinculado (técnico).
-- `src/lib/technician-credentials.functions.ts`: permitir supervisor criar login dos seus técnicos.
+- `ALTER TYPE public.checklist_tipo ADD VALUE 'remapeamento_cto';`
+- Atualizar `public.empty_checklist_revision_data(_tipo)` para retornar o shape vazio do remapeamento quando `_tipo = 'remapeamento_cto'`.
+- Nada de tabela nova. Todo o conteúdo do remapeamento vive em `checklists.dados` (jsonb), como os demais tipos.
+- Reusar bucket `evidencias` para foto ANTES / DEPOIS (mesmo fluxo do `checklist_fotos`, categoria `outro` com legenda `antes`/`depois`).
 
-## 4. UI
-- **Usuários** (`src/routes/_authenticated/usuarios.tsx`):
-  - Novo seletor de papel no diálogo de criação/edição.
-  - Se papel = `supervisor`: multi-select de cidades cobertas.
-  - Se papel = `tecnico`: dropdown "Supervisor responsável" (lista supervisores do provedor).
-  - Badge visual do papel em cada card.
-- **Checklist detalhe** (`src/routes/_authenticated/checklists.$id.tsx`):
-  - Novo card **Revisão do Supervisor** (visível quando finalizado): botões Aprovar/Reprovar + textarea de comentário; mostra status atual e histórico.
-  - Se `locked_for_rework=true` e o usuário for o técnico: banner vermelho "Reprovado por supervisor — crie uma nova revisão" + botão que abre o fluxo de revisão existente.
-- **Lista de checklists** (`src/routes/_authenticated/checklists.index.tsx`):
-  - Badge de `review_status` (Pendente/Aprovado/Reprovado).
-  - Filtro rápido para supervisores: "Aguardando minha revisão".
-- **Dashboard**: sem mudança de UI, RLS já dá acesso ao NOC.
+## 2. Schema TypeScript (`src/lib/checklist-schema.ts`)
 
-## 5. Detalhes técnicos
-- `handle_new_user`: mantém `renan.rash@gmail.com` / `renanparkofthedeath@gmail.com` como platform_admin.
-- Notificação ao técnico = banner in-app + toast na próxima abertura (sem email nesta iteração).
-- Supervisor NÃO consegue apagar checklists finalizados (só platform admin e admin do provedor).
-- NOC: policies só SELECT — nenhuma policy de INSERT/UPDATE/DELETE.
+Adicionar:
+- `TipoChecklist` inclui `"remapeamento_cto"`.
+- `TIPO_LABEL.remapeamento_cto = "Remapeamento de CTO/NAP"`.
+- Interface `RemapeamentoData` com:
+  - `identificacao`: setor, cto_codigo
+  - `localizacao`: gps_original {lat,lng,accuracy_m,captured_at}, confirmada {lat,lng}, distancia_m
+  - `splitter`: tipo (`1x4|1x8|1x16|outro`), tipo_outro, potencia_entrada_dbm
+  - `alimentacao`: cabo, tubo, fibra, cor_fibra, origem, observacao
+  - `portas`: array<{ numero, cor, cor_custom?, status (`ocupada|livre|nao_identificado`), cliente?, cliente_id?, potencia_dbm? }>
+  - `fusao`: { necessaria: `sim|nao|null`, itens: [{ fibra, motivo, antes_dbm, depois_dbm }] }
+  - `resultado`: { estado: `sim|parcialmente|null`, pendencia? }
+- `emptyRemapeamentoData()` e ajuste em `emptyDadosFor`.
+- Helper `FIBER_COLORS` (12 cores TIA-598) + `getFiberColor(portIndex)` com repetição cíclica.
+- Helper `computeSplitterStats(data)` → ocupadas/livres/nao_id/média/melhor/pior/perda_média/delta.
 
-## 6. Verificação
-- `supabase--linter` após a migration.
-- Teste manual: criar supervisor SUP-PG cobrindo Ponta Grossa, vincular técnico T0113, finalizar checklist como T0113, aprovar/reprovar como SUP-PG, tentar editar após reprovação (deve travar), criar revisão.
+## 3. UI — seleção do tipo (`checklists.index.tsx`)
+
+Dialog "Qual checklist" ganha um terceiro card:
+- Título: **Remapeamento de CTO/NAP**
+- Ícone: `Network` (lucide) 
+- Ao clicar: `create.mutate("remapeamento_cto")` — mesma função `createDraft` já usada.
+
+Nenhuma outra alteração em listagem, filtros, exclusão, revisão — o novo tipo entra transparente.
+
+## 4. Formulário (`src/components/checklist/remapeamento-form.tsx`)
+
+Componente único mobile-first. Seções colapsáveis (accordion) para preenchimento rápido no celular:
+
+1. **Identificação** — usa header padrão (cidade/tecnico/data/hora já reaproveitado do `ChecklistForm` header) + `setor` + `cto_codigo`. `useChecklistAutoFill` para data/hora.
+2. **Localização da CTO** — botão "Capturar minha localização" (Geolocation API, `enableHighAccuracy`), depois `<MapPicker>` (ver abaixo) com marcador arrastável. Botão "Confirmar poste da CTO" grava `confirmada` + `distancia_m` (haversine).
+3. **Foto ANTES** — reusar `PhotoUploader` já usado nos outros checklists, categoria `outro`, legenda automática `antes-cto`. Bloquear avanço enquanto não houver foto.
+4. **Splitter** — Select 1x4/1x8/1x16/Outro → gera portas com cor default.
+5. **Alimentação** — cabo, tubo, fibra, cor, origem, obs, `potencia_entrada_dbm`.
+6. **Portas** — grid de cards compactos. Cada card mostra:
+   - Bolinha 20px com a cor da fibra (background = hex) + rótulo textual da cor.
+   - Select de cor (permite trocar caso o padrão diverja).
+   - Radio status (Ocupada/Livre/Não identificado). Se ocupada → inputs cliente, id, potência dBm.
+   - Borda/badge separada para status (vermelho se `potencia > (média+2σ)` — nunca sobrepõe a cor da fibra).
+7. **Análise automática** — bloco readonly com stats de `computeSplitterStats`.
+8. **Fusão** — Radio Sim/Não. Se Sim → lista dinâmica de itens.
+9. **Foto DEPOIS** — igual ANTES; legenda `depois-cto`. Componente `AntesDepois` mostra as duas lado a lado.
+10. **Finalização** — Sim/Parcialmente + campo pendência.
+11. **Resumo** — card final antes do botão "Finalizar", com todos os dados agregados.
+
+Autosave via mesma `updateChecklist` já usada. Botão finalizar chama a mesma `finalizeChecklist`.
+
+### MapPicker (`src/components/checklist/map-picker.tsx`)
+Google Maps JS via `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` (connector Google Maps Platform), `mapTypeId: 'hybrid'`, `google.maps.Marker` arrastável, sem `mapId`. Carregado dinamicamente (`React.lazy` + `<ClientOnly>`). Se a chave não estiver configurada, fallback texto "GPS: lat,lng — abrir no Google Maps".
+
+Conector Google Maps já está listado como recomendado — se ainda não estiver linkado, chamar `standard_connectors--connect` após aprovação do plano.
+
+## 5. Roteamento (`checklists.$id.tsx`)
+
+Já é o mesmo arquivo pra todos os tipos. Adicionar:
+```ts
+if (checklist.tipo === "remapeamento_cto") return <RemapeamentoForm ... />;
+```
+Nenhuma nova rota.
+
+## 6. Documento/PDF/Dossiê
+
+- Novo `src/components/checklist/remapeamento-dark-document.tsx` no mesmo estilo dos `ValidationDarkDocument`/`InstallationDarkDocument` (tema dark neon):
+  - Cabeçalho padrão (logo provedor, código público, técnico, data).
+  - Bloco Localização com mini-mapa estático (Static Maps API via gateway) + coordenadas + precisão.
+  - Foto ANTES.
+  - Splitter + alimentação + potência de entrada.
+  - **Tabela de portas** (Porta | Fibra [swatch+nome] | Status | Cliente | Potência).
+  - Bloco análise (média/perda/melhor/pior).
+  - Fusões, se houver.
+  - Foto DEPOIS.
+  - Status final + pendência.
+- `checklist-document-view.tsx` roteia por tipo para o novo componente.
+- `dossie-pdf.ts` inclui a seção quando `tipo=remapeamento_cto` (mesmo pipeline dos demais).
+- `document-actions.tsx` — botão de imagem do técnico já funciona genericamente; contra-prova do cliente **não** se aplica ao remapeamento (esconder botão).
+
+## 7. Dashboard/listagens
+
+`checklists.index.tsx` já mostra badge do tipo — adicionar cor/ícone (`Network`) para `remapeamento_cto`. Sem mudanças em `dashboard-analytics` além de incluir o novo tipo nas contagens agregadas.
+
+## 8. Testes rápidos
+
+- `emptyDadosFor("remapeamento_cto")` retorna shape esperado.
+- `computeSplitterStats` casos: todas livres, mistura, uma ocupada.
+- `getFiberColor(0..15)` bate com sequência TIA-598 com repetição.
+
+## Notas técnicas
+
+- Sem novas tabelas — reduz risco em RLS/permissões (herda tudo de `checklists`).
+- Fotos usam `checklist_fotos` existente (categoria `outro` + legenda semântica).
+- Mapa carregado dinâmico para não quebrar SSR.
+- Trigger `assign_ont_exchange_ticket` ignora este tipo automaticamente (`troca_realizada` nunca é true).
+- Trigger de finalização (código público `WEBICHECK…`) já cobre qualquer tipo.
+
+## Ordem de execução após aprovação
+
+1. Migration (enum + função `empty_checklist_revision_data`).
+2. Regenerar types Supabase (automático).
+3. Schema TS + helpers de cor/stats.
+4. Formulário + MapPicker + conectar Google Maps se necessário.
+5. Documento dark + integração em view/dossiê.
+6. Ajustes no picker de tipo e listagem.
+7. Testes.

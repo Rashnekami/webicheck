@@ -1262,7 +1262,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc"
       checklist_status: "rascunho" | "finalizado"
-      checklist_tipo: "validacao_ont" | "instalacao"
+      checklist_tipo: "validacao_ont" | "instalacao" | "remapeamento_cto"
       foto_categoria:
         | "etiqueta"
         | "leds"
@@ -1399,7 +1399,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "tecnico", "almoxarifado", "supervisor", "noc"],
       checklist_status: ["rascunho", "finalizado"],
-      checklist_tipo: ["validacao_ont", "instalacao"],
+      checklist_tipo: ["validacao_ont", "instalacao", "remapeamento_cto"],
       foto_categoria: [
         "etiqueta",
         "leds",

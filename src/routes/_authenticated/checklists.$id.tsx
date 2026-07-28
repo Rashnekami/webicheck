@@ -38,6 +38,7 @@ import {
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { ChecklistForm } from "@/components/checklist/checklist-form";
 import { InstalacaoForm } from "@/components/checklist/instalacao-form";
+import { RemapeamentoForm } from "@/components/checklist/remapeamento-form";
 import {
   deleteFoto,
   finalizeChecklist,
@@ -54,9 +55,11 @@ import {
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type RemapeamentoData,
 } from "@/lib/checklist-schema";
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
+import { generateRemapeamentoPdf } from "@/components/checklist/remapeamento-pdf";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-card";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
@@ -139,7 +142,7 @@ function ChecklistDetail() {
     : (ownerQuery.data?.assinatura ?? null);
 
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
+  const [data, setData] = useState<ChecklistData | InstalacaoData | RemapeamentoData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -268,6 +271,13 @@ function ChecklistDetail() {
           publicUrl,
           counterproof: counterproofDocument,
         });
+      } else if (tipo === "remapeamento_cto") {
+        await generateRemapeamentoPdf({
+          row: merged,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
+          publicUrl,
+        });
       } else {
         await generateChecklistPdf({
           row: merged,
@@ -362,6 +372,29 @@ function ChecklistDetail() {
             }}
             onDataChange={(fn) => {
               setData((p) => fn(p as InstalacaoData));
+              setDirty(true);
+            }}
+          />
+        ) : tipo === "remapeamento_cto" ? (
+          <RemapeamentoForm
+            header={{
+              os: header.os ?? null,
+              cliente: header.cliente ?? null,
+              cidade: header.cidade ?? null,
+              endereco: header.endereco ?? null,
+              data_atendimento: header.data_atendimento ?? null,
+              hora_atendimento: header.hora_atendimento ?? null,
+            }}
+            data={data as RemapeamentoData}
+            checklistId={row.id}
+            tecnicoId={row.tecnico_id}
+            readOnly={readOnly}
+            onHeaderChange={(patch) => {
+              setHeader((p) => ({ ...p, ...patch }));
+              setDirty(true);
+            }}
+            onDataChange={(fn) => {
+              setData((p) => fn(p as RemapeamentoData));
               setDirty(true);
             }}
           />

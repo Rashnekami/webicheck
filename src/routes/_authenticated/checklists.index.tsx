@@ -292,7 +292,7 @@ function ChecklistsList() {
               específico.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <button
               type="button"
               disabled={create.isPending}
@@ -320,6 +320,20 @@ function ChecklistsList() {
               <p className="text-xs text-muted-foreground">
                 Validação técnica e orientação ao cliente ao fim da instalação, com assinatura do
                 cliente.
+              </p>
+            </button>
+            <button
+              type="button"
+              disabled={create.isPending}
+              onClick={() => create.mutate("remapeamento_cto")}
+              className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition hover:border-primary hover:bg-primary/5"
+            >
+              <div className="rounded-full bg-cyan-500/10 p-2 text-cyan-600">
+                <Wifi className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold">Remapeamento CTO/NAP</h3>
+              <p className="text-xs text-muted-foreground">
+                Mapeamento de portas do splitter com GPS, cores TIA-598 e análise de potência.
               </p>
             </button>
           </div>

@@ -3,10 +3,12 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import {
   emptyChecklistData,
   emptyInstalacaoData,
+  emptyRemapeamentoData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type RemapeamentoData,
   type TipoChecklist,
 } from "./checklist-schema";
 
@@ -18,7 +20,7 @@ type ChecklistDbRow = Database["public"]["Tables"]["checklists"]["Row"];
 type ChecklistDbInsert = Database["public"]["Tables"]["checklists"]["Insert"];
 type ChecklistDbUpdate = Database["public"]["Tables"]["checklists"]["Update"];
 
-function checklistDataAsJson(data: ChecklistData | InstalacaoData): Json {
+function checklistDataAsJson(data: ChecklistData | InstalacaoData | RemapeamentoData): Json {
   return data as unknown as Json;
 }
 
@@ -69,15 +71,32 @@ function mergeInstalacaoData(saved: Record<string, unknown>): InstalacaoData {
   } as InstalacaoData;
 }
 
+function mergeRemapeamentoData(saved: Record<string, unknown>): RemapeamentoData {
+  const base = emptyRemapeamentoData();
+  return {
+    ...base,
+    ...saved,
+    identificacao: { ...base.identificacao, ...(isRecord(saved.identificacao) ? saved.identificacao : {}) },
+    localizacao: { ...base.localizacao, ...(isRecord(saved.localizacao) ? saved.localizacao : {}) },
+    splitter: { ...base.splitter, ...(isRecord(saved.splitter) ? saved.splitter : {}) },
+    alimentacao: { ...base.alimentacao, ...(isRecord(saved.alimentacao) ? saved.alimentacao : {}) },
+    portas: Array.isArray(saved.portas) ? (saved.portas as RemapeamentoData["portas"]) : base.portas,
+    fusao: { ...base.fusao, ...(isRecord(saved.fusao) ? saved.fusao : {}) },
+    resultado: { ...base.resultado, ...(isRecord(saved.resultado) ? saved.resultado : {}) },
+  } as RemapeamentoData;
+}
+
 function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
   const savedData =
     row.dados && typeof row.dados === "object" && !Array.isArray(row.dados) ? row.dados : {};
-  return {
-    ...row,
-    tipo,
-    dados: tipo === "instalacao" ? mergeInstalacaoData(savedData) : mergeChecklistData(savedData),
-  } as unknown as ChecklistRow;
+  const dados =
+    tipo === "instalacao"
+      ? mergeInstalacaoData(savedData)
+      : tipo === "remapeamento_cto"
+        ? mergeRemapeamentoData(savedData)
+        : mergeChecklistData(savedData);
+  return { ...row, tipo, dados } as unknown as ChecklistRow;
 }
 
 export async function listChecklists(opts: {
@@ -118,7 +137,12 @@ export async function createDraft(
   userId: string,
   tipo: TipoChecklist = "validacao_ont",
 ): Promise<string> {
-  const dados = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const dados =
+    tipo === "instalacao"
+      ? emptyInstalacaoData()
+      : tipo === "remapeamento_cto"
+        ? emptyRemapeamentoData()
+        : emptyChecklistData();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("provider_id")
@@ -158,7 +182,7 @@ export async function updateChecklist(
       | "modelo_ont_instalada"
       | "serial_ont_instalada"
     >
-  > & { dados?: ChecklistData | InstalacaoData },
+  > & { dados?: ChecklistData | InstalacaoData | RemapeamentoData },
 ): Promise<void> {
   const { dados, ...fields } = patch;
   const databasePatch: ChecklistDbUpdate = {
