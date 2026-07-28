@@ -10,6 +10,7 @@ import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fiber
 import {
   CAUSA_OPCOES,
   ESTADO_LABEL,
+  INTERVENCAO_RECOMENDACAO_LABEL,
   PONTO_LABEL,
   URGENCIA_LABEL,
   routeLengthMeters,
