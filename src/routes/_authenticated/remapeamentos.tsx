@@ -6,11 +6,11 @@ import {
   BASEMAP_OPTIONS,
   DEFAULT_BASEMAP_MODE,
   MAP_ATTRIBUTION_NOTE,
-  arcgisBrowserKey,
   basemapStyleFor,
   basemapStyleUrl,
   type BasemapMode,
 } from "@/lib/map-basemaps";
+import { useArcgisBrowserKey } from "@/lib/use-arcgis-key";
 import {
   ArrowLeft,
   BarChart3,
@@ -273,7 +273,7 @@ function RemapCard({ row }: { row: RemapRow }) {
 }
 
 function RemapMap({ rows }: { rows: RemapRow[] }) {
-  const apiKey = arcgisBrowserKey();
+  const { key: apiKey, loading: keyLoading } = useArcgisBrowserKey();
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const basemapRef = useRef<any>(null);
@@ -304,7 +304,10 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
         center: [points[0]?.pos.lng ?? -50.6156, points[0]?.pos.lat ?? -24.3269],
         zoom: points.length ? 13 : 10,
         maxZoom: 22,
-        attributionControl: false,
+        attributionControl: {
+          compact: true,
+          customAttribution: MAP_ATTRIBUTION_NOTE,
+        },
       });
       mapRef.current = map;
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
@@ -364,7 +367,9 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-blue-500/30 bg-[#041126] p-4 text-sm text-slate-400">
-        Chave do ArcGIS (VITE_ARCGIS_API_KEY) não configurada — mapa indisponível.
+        {keyLoading
+          ? "Carregando cartografia…"
+          : "Chave de basemaps do ArcGIS (ARCGIS_WEB_API_KEY) não configurada — mapa indisponível."}
       </div>
     );
   }

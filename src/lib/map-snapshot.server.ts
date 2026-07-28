@@ -1,9 +1,32 @@
+import jpeg from "jpeg-js";
 import UPNG from "upng-js";
 
 import { blitRgba, drawMarker, projectToPixel, tileGridFor, TILE_SIZE } from "./map-static";
 
 const STATIC_TILES_BASE =
   "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1";
+/** Serviço raster de imagem aérea (satélite) do ArcGIS. */
+const IMAGERY_TILES_BASE =
+  "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile";
+
+function isImageryStyle(style: string): boolean {
+  return style.startsWith("arcgis/imagery");
+}
+
+/** Decodifica PNG (tiles vetorizados) ou JPEG (satélite) para RGBA. */
+function decodeTile(bytes: Uint8Array): { rgba: Uint8Array; width: number; height: number } {
+  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+  if (isJpeg) {
+    const img = jpeg.decode(bytes, { useTArray: true });
+    return { rgba: new Uint8Array(img.data), width: img.width, height: img.height };
+  }
+  const decoded = UPNG.decode(bytes.buffer as ArrayBuffer);
+  return {
+    rgba: new Uint8Array(UPNG.toRGBA8(decoded)[0]),
+    width: decoded.width,
+    height: decoded.height,
+  };
+}
 
 export class MapSnapshotNotConfiguredError extends Error {
   constructor() {
@@ -64,15 +87,24 @@ export async function renderStaticMapPng(args: RenderSnapshotArgs): Promise<Rend
   const grid = tileGridFor(args.center, zoom, width, height);
   const canvas = new Uint8Array(width * height * 4);
 
+  const imagery = isImageryStyle(style);
+
   await Promise.all(
     grid.tiles.map(async (tile) => {
-      const url = `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}?token=${encodeURIComponent(token)}`;
-      const res = await fetch(url);
+      // Satélite: serviço raster World_Imagery (exige token em query string).
+      // Demais estilos: static basemap tiles com Authorization Bearer, sem
+      // token na URL. Em nenhum caso o token é registrado em log ou erro.
+      const url = imagery
+        ? `${IMAGERY_TILES_BASE}/${tile.z}/${tile.y}/${tile.x}?token=${encodeURIComponent(token)}`
+        : `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}`;
+      const res = await fetch(
+        url,
+        imagery ? undefined : { headers: { Authorization: `Bearer ${token}` } },
+      );
       if (!res.ok) throw new Error(`Falha ao obter tile ${tile.z}/${tile.x}/${tile.y} (${res.status}).`);
       const buf = new Uint8Array(await res.arrayBuffer());
-      const decoded = UPNG.decode(buf.buffer as ArrayBuffer);
-      const rgba = new Uint8Array(UPNG.toRGBA8(decoded)[0]);
-      blitRgba(canvas, width, height, rgba, decoded.width, decoded.height, tile.dx, tile.dy);
+      const decoded = decodeTile(buf);
+      blitRgba(canvas, width, height, decoded.rgba, decoded.width, decoded.height, tile.dx, tile.dy);
     }),
   );
 
