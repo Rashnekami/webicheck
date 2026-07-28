@@ -15,6 +15,8 @@ export interface CurrentUser {
   provider_id: string | null;
   supervisor_id: string | null;
   platform_admin: boolean;
+  cities: string[];
+  territories: string[];
   roles: AppRole[];
   isAdmin: boolean;
   isWarehouse: boolean;
