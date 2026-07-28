@@ -429,7 +429,8 @@ async function resolveMapUri(row: ChecklistRow): Promise<string> {
 }
 
 export async function buildRemapeamentoPdfBlob(params: Params): Promise<Blob> {
-  const [logoUri, qrUri, mapUri] = await Promise.all([
+  const { fotos: fotoRows, ...rest } = params;
+  const [logoUri, qrUri, mapUri, fotos] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
     params.publicUrl
       ? QRCode.toDataURL(params.publicUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" }).catch(
@@ -437,9 +438,16 @@ export async function buildRemapeamentoPdfBlob(params: Params): Promise<Blob> {
         )
       : Promise.resolve(""),
     resolveMapUri(params.row),
+    resolveFotoDataUris(fotoRows ?? []).catch(() => [] as ResolvedFoto[]),
   ]);
   return await pdf(
-    <RemapeamentoDocument {...params} logoUri={logoUri} qrUri={qrUri} mapUri={mapUri} />,
+    <RemapeamentoDocument
+      {...rest}
+      logoUri={logoUri}
+      qrUri={qrUri}
+      mapUri={mapUri}
+      fotos={fotos}
+    />,
   ).toBlob();
 }
 
