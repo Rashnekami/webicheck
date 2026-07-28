@@ -31,11 +31,13 @@ export function useCurrentUser() {
     queryFn: async (): Promise<CurrentUser | null> => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return null;
-      const [{ data: profile }, { data: roles }] = await Promise.all([
+      const [{ data: profile }, { data: roles }, { data: cityRows }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", auth.user.id),
+        supabase.from("user_cities").select("city").eq("user_id", auth.user.id),
       ]);
       const roleList = (roles ?? []).map((r) => r.role as AppRole);
+      const cities = (cityRows ?? []).map((r) => r.city as string);
       const p = profile as
         | (typeof profile & {
             assinatura?: string | null;
