@@ -66,8 +66,10 @@ export async function renderStaticMapPng(args: RenderSnapshotArgs): Promise<Rend
 
   await Promise.all(
     grid.tiles.map(async (tile) => {
-      const url = `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}?token=${encodeURIComponent(token)}`;
-      const res = await fetch(url);
+      // O token nunca vai na URL: só no cabeçalho Authorization, para não
+      // aparecer em logs de rede/CDN nem em mensagens de erro.
+      const url = `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`Falha ao obter tile ${tile.z}/${tile.x}/${tile.y} (${res.status}).`);
       const buf = new Uint8Array(await res.arrayBuffer());
       const decoded = UPNG.decode(buf.buffer as ArrayBuffer);
