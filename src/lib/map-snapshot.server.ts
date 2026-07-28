@@ -41,7 +41,7 @@ export interface RenderedSnapshot {
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes as unknown as ArrayBufferView);
+  const digest = await crypto.subtle.digest("SHA-256", bytes.slice().buffer as ArrayBuffer);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
