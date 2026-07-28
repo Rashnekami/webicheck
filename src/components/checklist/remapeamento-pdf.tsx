@@ -201,9 +201,15 @@ type Params = {
   tecnicoNome: string;
   assinatura?: string | null;
   publicUrl?: string | null;
+  fotos?: FotoRow[];
 };
 
-type RenderParams = Params & { logoUri: string; qrUri: string; mapUri: string };
+type RenderParams = Omit<Params, "fotos"> & {
+  logoUri: string;
+  qrUri: string;
+  mapUri: string;
+  fotos: ResolvedFoto[];
+};
 
 function RemapeamentoDocument({
   row,
@@ -213,6 +219,7 @@ function RemapeamentoDocument({
   logoUri,
   qrUri,
   mapUri,
+  fotos,
 }: RenderParams) {
   const d = row.dados as RemapeamentoData;
   const stats = computeSplitterStats(d);
