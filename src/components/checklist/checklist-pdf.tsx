@@ -4,13 +4,30 @@ import type { ChecklistData, ChecklistRow, FotoRow } from "@/lib/checklist-schem
 import { FOTO_CATEGORIAS } from "@/lib/checklist-schema";
 import { signedFotoUrl } from "@/lib/checklists";
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
+import { CustomerCounterproofPdfPage } from "@/components/checklist/customer-counterproof-pdf-page";
+import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
 
-const BRAND = "#1a53ff";
-const BRAND_DARK = "#0f3fd4";
-const BORDER = "#c9d3e6";
-const INK = "#0f172a";
-const MUTED = "#475569";
-const SOFT_BG = "#f4f7ff";
+const C = {
+  page: "#020817",
+  panel: "#06152d",
+  panelSoft: "#031027",
+  blue: "#1479ff",
+  cyan: "#19d8ff",
+  green: "#45e35f",
+  red: "#ff5268",
+  amber: "#ffb020",
+  border: "#1769db",
+  text: "#f8fbff",
+  muted: "#a9bad1",
+};
+
+const BRAND = C.blue;
+const BRAND_DARK = C.cyan;
+const BORDER = C.border;
+const INK = C.text;
+const MUTED = C.muted;
+const SOFT_BG = C.panel;
 
 const styles = StyleSheet.create({
   page: {
@@ -20,6 +37,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: "Helvetica",
     color: INK,
+    backgroundColor: C.page,
   },
   header: {
     flexDirection: "row",
@@ -29,6 +47,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 8,
     overflow: "hidden",
+    backgroundColor: C.panelSoft,
   },
   headerLogoBox: {
     width: 82,
@@ -62,13 +81,21 @@ const styles = StyleSheet.create({
   },
   warn: {
     borderLeftWidth: 3,
-    borderLeftColor: "#f59e0b",
-    backgroundColor: "#fffbeb",
+    borderLeftColor: C.amber,
+    backgroundColor: "#2a1d05",
     padding: 6,
     borderRadius: 3,
     marginBottom: 8,
     fontSize: 8.5,
-    color: "#78350f",
+    color: "#fde68a",
+  },
+  counterproofBox: {
+    borderWidth: 1,
+    borderColor: C.green,
+    backgroundColor: "#0b2d25",
+    padding: 6,
+    borderRadius: 4,
+    marginBottom: 8,
   },
   sectionTitle: {
     backgroundColor: BRAND,
@@ -91,6 +118,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
+    backgroundColor: C.panel,
   },
   subsectionLabel: {
     marginTop: 5,
@@ -108,7 +136,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   label: { color: MUTED, marginRight: 3 },
-  value: { fontWeight: 700 },
+  value: { fontWeight: 700, color: INK },
   checkboxRow: {
     width: "50%",
     flexDirection: "row",
@@ -120,14 +148,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: BRAND_DARK,
     borderRadius: 2,
     marginRight: 5,
     padding: 1,
+    backgroundColor: C.panelSoft,
   },
   checkboxInner: {
     flex: 1,
-    backgroundColor: BRAND,
+    backgroundColor: C.green,
     borderRadius: 1,
   },
   checkboxLabel: { fontSize: 9, color: INK },
@@ -137,8 +166,9 @@ const styles = StyleSheet.create({
     padding: 8,
     minHeight: 60,
     borderRadius: 3,
-    backgroundColor: "#fafbff",
+    backgroundColor: C.panelSoft,
     lineHeight: 1.4,
+    color: INK,
   },
   signRow: {
     marginTop: 14,
@@ -148,7 +178,8 @@ const styles = StyleSheet.create({
   signBox: {
     flex: 1,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderStyle: "dashed",
+    borderColor: BRAND_DARK,
     borderRadius: 4,
     padding: 6,
     minHeight: 90,
@@ -165,8 +196,8 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     alignItems: "center",
   },
-  signLabel: { fontSize: 8, color: MUTED },
-  signName: { fontSize: 9, fontWeight: 700, color: INK },
+  signLabel: { fontSize: 8, color: "#475569" },
+  signName: { fontSize: 9, fontWeight: 700, color: "#0f172a" },
   footer: {
     position: "absolute",
     bottom: 14,
@@ -189,10 +220,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: SOFT_BG,
+    backgroundColor: C.panelSoft,
   },
   numberLabel: { fontSize: 8, color: MUTED, letterSpacing: 0.6 },
-  numberValue: { fontSize: 13, fontWeight: 700, color: BRAND_DARK, letterSpacing: 1 },
+  numberValue: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: BRAND_DARK,
+    letterSpacing: 1,
+  },
   photoItem: {
     width: "100%",
     flex: 1,
@@ -200,13 +236,18 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     padding: 8,
     borderRadius: 5,
-    backgroundColor: "white",
+    backgroundColor: C.panel,
     alignItems: "center",
     justifyContent: "center",
   },
-  photoImg: { width: "100%", height: 610, objectFit: "contain", borderRadius: 2 },
+  photoImg: {
+    width: "100%",
+    height: 610,
+    objectFit: "contain",
+    borderRadius: 2,
+  },
   photoLabel: { fontSize: 9, marginTop: 6, color: MUTED, textAlign: "center" },
-  qrImage: { width: 56, height: 56, marginLeft: 8 },
+  qrImage: { width: 56, height: 56, marginLeft: 8, backgroundColor: "white", padding: 2, borderRadius: 3 },
 });
 
 const Chk = ({ v, label }: { v: boolean; label: string }) => (
@@ -231,6 +272,7 @@ const Field = ({
   </View>
 );
 
+
 function yesNo(v: "sim" | "nao" | null) {
   if (v === "sim") return "Sim";
   if (v === "nao") return "Não";
@@ -254,6 +296,7 @@ type Params = {
   tecnicoNome: string;
   assinatura?: string | null;
   publicUrl?: string | null;
+  counterproof?: CounterproofDocumentInfo | null;
 };
 
 function ChecklistDocument({
@@ -263,8 +306,10 @@ function ChecklistDocument({
   assinatura,
   logoUri,
   qrUri,
+  counterproof,
 }: Params & { logoUri: string; qrUri: string }) {
   const d = row.dados as ChecklistData;
+  const equipmentUnavailable = d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
   const rev = (row as unknown as { revision_number?: number }).revision_number ?? 1;
   const revSuffix = rev > 1 ? `-R${rev}` : "";
   const numero = (row.numero_publico || "— pendente —") + revSuffix;
@@ -281,6 +326,14 @@ function ChecklistDocument({
             <Text style={styles.headerBadge}>DOCUMENTO OFICIAL</Text>
           </View>
         </View>
+
+        {counterproof?.status === "validated" ? (
+          <View style={styles.counterproofBox}>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: "#166534" }}>CONTRA-PROVA VALIDADA PELO CLIENTE</Text>
+            <Text style={{ fontSize: 8, color: INK }}>Código: {counterproof.code} · Checklist: {counterproof.checklist_code}</Text>
+            <Text style={{ fontSize: 8, color: INK }}>Validação: {counterproof.validated_at ? new Date(counterproof.validated_at).toLocaleString("pt-BR") : "—"} · Evidência de identificação registrada</Text>
+          </View>
+        ) : null}
 
         <View style={styles.numberBanner}>
           <View>
@@ -326,6 +379,9 @@ function ChecklistDocument({
             <Field label="Modelo" value={row.modelo} w="33.33%" />
             <Field label="Serial" value={row.serial} w="33.33%" />
             <Field label="CTO/Porta" value={row.cto_porta} w="33.33%" />
+            {row.exchange_ticket_code ? (
+              <Field label="Ticket da troca" value={row.exchange_ticket_code} />
+            ) : null}
           </View>
         </View>
 
@@ -366,70 +422,84 @@ function ChecklistDocument({
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>4. Teste cabeado</Text>
-        <View style={styles.sectionBox}>
-          <Field
-            label="Aplica-se ao atendimento"
-            value={yesNo(d.teste_cabeado.aplicabilidade)}
-            w="100%"
-          />
-          {d.teste_cabeado.aplicabilidade === "nao" ? (
-            <Text style={{ color: MUTED, marginTop: 3 }}>
-              Não se aplica — atendimento realizado sem equipamento para teste cabeado.
-            </Text>
-          ) : (
-            <>
+        {equipmentUnavailable ? (
+          <>
+            <Text style={styles.sectionTitle}>4. Testes anteriores à troca</Text>
+            <View style={styles.sectionBox}>
+              <Text style={{ color: "#78350f" }}>
+                Não aplicáveis — a ONT/ONU retirada foi registrada como queimada ou danificada. Os
+                resultados cabeados e Wi-Fi anteriores à substituição permanecem nulos.
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>4. Teste cabeado</Text>
+            <View style={styles.sectionBox}>
+              <Field
+                label="Aplica-se ao atendimento"
+                value={yesNo(d.teste_cabeado.aplicabilidade)}
+                w="100%"
+              />
+              {d.teste_cabeado.aplicabilidade === "nao" ? (
+                <Text style={{ color: MUTED, marginTop: 3 }}>
+                  Não se aplica — atendimento realizado sem equipamento para teste cabeado.
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
+                  <View style={styles.grid2}>
+                    <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
+                    <Chk v={d.teste_cabeado.ping} label="Ping testado" />
+                    <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
+                    <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
+                  </View>
+                  <View style={styles.grid2}>
+                    <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
+                    <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
+                    <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
+                  </View>
+                  <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
+                  <View style={styles.grid2}>
+                    <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
+                    <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
+                    <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
+                    <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
+                    <Chk
+                      v={d.teste_cabeado.nao_testado}
+                      label="Aplicável, mas não foi possível testar"
+                    />
+                  </View>
+                </>
+              )}
+            </View>
+
+            <Text style={styles.sectionTitle}>5. Teste Wi-Fi</Text>
+            <View style={styles.sectionBox}>
               <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
               <View style={styles.grid2}>
-                <Chk v={d.teste_cabeado.navegacao} label="Navegação testada" />
-                <Chk v={d.teste_cabeado.ping} label="Ping testado" />
-                <Chk v={d.teste_cabeado.velocidade} label="Velocidade testada" />
-                <Chk v={d.teste_cabeado.cabo_substituido} label="Cabo substituído" />
+                <Chk v={d.teste_wifi.rede_24} label="Rede 2,4 GHz testada" />
+                <Chk v={d.teste_wifi.rede_5} label="Rede 5 GHz testada" />
+                <Chk v={d.teste_wifi.mais_aparelhos} label="Testado em mais de um aparelho" />
+                <Chk v={d.teste_wifi.cabo_funcionando} label="Cabo permanece funcionando" />
               </View>
+              <Text style={styles.subsectionLabel}>VELOCIDADE MEDIDA NO WI-FI</Text>
               <View style={styles.grid2}>
-                <Field label="Download (Mbps)" value={d.teste_cabeado.download} w="33.33%" />
-                <Field label="Upload (Mbps)" value={d.teste_cabeado.upload} w="33.33%" />
-                <Field label="Ping (ms)" value={d.teste_cabeado.ping_ms} w="33.33%" />
+                <Field label="Download (Mbps)" value={d.teste_wifi.download} w="33.33%" />
+                <Field label="Upload (Mbps)" value={d.teste_wifi.upload} w="33.33%" />
+                <Field label="Ping (ms)" value={d.teste_wifi.ping_ms} w="33.33%" />
               </View>
               <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
               <View style={styles.grid2}>
-                <Chk v={d.teste_cabeado.funcionou} label="Funcionou normalmente" />
-                <Chk v={d.teste_cabeado.apresentou_falha} label="Também apresentou falha" />
-                <Chk v={d.teste_cabeado.ont_reiniciou} label="ONT reiniciou" />
-                <Chk v={d.teste_cabeado.lan_falhou} label="Porta LAN não funcionou" />
-                <Chk
-                  v={d.teste_cabeado.nao_testado}
-                  label="Aplicável, mas não foi possível testar"
-                />
+                <Chk v={d.teste_wifi.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
+                <Chk v={d.teste_wifi.ambas_desaparecem} label="Ambas as redes desaparecem" />
+                <Chk v={d.teste_wifi.sem_internet} label="Wi-Fi visível sem internet" />
+                <Chk v={d.teste_wifi.um_aparelho} label="Ocorreu apenas em um aparelho" />
+                <Chk v={d.teste_wifi.nao_reproduzida} label="Falha não reproduzida" />
               </View>
-            </>
-          )}
-        </View>
-
-        <Text style={styles.sectionTitle}>5. Teste Wi-Fi</Text>
-        <View style={styles.sectionBox}>
-          <Text style={styles.subsectionLabel}>EXECUÇÃO DO TESTE</Text>
-          <View style={styles.grid2}>
-            <Chk v={d.teste_wifi.rede_24} label="Rede 2,4 GHz testada" />
-            <Chk v={d.teste_wifi.rede_5} label="Rede 5 GHz testada" />
-            <Chk v={d.teste_wifi.mais_aparelhos} label="Testado em mais de um aparelho" />
-            <Chk v={d.teste_wifi.cabo_funcionando} label="Cabo permanece funcionando" />
-          </View>
-          <Text style={styles.subsectionLabel}>VELOCIDADE MEDIDA NO WI-FI</Text>
-          <View style={styles.grid2}>
-            <Field label="Download (Mbps)" value={d.teste_wifi.download} w="33.33%" />
-            <Field label="Upload (Mbps)" value={d.teste_wifi.upload} w="33.33%" />
-            <Field label="Ping (ms)" value={d.teste_wifi.ping_ms} w="33.33%" />
-          </View>
-          <Text style={styles.subsectionLabel}>RESULTADO DO TESTE</Text>
-          <View style={styles.grid2}>
-            <Chk v={d.teste_wifi.apenas_5g_desaparece} label="Apenas 5 GHz desaparece" />
-            <Chk v={d.teste_wifi.ambas_desaparecem} label="Ambas as redes desaparecem" />
-            <Chk v={d.teste_wifi.sem_internet} label="Wi-Fi visível sem internet" />
-            <Chk v={d.teste_wifi.um_aparelho} label="Ocorreu apenas em um aparelho" />
-            <Chk v={d.teste_wifi.nao_reproduzida} label="Falha não reproduzida" />
-          </View>
-        </View>
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>6. Evidências marcadas</Text>
         <View style={styles.sectionBox}>
@@ -451,6 +521,13 @@ function ChecklistDocument({
             <Field label="Encaminhado ao NOC" value={yesNo(d.resultado_final.encaminhado_noc)} />
             <Field label="Interrompeu atendimento" value={yesNo(d.resultado_final.interrompeu)} />
             <Field label="Motivo" value={d.resultado_final.motivo} w="100%" />
+            {equipmentUnavailable && row.troca_realizada === true ? (
+              <Field
+                label="Teste pós-troca solicitado"
+                value={d.resultado_final.executar_diagnostico_pos_troca ? "Sim" : "Não"}
+                w="100%"
+              />
+            ) : null}
           </View>
         </View>
 
@@ -470,7 +547,63 @@ function ChecklistDocument({
           </View>
         </View>
 
+        {(d.tipo_manutencao || d.ai_analysis) && (
+          <>
+            <Text style={styles.sectionTitle}>10. Análise por IA (consultiva)</Text>
+            <View style={styles.sectionBox}>
+              <View style={styles.grid2}>
+                <Field
+                  label="Tipo de manutenção"
+                  value={labelTipoManutencao(d.tipo_manutencao)}
+                  w="50%"
+                />
+                {d.ai_analysis ? (
+                  <Field
+                    label="Recomendação"
+                    value={
+                      RECOMENDACAO_LABEL[d.ai_analysis.recomendacao] ?? d.ai_analysis.recomendacao
+                    }
+                    w="50%"
+                  />
+                ) : null}
+              </View>
+              {d.ai_analysis ? (
+                <>
+                  <Field
+                    label="Diagnóstico provável"
+                    value={d.ai_analysis.diagnostico_provavel}
+                    w="100%"
+                  />
+                  <Field label="Causa raiz" value={d.ai_analysis.causa_raiz} w="100%" />
+                  <Field label="Justificativa" value={d.ai_analysis.justificativa} w="100%" />
+                  <Field
+                    label="Inconsistências"
+                    value={
+                      d.ai_analysis.inconsistencias.length
+                        ? d.ai_analysis.inconsistencias.map((i) => `• ${i}`).join("\n")
+                        : "Nenhuma"
+                    }
+                    w="100%"
+                  />
+                  <Field
+                    label="Resumo técnico"
+                    value={d.ai_analysis.resumo_tecnico}
+                    w="100%"
+                  />
+                  <Text style={{ fontSize: 7, color: MUTED, marginTop: 3 }}>
+                    Gerado em {new Date(d.ai_analysis.gerado_em).toLocaleString("pt-BR")} ·{" "}
+                    {d.ai_analysis.modelo_ia} · Uso consultivo.
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ fontSize: 8, color: MUTED }}>Análise por IA não solicitada.</Text>
+              )}
+            </View>
+          </>
+        )}
+
         <View style={styles.signRow}>
+
           <View style={styles.signBox}>
             {assinatura ? (
               <Image src={assinatura} style={styles.signImage} />
@@ -493,6 +626,10 @@ function ChecklistDocument({
           <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
       </Page>
+
+      {counterproof?.status === "validated" ? (
+        <CustomerCounterproofPdfPage counterproof={counterproof} logoUri={logoUri} />
+      ) : null}
 
       {fotos.map((f, index) => (
         <Page key={f.id} size="A4" style={styles.page}>
@@ -535,6 +672,7 @@ export async function buildChecklistPdfBlob({
   tecnicoNome,
   assinatura,
   publicUrl,
+  counterproof,
 }: Params): Promise<Blob> {
   const [logoUri, fotosComUri, qrUri] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
@@ -567,6 +705,7 @@ export async function buildChecklistPdfBlob({
       logoUri={logoUri}
       qrUri={qrUri}
       publicUrl={publicUrl}
+      counterproof={counterproof}
     />,
   ).toBlob();
 }

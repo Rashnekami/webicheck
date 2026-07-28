@@ -35,7 +35,11 @@ import {
 } from "@/lib/public-checklist.functions";
 import { ChecklistDocumentView } from "@/components/checklist/checklist-document-view";
 import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-export";
-import type { ChecklistRow } from "@/lib/checklist-schema";
+import type { ChecklistRow, FotoRow, IntervencaoData, RemapeamentoData } from "@/lib/checklist-schema";
+import { resolveFotoSignedUrls } from "@/lib/checklist-photo-uris";
+import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
+import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
+import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
 
 interface Props {
   row: ChecklistRow;
@@ -44,6 +48,8 @@ interface Props {
   isAdmin: boolean;
   onDownloadPdf: (publicUrl?: string | null) => void;
   pdfBusy: boolean;
+  counterproof?: CounterproofDocumentInfo | null;
+  fotos?: FotoRow[];
 }
 
 export function DocumentActions({
@@ -53,13 +59,41 @@ export function DocumentActions({
   isAdmin,
   onDownloadPdf,
   pdfBusy,
+  counterproof: counterproofProp,
+  fotos = [],
 }: Props) {
   const qc = useQueryClient();
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [busyImg, setBusyImg] = useState(false);
+  const [busyImg, setBusyImg] = useState<"technician" | "customer" | null>(null);
   const [confirmRegen, setConfirmRegen] = useState(false);
-  const docRef = useRef<HTMLDivElement>(null);
+  const technicianDocRef = useRef<HTMLDivElement>(null);
+  const customerDocRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+
+  const isRede =
+    row.tipo === "remapeamento_cto" ||
+    row.tipo === "rompimento" ||
+    row.tipo === "readequacao" ||
+    row.tipo === "melhoria_sinal";
+
+  const fotosResolved = useQuery({
+    queryKey: ["doc-fotos", row.id, fotos.map((f) => f.id).join(",")],
+    queryFn: () => resolveFotoSignedUrls(fotos),
+    enabled: isRede && fotos.length > 0,
+  });
+
+  const mapSnapshotPath =
+    row.tipo === "remapeamento_cto"
+      ? ((row.dados as RemapeamentoData)?.localizacao?.snapshot?.snapshot_path ?? null)
+      : isRede
+        ? ((row.dados as IntervencaoData)?.rota?.snapshot?.snapshot_path ?? null)
+        : null;
+
+  const mapUrlQuery = useQuery({
+    queryKey: ["doc-map", mapSnapshotPath],
+    queryFn: () => getMapSnapshotUrl({ data: { path: mapSnapshotPath as string } }),
+    enabled: !!mapSnapshotPath,
+  });
 
   const snapQuery = useQuery({
     queryKey: ["snapshot", row.id],
@@ -102,6 +136,12 @@ export function DocumentActions({
   });
 
   const snap = snapQuery.data as AdminSnapshotSummary | null;
+  const counterproofQuery = useQuery({
+    queryKey: ["customer-counterproof", row.id],
+    queryFn: () => getChecklistCounterproof({ data: { checklistId: row.id } }),
+    enabled: row.status === "finalizado",
+  });
+  const counterproof = counterproofProp ?? (counterproofQuery.data && "status" in counterproofQuery.data && counterproofQuery.data.status === "validated" ? counterproofQuery.data : null);
 
   const publicUrl = useMemo(() => {
     if (!snap || snap.public_status !== "active" || typeof window === "undefined") return null;
@@ -181,22 +221,28 @@ export function DocumentActions({
     await copyLink();
   }
 
-  async function baixarImagem() {
-    const node = docRef.current;
+  async function baixarImagem(part: "technician" | "customer" = "technician") {
+    const node = part === "customer" ? customerDocRef.current : technicianDocRef.current;
     if (!node) return;
     try {
-      setBusyImg(true);
+      setBusyImg(part);
       const filename = buildImageFilename({
         os: row.os,
         numero: row.numero_publico,
+        part,
+        counterproofCode: counterproof?.code,
       });
       await exportNodeAsPng(node, filename);
-      toast.success("Imagem gerada. Agora anexe na OS do Hubsoft.");
+      toast.success(
+        part === "customer"
+          ? "Imagem do cliente gerada."
+          : "Imagem do técnico gerada. Agora anexe na OS do Hubsoft.",
+      );
     } catch (e) {
       console.error(e);
       toast.error("Não foi possível gerar a imagem. Tente novamente.");
     } finally {
-      setBusyImg(false);
+      setBusyImg(null);
     }
   }
 
@@ -204,22 +250,28 @@ export function DocumentActions({
 
   const statusBadge =
     snap?.public_status === "active" ? (
-      <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20">
+      <Badge className="bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20">
         <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Link ativo
       </Badge>
     ) : snap?.public_status === "revoked" ? (
-      <Badge className="bg-amber-500/15 text-amber-800 hover:bg-amber-500/20">
+      <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/20">
         <ShieldOff className="mr-1 h-3.5 w-3.5" /> Desativado
       </Badge>
     ) : snap?.public_status === "replaced" ? (
-      <Badge className="bg-slate-500/15 text-slate-700 hover:bg-slate-500/20">Substituído</Badge>
+      <Badge className="bg-slate-500/15 text-slate-300 hover:bg-slate-500/20">Substituído</Badge>
     ) : (
       <Badge variant="secondary">Preparando…</Badge>
     );
 
   return (
     <>
-      <Card>
+      <Card
+        className={
+          row.tipo === "instalacao"
+            ? "rounded-2xl border-cyan-500/30 bg-[#06152d] text-slate-100 shadow-[0_0_22px_rgba(0,105,255,.08)]"
+            : undefined
+        }
+      >
         <CardContent className="space-y-4 p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold">Documentos e comprovação</h3>
@@ -236,39 +288,77 @@ export function DocumentActions({
               Baixar PDF
             </Button>
             <Button
-              onClick={baixarImagem}
-              disabled={busyImg || !publicUrl}
+              onClick={() => baixarImagem("technician")}
+              disabled={busyImg !== null || !publicUrl}
               size="sm"
               variant="default"
             >
-              {busyImg ? (
+              {busyImg === "technician" ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (
                 <Download className="mr-1.5 h-4 w-4" />
               )}
-              Baixar imagem
+              Imagem do técnico
             </Button>
-            <Button onClick={copyLink} disabled={!publicUrl} size="sm" variant="outline">
+            {counterproof?.status === "validated" ? (
+              <Button
+                onClick={() => baixarImagem("customer")}
+                disabled={busyImg !== null || !publicUrl}
+                size="sm"
+                className="bg-cyan-600 text-white hover:bg-cyan-500"
+              >
+                {busyImg === "customer" ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-1.5 h-4 w-4" />
+                )}
+                Imagem do cliente
+              </Button>
+            ) : null}
+            <Button
+              onClick={copyLink}
+              disabled={!publicUrl}
+              size="sm"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
+            >
               <Link2 className="mr-1.5 h-4 w-4" /> Copiar link
             </Button>
-            <Button onClick={copyTextOs} disabled={!publicUrl} size="sm" variant="outline">
+            <Button
+              onClick={copyTextOs}
+              disabled={!publicUrl}
+              size="sm"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
+            >
               <Copy className="mr-1.5 h-4 w-4" /> Copiar texto para OS
             </Button>
-            <Button onClick={share} disabled={!publicUrl} size="sm" variant="outline">
+            <Button
+              onClick={share}
+              disabled={!publicUrl}
+              size="sm"
+              variant="outline"
+              className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
+            >
               <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar
             </Button>
-            <Button onClick={() => setPreviewOpen(true)} size="sm" variant="ghost">
+            <Button
+              onClick={() => setPreviewOpen(true)}
+              size="sm"
+              variant="ghost"
+              className="text-slate-100 hover:bg-slate-800 hover:text-white"
+            >
               <Eye className="mr-1.5 h-4 w-4" /> Visualizar
             </Button>
           </div>
 
           {snap && (
-            <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+            <div className="rounded-md border border-slate-600/70 bg-slate-800/80 p-3 text-xs text-slate-300">
               <div className="flex flex-wrap gap-x-4 gap-y-1">
                 <span>Versão v{snap.version}</span>
                 <span>
                   Integridade{" "}
-                  <b className="text-foreground">{snap.document_hash.slice(0, 8).toUpperCase()}</b>
+                  <b className="text-white">{snap.document_hash.slice(0, 8).toUpperCase()}</b>
                 </span>
                 <span>Acessos: {snap.view_count ?? 0}</span>
                 {snap.last_viewed_at && (
@@ -279,19 +369,20 @@ export function DocumentActions({
               </div>
               {publicUrl && (
                 <div className="mt-2 truncate">
-                  <span className="text-foreground/70">Link:</span>{" "}
-                  <span className="font-mono text-[11px]">{publicUrl}</span>
+                  <span className="text-slate-300">Link:</span>{" "}
+                  <span className="font-mono text-[11px] text-slate-200">{publicUrl}</span>
                 </div>
               )}
             </div>
           )}
 
           {isAdmin && snap && (
-            <div className="flex flex-wrap gap-2 border-t pt-3">
+            <div className="flex flex-wrap gap-2 border-t border-slate-700 pt-3">
               {snap.public_status === "active" ? (
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
                   onClick={() => revokeMut.mutate(snap.id)}
                   disabled={revokeMut.isPending}
                 >
@@ -301,6 +392,7 @@ export function DocumentActions({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
                   onClick={() => reactivateMut.mutate(snap.id)}
                   disabled={reactivateMut.isPending}
                 >
@@ -310,6 +402,7 @@ export function DocumentActions({
               <Button
                 size="sm"
                 variant="outline"
+                className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
                 onClick={() => setConfirmRegen(true)}
                 disabled={ensureMut.isPending}
               >
@@ -332,13 +425,29 @@ export function DocumentActions({
         aria-hidden
       >
         <ChecklistDocumentView
-          ref={docRef}
+          ref={technicianDocRef}
           payload={(snap ? undefined : localPayload) ?? (localPayload as never)}
           publicUrl={publicUrl}
           shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
           version={snap?.version ?? 1}
           fixedWidth={880}
+          counterproof={counterproof}
+          documentPart={counterproof?.status === "validated" ? "technician" : "combined"}
+          fotos={fotosResolved.data ?? []}
+          mapUrl={mapUrlQuery.data ?? null}
         />
+        {counterproof?.status === "validated" ? (
+          <ChecklistDocumentView
+            ref={customerDocRef}
+            payload={localPayload as never}
+            publicUrl={publicUrl}
+            shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
+            version={snap?.version ?? 1}
+            fixedWidth={880}
+            counterproof={counterproof}
+            documentPart="customer"
+          />
+        ) : null}
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -350,6 +459,9 @@ export function DocumentActions({
               publicUrl={publicUrl}
               shortHash={snap?.document_hash?.slice(0, 8).toUpperCase() ?? null}
               version={snap?.version ?? 1}
+              counterproof={counterproof}
+              fotos={fotosResolved.data ?? []}
+              mapUrl={mapUrlQuery.data ?? null}
             />
           </div>
         </DialogContent>

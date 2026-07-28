@@ -96,7 +96,7 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("active, city")
+      .select("active, city, provider_id, platform_admin")
       .eq("id", data.claims.sub)
       .maybeSingle();
 
@@ -106,6 +106,15 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
 
     if (!profile.city?.trim()) {
       throw new Error("Unauthorized: Profile city required");
+    }
+
+    const { data: provider } = await supabase
+      .from("providers")
+      .select("status")
+      .eq("id", profile.provider_id)
+      .maybeSingle();
+    if (provider?.status !== "active" && !profile.platform_admin) {
+      throw new Error("Unauthorized: Provider suspended");
     }
 
     return next({

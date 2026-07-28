@@ -61,21 +61,26 @@ function IntegracoesPage() {
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-6">
-      <div>
+    <div className="webi-page mx-auto max-w-5xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="webi-header p-5 sm:p-6">
         <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
           <Link to="/painel">
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
           </Link>
         </Button>
-        <h1 className="text-2xl font-semibold">Integrações</h1>
+        <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+          <span className="webi-icon h-11 w-11">
+            <KeyRound className="h-5 w-5" />
+          </span>
+          Integrações
+        </h1>
         <p className="text-sm text-muted-foreground">
           Chaves de integração do Webi Diagnostic. Cada chave é pessoal e vale para uma instalação
           do Agent (por exemplo, um notebook).
         </p>
       </div>
 
-      <Card>
+      <Card className="webi-surface">
         <CardContent className="space-y-3 p-4">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <KeyRound className="h-4 w-4" /> Nova chave de integração
@@ -118,7 +123,7 @@ function IntegracoesPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="webi-surface">
         <CardContent className="space-y-2 p-4">
           <h2 className="text-base font-semibold">Suas chaves</h2>
           {q.isLoading && <p className="text-sm text-muted-foreground">Carregando…</p>}
@@ -132,7 +137,9 @@ function IntegracoesPage() {
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{t.name}</span>
                     {t.active ? (
-                      <Badge className="bg-emerald-500/15 text-emerald-700">Ativa</Badge>
+                      <Badge className="border-emerald-400/30 bg-emerald-500/15 text-emerald-400">
+                        Ativa
+                      </Badge>
                     ) : (
                       <Badge variant="secondary">Revogada</Badge>
                     )}

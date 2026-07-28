@@ -19,9 +19,7 @@ function NotFoundComponent() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">
-          Página não encontrada
-        </h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           A página que você procura não existe ou foi movida.
         </p>
@@ -109,9 +107,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Checklist Técnico de Campo" },
-      { name: "twitter:description", content: "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/32c528c1-1008-4d15-892f-7a76676fc3e0/id-preview-fb7bf718--c8f9924b-9de1-43c0-93ff-96920deea995.lovable.app-1784159397578.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/32c528c1-1008-4d15-892f-7a76676fc3e0/id-preview-fb7bf718--c8f9924b-9de1-43c0-93ff-96920deea995.lovable.app-1784159397578.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/32c528c1-1008-4d15-892f-7a76676fc3e0/id-preview-fb7bf718--c8f9924b-9de1-43c0-93ff-96920deea995.lovable.app-1784159397578.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/32c528c1-1008-4d15-892f-7a76676fc3e0/id-preview-fb7bf718--c8f9924b-9de1-43c0-93ff-96920deea995.lovable.app-1784159397578.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -144,7 +154,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className="dark">
       <head>
         <HeadContent />
       </head>
@@ -162,12 +172,7 @@ function RootComponent() {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (
-        event !== "SIGNED_IN" &&
-        event !== "SIGNED_OUT" &&
-        event !== "USER_UPDATED"
-      )
-        return;
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });

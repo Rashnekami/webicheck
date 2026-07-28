@@ -4,7 +4,22 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ChecklistData, ChecklistRow, YesNo } from "@/lib/checklist-schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  emptyChecklistData,
+  type ChecklistData,
+  type ChecklistRow,
+  type YesNo,
+} from "@/lib/checklist-schema";
+import { TIPO_MANUTENCAO_OPCOES } from "@/lib/ont-checklist-ai";
+import { WebiCitySelect } from "@/components/checklist/webi-city-select";
+import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
 
 type Props = {
   header: Pick<
@@ -12,6 +27,7 @@ type Props = {
     | "os"
     | "cliente"
     | "cidade"
+    | "endereco"
     | "modelo"
     | "serial"
     | "cto_porta"
@@ -103,6 +119,8 @@ function YesNoField({
 }
 
 export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataChange }: Props) {
+  useChecklistAutoFill({ header, readOnly, onHeaderChange });
+
   const set =
     <K extends keyof ChecklistData>(section: K) =>
     (patch: Partial<ChecklistData[K]>) =>
@@ -112,6 +130,35 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
       })) as unknown as void;
 
   const s = data;
+  const equipmentUnavailable = s.sintoma.ont_queimada || s.sintoma.ont_danificada_cliente;
+
+  const setCriticalEquipmentSymptom = (
+    field: "ont_queimada" | "ont_danificada_cliente",
+    value: boolean,
+  ) => {
+    onDataChange((prev) => {
+      if (!value) {
+        return {
+          ...prev,
+          sintoma: { ...prev.sintoma, [field]: false },
+        };
+      }
+
+      const empty = emptyChecklistData();
+      return {
+        ...prev,
+        sintoma: { ...prev.sintoma, [field]: true },
+        teste_cabeado: empty.teste_cabeado,
+        teste_wifi: empty.teste_wifi,
+        evidencias_marcadas: {
+          ...prev.evidencias_marcadas,
+          teste_cabeado: false,
+          teste_wifi: false,
+        },
+      };
+    });
+  };
+
   const wiredHasLegacyData =
     s.teste_cabeado.navegacao ||
     s.teste_cabeado.ping ||
@@ -150,10 +197,10 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
           </div>
           <div className="space-y-1.5">
             <Label>Cidade</Label>
-            <Input
-              value={header.cidade ?? ""}
+            <WebiCitySelect
+              value={header.cidade}
               disabled={readOnly}
-              onChange={(e) => onHeaderChange({ cidade: e.target.value })}
+              onChange={(cidade) => onHeaderChange({ cidade })}
             />
           </div>
           <div className="space-y-1.5">
@@ -199,7 +246,32 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
             />
           </div>
         </Row>
+        <div className="space-y-1.5">
+          <Label>Tipo de manutenção</Label>
+          <Select
+            value={s.tipo_manutencao ?? ""}
+            disabled={readOnly}
+            onValueChange={(value) =>
+              onDataChange((prev) => ({ ...prev, tipo_manutencao: value || null }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o tipo de manutenção" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIPO_MANUTENCAO_OPCOES.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Necessário para solicitar a análise por IA depois de preencher o checklist.
+          </p>
+        </div>
       </Section>
+
 
       <Section n={2} title="Sintoma confirmado em campo">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -211,13 +283,13 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
           />
           <Cb
             checked={s.sintoma.ont_queimada}
-            onCheckedChange={(v) => set("sintoma")({ ont_queimada: v })}
+            onCheckedChange={(v) => setCriticalEquipmentSymptom("ont_queimada", v)}
             label="ONT/ONU queimada"
             disabled={readOnly}
           />
           <Cb
             checked={s.sintoma.ont_danificada_cliente}
-            onCheckedChange={(v) => set("sintoma")({ ont_danificada_cliente: v })}
+            onCheckedChange={(v) => setCriticalEquipmentSymptom("ont_danificada_cliente", v)}
             label="ONT/ONU danificada pelo cliente"
             disabled={readOnly}
           />
@@ -356,79 +428,193 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
         </div>
       </Section>
 
-      <Section n={4} title="Teste cabeado">
-        <YesNoField
-          label="O teste cabeado se aplica a este atendimento?"
-          value={s.teste_cabeado.aplicabilidade}
-          onChange={(v) =>
-            set("teste_cabeado")({
-              aplicabilidade: v,
-              nao_testado: v === "nao",
-            })
-          }
-          disabled={readOnly}
-        />
-        {s.teste_cabeado.aplicabilidade === "nao" ? (
-          <p className="rounded-md border border-dashed bg-muted/40 p-3 text-sm text-muted-foreground">
-            Não se aplica — atendimento realizado sem equipamento para teste cabeado.
-          </p>
-        ) : showWiredFields ? (
-          <>
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Execução do teste
-            </Label>
+      {equipmentUnavailable ? (
+        <Section n={4} title="Testes anteriores à troca">
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-medium">Testes de rede não aplicáveis ao equipamento retirado.</p>
+            <p className="mt-1">
+              A ONT/ONU foi marcada como queimada ou danificada. Os campos de teste cabeado e Wi-Fi
+              foram limpos para não registrar resultados inválidos antes da substituição.
+            </p>
+          </div>
+        </Section>
+      ) : (
+        <>
+          <Section n={4} title="Teste cabeado">
+            <YesNoField
+              label="O teste cabeado se aplica a este atendimento?"
+              value={s.teste_cabeado.aplicabilidade}
+              onChange={(v) =>
+                set("teste_cabeado")({
+                  aplicabilidade: v,
+                  nao_testado: v === "nao",
+                })
+              }
+              disabled={readOnly}
+            />
+            {s.teste_cabeado.aplicabilidade === "nao" ? (
+              <p className="rounded-md border border-dashed bg-muted/40 p-3 text-sm text-muted-foreground">
+                Não se aplica — atendimento realizado sem equipamento para teste cabeado.
+              </p>
+            ) : showWiredFields ? (
+              <>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Execução do teste
+                </Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Cb
+                    checked={s.teste_cabeado.navegacao}
+                    onCheckedChange={(v) => set("teste_cabeado")({ navegacao: v })}
+                    label="Navegação testada"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.ping}
+                    onCheckedChange={(v) => set("teste_cabeado")({ ping: v })}
+                    label="Ping testado"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.velocidade}
+                    onCheckedChange={(v) => set("teste_cabeado")({ velocidade: v })}
+                    label="Velocidade testada"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.cabo_substituido}
+                    onCheckedChange={(v) => set("teste_cabeado")({ cabo_substituido: v })}
+                    label="Cabo substituído para teste"
+                    disabled={readOnly}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label>Download (Mbps)</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={s.teste_cabeado.download}
+                      disabled={readOnly}
+                      onChange={(e) => set("teste_cabeado")({ download: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Upload (Mbps)</Label>
+                    <Input
+                      inputMode="decimal"
+                      value={s.teste_cabeado.upload}
+                      disabled={readOnly}
+                      onChange={(e) => set("teste_cabeado")({ upload: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ping (ms)</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={s.teste_cabeado.ping_ms}
+                      disabled={readOnly}
+                      onChange={(e) => set("teste_cabeado")({ ping_ms: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Resultado do teste
+                </Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Cb
+                    checked={s.teste_cabeado.funcionou}
+                    onCheckedChange={(v) => set("teste_cabeado")({ funcionou: v })}
+                    label="Funcionou normalmente"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.apresentou_falha}
+                    onCheckedChange={(v) => set("teste_cabeado")({ apresentou_falha: v })}
+                    label="Também apresentou falha"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.ont_reiniciou}
+                    onCheckedChange={(v) => set("teste_cabeado")({ ont_reiniciou: v })}
+                    label="ONT reiniciou"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.lan_falhou}
+                    onCheckedChange={(v) => set("teste_cabeado")({ lan_falhou: v })}
+                    label="Porta LAN não funcionou"
+                    disabled={readOnly}
+                  />
+                  <Cb
+                    checked={s.teste_cabeado.nao_testado}
+                    onCheckedChange={(v) => set("teste_cabeado")({ nao_testado: v })}
+                    label="Aplicável, mas não foi possível testar"
+                    disabled={readOnly}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Selecione “Sim” ou “Não” para continuar.
+              </p>
+            )}
+          </Section>
+
+          <Section n={5} title="Teste Wi-Fi">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Cb
-                checked={s.teste_cabeado.navegacao}
-                onCheckedChange={(v) => set("teste_cabeado")({ navegacao: v })}
-                label="Navegação testada"
+                checked={s.teste_wifi.rede_24}
+                onCheckedChange={(v) => set("teste_wifi")({ rede_24: v })}
+                label="Rede 2,4 GHz testada"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.ping}
-                onCheckedChange={(v) => set("teste_cabeado")({ ping: v })}
-                label="Ping testado"
+                checked={s.teste_wifi.rede_5}
+                onCheckedChange={(v) => set("teste_wifi")({ rede_5: v })}
+                label="Rede 5 GHz testada"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.velocidade}
-                onCheckedChange={(v) => set("teste_cabeado")({ velocidade: v })}
-                label="Velocidade testada"
+                checked={s.teste_wifi.mais_aparelhos}
+                onCheckedChange={(v) => set("teste_wifi")({ mais_aparelhos: v })}
+                label="Testado em mais de um aparelho"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.cabo_substituido}
-                onCheckedChange={(v) => set("teste_cabeado")({ cabo_substituido: v })}
-                label="Cabo substituído para teste"
+                checked={s.teste_wifi.cabo_funcionando}
+                onCheckedChange={(v) => set("teste_wifi")({ cabo_funcionando: v })}
+                label="Confirmado se o cabo permanece funcionando"
                 disabled={readOnly}
               />
             </div>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Velocidade medida no Wi-Fi
+            </Label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label>Download (Mbps)</Label>
                 <Input
                   inputMode="decimal"
-                  value={s.teste_cabeado.download}
+                  value={s.teste_wifi.download}
                   disabled={readOnly}
-                  onChange={(e) => set("teste_cabeado")({ download: e.target.value })}
+                  onChange={(e) => set("teste_wifi")({ download: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Upload (Mbps)</Label>
                 <Input
                   inputMode="decimal"
-                  value={s.teste_cabeado.upload}
+                  value={s.teste_wifi.upload}
                   disabled={readOnly}
-                  onChange={(e) => set("teste_cabeado")({ upload: e.target.value })}
+                  onChange={(e) => set("teste_wifi")({ upload: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Ping (ms)</Label>
                 <Input
                   inputMode="numeric"
-                  value={s.teste_cabeado.ping_ms}
+                  value={s.teste_wifi.ping_ms}
                   disabled={readOnly}
-                  onChange={(e) => set("teste_cabeado")({ ping_ms: e.target.value })}
+                  onChange={(e) => set("teste_wifi")({ ping_ms: e.target.value })}
                 />
               </div>
             </div>
@@ -437,137 +623,39 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
             </Label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Cb
-                checked={s.teste_cabeado.funcionou}
-                onCheckedChange={(v) => set("teste_cabeado")({ funcionou: v })}
-                label="Funcionou normalmente"
+                checked={s.teste_wifi.apenas_5g_desaparece}
+                onCheckedChange={(v) => set("teste_wifi")({ apenas_5g_desaparece: v })}
+                label="Apenas o 5 GHz desaparece"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.apresentou_falha}
-                onCheckedChange={(v) => set("teste_cabeado")({ apresentou_falha: v })}
-                label="Também apresentou falha"
+                checked={s.teste_wifi.ambas_desaparecem}
+                onCheckedChange={(v) => set("teste_wifi")({ ambas_desaparecem: v })}
+                label="As duas redes desaparecem"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.ont_reiniciou}
-                onCheckedChange={(v) => set("teste_cabeado")({ ont_reiniciou: v })}
-                label="ONT reiniciou"
+                checked={s.teste_wifi.sem_internet}
+                onCheckedChange={(v) => set("teste_wifi")({ sem_internet: v })}
+                label="Wi-Fi visível, mas sem internet"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.lan_falhou}
-                onCheckedChange={(v) => set("teste_cabeado")({ lan_falhou: v })}
-                label="Porta LAN não funcionou"
+                checked={s.teste_wifi.um_aparelho}
+                onCheckedChange={(v) => set("teste_wifi")({ um_aparelho: v })}
+                label="Ocorreu apenas em um aparelho"
                 disabled={readOnly}
               />
               <Cb
-                checked={s.teste_cabeado.nao_testado}
-                onCheckedChange={(v) => set("teste_cabeado")({ nao_testado: v })}
-                label="Aplicável, mas não foi possível testar"
+                checked={s.teste_wifi.nao_reproduzida}
+                onCheckedChange={(v) => set("teste_wifi")({ nao_reproduzida: v })}
+                label="Falha não foi reproduzida"
                 disabled={readOnly}
               />
             </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">Selecione “Sim” ou “Não” para continuar.</p>
-        )}
-      </Section>
-
-      <Section n={5} title="Teste Wi-Fi">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Cb
-            checked={s.teste_wifi.rede_24}
-            onCheckedChange={(v) => set("teste_wifi")({ rede_24: v })}
-            label="Rede 2,4 GHz testada"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.rede_5}
-            onCheckedChange={(v) => set("teste_wifi")({ rede_5: v })}
-            label="Rede 5 GHz testada"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.mais_aparelhos}
-            onCheckedChange={(v) => set("teste_wifi")({ mais_aparelhos: v })}
-            label="Testado em mais de um aparelho"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.cabo_funcionando}
-            onCheckedChange={(v) => set("teste_wifi")({ cabo_funcionando: v })}
-            label="Confirmado se o cabo permanece funcionando"
-            disabled={readOnly}
-          />
-        </div>
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Velocidade medida no Wi-Fi
-        </Label>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label>Download (Mbps)</Label>
-            <Input
-              inputMode="decimal"
-              value={s.teste_wifi.download}
-              disabled={readOnly}
-              onChange={(e) => set("teste_wifi")({ download: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Upload (Mbps)</Label>
-            <Input
-              inputMode="decimal"
-              value={s.teste_wifi.upload}
-              disabled={readOnly}
-              onChange={(e) => set("teste_wifi")({ upload: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Ping (ms)</Label>
-            <Input
-              inputMode="numeric"
-              value={s.teste_wifi.ping_ms}
-              disabled={readOnly}
-              onChange={(e) => set("teste_wifi")({ ping_ms: e.target.value })}
-            />
-          </div>
-        </div>
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Resultado do teste
-        </Label>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Cb
-            checked={s.teste_wifi.apenas_5g_desaparece}
-            onCheckedChange={(v) => set("teste_wifi")({ apenas_5g_desaparece: v })}
-            label="Apenas o 5 GHz desaparece"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.ambas_desaparecem}
-            onCheckedChange={(v) => set("teste_wifi")({ ambas_desaparecem: v })}
-            label="As duas redes desaparecem"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.sem_internet}
-            onCheckedChange={(v) => set("teste_wifi")({ sem_internet: v })}
-            label="Wi-Fi visível, mas sem internet"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.um_aparelho}
-            onCheckedChange={(v) => set("teste_wifi")({ um_aparelho: v })}
-            label="Ocorreu apenas em um aparelho"
-            disabled={readOnly}
-          />
-          <Cb
-            checked={s.teste_wifi.nao_reproduzida}
-            onCheckedChange={(v) => set("teste_wifi")({ nao_reproduzida: v })}
-            label="Falha não foi reproduzida"
-            disabled={readOnly}
-          />
-        </div>
-      </Section>
+          </Section>
+        </>
+      )}
 
       <Section n={6} title="Evidências marcadas (fotos anexadas abaixo)">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -670,11 +758,14 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
                 ? "nao"
                 : null
           }
-          onChange={(v) =>
+          onChange={(v) => {
             onHeaderChange({
               troca_realizada: v === "sim" ? true : v === "nao" ? false : null,
-            })
-          }
+            });
+            if (v !== "sim") {
+              set("resultado_final")({ executar_diagnostico_pos_troca: false });
+            }
+          }}
           disabled={readOnly}
         />
         <p className="text-xs text-muted-foreground">
@@ -717,6 +808,20 @@ export function ChecklistForm({ header, data, readOnly, onHeaderChange, onDataCh
             />
           </div>
         </div>
+        {equipmentUnavailable && header.troca_realizada === true && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+            <Cb
+              checked={s.resultado_final.executar_diagnostico_pos_troca}
+              onCheckedChange={(v) => set("resultado_final")({ executar_diagnostico_pos_troca: v })}
+              label="Após finalizar a troca, quero preparar uma etapa pós-troca para testar a nova ONT no Webi Diagnostic"
+              disabled={readOnly}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              O atendimento atual preserva o defeito e o ticket da ONT retirada. O diagnóstico da
+              nova ONT será anexado em uma revisão pós-troca do mesmo atendimento.
+            </p>
+          </div>
+        )}
       </Section>
 
       <Section n={10} title="Registro da autorização do NOC">

@@ -10,6 +10,16 @@ import {
   PenLine,
   BarChart3,
   UsersRound,
+  Megaphone,
+  Building2,
+  PackageSearch,
+  CheckCircle2,
+  FileClock,
+  Wifi,
+  MapPin,
+  Zap,
+
+  
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useCurrentUser, updateAssinatura } from "@/hooks/use-current-user";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SignaturePad } from "@/components/signature-pad";
 import {
   Dialog,
@@ -29,6 +39,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { InstallButton } from "@/components/pwa/install-button";
+import { listAnnouncements } from "@/lib/provider-admin.functions";
+import { listChecklists } from "@/lib/checklists";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -37,6 +49,97 @@ export const Route = createFileRoute("/_authenticated/painel")({
   component: Painel,
 });
 
+function ActiveAnnouncements() {
+  const query = useQuery({ queryKey: ["announcements"], queryFn: () => listAnnouncements() });
+  const notices = (query.data ?? []).filter((item) => item.active).slice(0, 3);
+  if (notices.length === 0) return null;
+  return (
+    <section className="space-y-3" aria-label="Informativos ativos">
+      {notices.map((notice) => (
+        <Card
+          key={notice.id}
+          className={
+            notice.severity === "critical"
+              ? "webi-announcement border-rose-400/50 bg-rose-950/15"
+              : notice.severity === "warning"
+                ? "webi-announcement border-amber-400/50 bg-amber-950/15"
+                : "webi-announcement border-cyan-400/40 bg-blue-950/35"
+          }
+        >
+          <CardContent className="flex items-center gap-4 p-5 sm:p-6">
+            <div className="webi-icon h-12 w-12 shrink-0 rounded-full">
+              <Megaphone className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-cyan-400">
+                Informativo operacional
+              </p>
+              <p className="mt-1 text-lg font-semibold text-white">{notice.title}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{notice.message}</p>
+            </div>
+            <ArrowRight className="hidden h-5 w-5 text-cyan-400 sm:block" />
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+}
+
+function HomeNavCard({
+  to,
+  icon: Icon,
+  title,
+  description,
+}: {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link to={to} className="block">
+      <Card className="webi-nav-card h-full">
+        <CardContent className="flex h-full items-center gap-4 p-5 sm:p-6">
+          <div className="webi-icon h-14 w-14 shrink-0 rounded-full">
+            <Icon className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-white sm:text-lg">{title}</h3>
+            <p className="mt-1 text-sm leading-relaxed text-slate-400">{description}</p>
+          </div>
+          <div className="webi-icon h-10 w-10 shrink-0 rounded-full">
+            <ArrowRight className="h-4 w-4" />
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+function HomeStat({
+  icon: Icon,
+  value,
+  label,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  value: number | string;
+  label: string;
+}) {
+  return (
+    <Card className="bg-gradient-to-br from-blue-950/70 to-slate-950/60">
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="webi-icon h-11 w-11 shrink-0">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-2xl font-extrabold tracking-tight text-white">{value}</p>
+          <p className="text-xs leading-tight text-slate-400">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function Painel() {
   const { data: user, isLoading } = useCurrentUser();
   const navigate = useNavigate();
@@ -44,6 +147,15 @@ function Painel() {
   const [sigOpen, setSigOpen] = useState(false);
   const [sigDraft, setSigDraft] = useState<string | null>(null);
   const [savingSig, setSavingSig] = useState(false);
+  const homeChecklists = useQuery({
+    queryKey: ["home-checklists", user?.id, user?.isAdmin],
+    queryFn: () =>
+      listChecklists({
+        scope: user?.isAdmin ? "all" : "mine",
+        userId: user!.id,
+      }),
+    enabled: !!user,
+  });
 
   // Recupera assinatura pendente do signup (quando sessão só chegou depois)
   useEffect(() => {
@@ -96,28 +208,34 @@ function Painel() {
   }
 
   const firstName = user.full_name?.split(" ")[0] || "técnico";
+  const currentRows = (homeChecklists.data ?? []).filter(
+    (item) => (item as { is_current?: boolean }).is_current !== false,
+  );
+  const finalized = currentRows.filter((item) => item.status === "finalizado").length;
+  const drafts = currentRows.filter((item) => item.status === "rascunho").length;
+  const installations = currentRows.filter((item) => item.tipo === "instalacao").length;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="webi-page min-h-screen">
       <header className="brand-gradient text-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <WebifibraLogo size={44} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
+              <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Webifibra</p>
               <h1 className="text-lg font-semibold">Checklist Técnico</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <InstallButton
               variant="secondary"
-              className="bg-white/15 text-white hover:bg-white/25"
+              className="border-blue-400/30 bg-blue-500/10 text-cyan-100 hover:bg-blue-500/20"
             />
             <Button
               variant="secondary"
               size="sm"
               onClick={handleSignOut}
-              className="bg-white/15 text-white hover:bg-white/25"
+              className="border-rose-400/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
             >
               <LogOut className="mr-1.5 h-4 w-4" /> Sair
             </Button>
@@ -125,176 +243,204 @@ function Painel() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
-        <section>
-          <p className="text-sm text-muted-foreground">Olá,</p>
-          <h2 className="text-2xl font-bold text-foreground">{firstName} 👋</h2>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {user.isAdmin ? (
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/15">
-                <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Administrador
-              </Badge>
-            ) : (
-              <Badge variant="secondary">
-                <HardHat className="mr-1 h-3.5 w-3.5" /> Técnico de campo
-              </Badge>
-            )}
-            {!user.active && <Badge variant="destructive">Usuário bloqueado</Badge>}
+      <main className="mx-auto max-w-7xl space-y-7 px-4 py-7 sm:px-6 sm:py-9">
+        <section className="grid gap-6 lg:grid-cols-[.8fr_1.5fr] lg:items-end">
+          <div>
+            <p className="text-base text-slate-400">Olá,</p>
+            <h2 className="mt-1 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              {firstName} <span aria-hidden>👋</span>
+            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {user.isAdmin ? (
+                <Badge className="border-cyan-400/40 bg-cyan-400/10 text-cyan-300 hover:bg-cyan-400/15">
+                  <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Administrador
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <HardHat className="mr-1 h-3.5 w-3.5" /> Técnico de campo
+                </Badge>
+              )}
+              {!user.active && <Badge variant="destructive">Usuário bloqueado</Badge>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <HomeStat
+              icon={ClipboardList}
+              value={currentRows.length}
+              label="Checklists registrados"
+            />
+            <HomeStat icon={CheckCircle2} value={finalized} label="Atendimentos finalizados" />
+            <HomeStat icon={FileClock} value={drafts} label="Rascunhos em andamento" />
+            <HomeStat icon={Wifi} value={installations} label="Checklists de instalação" />
           </div>
         </section>
 
-        <Link to="/checklists" className="block">
-          <Card className="transition hover:border-primary/50 hover:shadow-md">
-            <CardContent className="flex items-center justify-between gap-3 p-5">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2 text-primary">
-                  <ClipboardList className="h-5 w-5" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-foreground">
-                    {user.isAdmin ? "Todos os checklists" : "Meus checklists"}
-                  </h3>
+        <ActiveAnnouncements />
+
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[.2em] text-cyan-400">
+                Central operacional
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-white">Acessos principais</h2>
+            </div>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <HomeNavCard
+              to="/checklists"
+              icon={ClipboardList}
+              title={user.isAdmin ? "Todos os checklists" : "Meus checklists"}
+              description={
+                user.isAdmin
+                  ? "Fiscalize atendimentos, filtre por técnico e cidade e baixe documentos."
+                  : "Registre novos atendimentos ou continue rascunhos em andamento."
+              }
+            />
+            {user.isAdmin && (
+              <HomeNavCard
+                to="/dashboard"
+                icon={BarChart3}
+                title="Dashboard"
+                description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
+              />
+            )}
+            {(user.isAdmin || user.isWarehouse) && (
+              <HomeNavCard
+                to="/trocas-ont"
+                icon={PackageSearch}
+                title="Trocas de ONT"
+                description="Consulte ticket, equipamento retirado, serial e motivo."
+              />
+            )}
+            <HomeNavCard
+              to="/remapeamentos"
+              icon={MapPin}
+              title="Remapeamentos"
+              description="CTOs/NAPs remapeadas com código RMAP, mapa satélite e indicadores."
+            />
+
+            <HomeNavCard
+              to="/intervencoes"
+              icon={Zap}
+              title="Intervenções de rede"
+              description="Rompimentos, readequações e melhorias de sinal com rota, OTDR e indicadores."
+            />
+
+
+            <HomeNavCard
+              to="/informativos"
+              icon={Megaphone}
+              title="Informativos"
+              description="Plantões e comunicados operacionais da equipe."
+            />
+            {user.isAdmin && (
+              <HomeNavCard
+                to="/provedor"
+                icon={Building2}
+                title="Provedor e dispositivos"
+                description="Situação comercial e computadores autorizados."
+              />
+            )}
+            {user.isAdmin && (
+              <HomeNavCard
+                to="/usuarios"
+                icon={UsersRound}
+                title="Usuários"
+                description="Consulte cadastros, edite perfis e controle acessos."
+              />
+            )}
+            {(user.isAdmin || user.isPlatformAdmin) && (
+              <HomeNavCard
+                to="/plataforma"
+                icon={ShieldCheck}
+                title={user.isPlatformAdmin ? "Plataforma" : "Credenciais do provedor"}
+                description={
+                  user.isPlatformAdmin
+                    ? "Crie provedores, personalize logo/cores/template e gere logins internos."
+                    : "Crie logins e senhas para sua equipe."
+                }
+              />
+            )}
+            <HomeNavCard
+              to="/integracoes"
+              icon={PenLine}
+              title="Integrações"
+              description="Chaves para o Webi Diagnostic enviar documentos ao checklist."
+            />
+          </div>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <Card className="h-full">
+            <CardContent className="space-y-3 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold text-foreground">Sua assinatura</h3>
                   <p className="text-sm text-muted-foreground">
-                    {user.isAdmin
-                      ? "Fiscalize atendimentos, filtre por técnico/cidade e baixe PDFs."
-                      : "Registre novos atendimentos ou continue rascunhos em andamento."}
+                    Aparece automaticamente em cada checklist finalizado.
                   </p>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSigDraft(user.assinatura ?? null);
+                    setSigOpen(true);
+                  }}
+                >
+                  <PenLine className="mr-1.5 h-4 w-4" />
+                  {user.assinatura ? "Alterar" : "Cadastrar"}
+                </Button>
               </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        </Link>
-
-        {user.isAdmin && (
-          <Link to="/dashboard" className="block">
-            <Card className="transition hover:border-primary/50 hover:shadow-md">
-              <CardContent className="flex items-center justify-between gap-3 p-5">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-primary/10 p-2 text-primary">
-                    <BarChart3 className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-foreground">Dashboard</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Gráficos de trocas, técnicos, cidades e analistas — com exportação em CSV.
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              </CardContent>
-            </Card>
-          </Link>
-        )}
-
-        {user.isAdmin && (
-          <Link to="/usuarios" className="block">
-            <Card className="transition hover:border-primary/50 hover:shadow-md">
-              <CardContent className="flex items-center justify-between gap-3 p-5">
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-primary/10 p-2 text-primary">
-                    <UsersRound className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-foreground">Usuários</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Consulte cadastros, edite perfis e ative ou inative acessos.
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 text-muted-foreground" />
-              </CardContent>
-            </Card>
-          </Link>
-        )}
-
-        <Link to="/integracoes" className="block">
-          <Card className="transition hover:border-primary/50 hover:shadow-md">
-            <CardContent className="flex items-center justify-between gap-3 p-5">
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-primary/10 p-2 text-primary">
-                  <PenLine className="h-5 w-5" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-foreground">Integrações</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Chaves para o Webi Diagnostic Agent enviar os PDFs diretamente para o checklist.
+              <div className="rounded-xl border border-blue-400/15 bg-white p-3">
+                {user.assinatura ? (
+                  <img
+                    src={user.assinatura}
+                    alt="Assinatura"
+                    className="mx-auto h-24 object-contain"
+                  />
+                ) : (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    Nenhuma assinatura cadastrada.
                   </p>
-                </div>
+                )}
               </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </CardContent>
           </Card>
-        </Link>
 
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-semibold text-foreground">Sua assinatura</h3>
-                <p className="text-sm text-muted-foreground">
-                  Aparece automaticamente em cada checklist finalizado.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setSigDraft(user.assinatura ?? null);
-                  setSigOpen(true);
-                }}
-              >
-                <PenLine className="mr-1.5 h-4 w-4" />
-                {user.assinatura ? "Alterar" : "Cadastrar"}
-              </Button>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              {user.assinatura ? (
-                <img
-                  src={user.assinatura}
-                  alt="Assinatura"
-                  className="mx-auto h-24 object-contain"
-                />
-              ) : (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nenhuma assinatura cadastrada.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5 space-y-3">
-            <h3 className="font-semibold text-foreground">Seu cadastro</h3>
-            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Nome</dt>
-                <dd className="font-medium">{user.full_name || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">E-mail</dt>
-                <dd className="font-medium break-all">{user.email}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Telefone</dt>
-                <dd className="font-medium">{user.phone || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Matrícula</dt>
-                <dd className="font-medium">{user.matricula || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Cidade / região</dt>
-                <dd className="font-medium">{user.city || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Status</dt>
-                <dd className="font-medium">{user.active ? "Ativo" : "Bloqueado"}</dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
+          <Card className="h-full">
+            <CardContent className="space-y-3 p-5">
+              <h3 className="font-semibold text-foreground">Seu cadastro</h3>
+              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-muted-foreground">Nome</dt>
+                  <dd className="font-medium">{user.full_name || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">E-mail</dt>
+                  <dd className="font-medium break-all">{user.email}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Telefone</dt>
+                  <dd className="font-medium">{user.phone || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Matrícula</dt>
+                  <dd className="font-medium">{user.matricula || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Cidade / região</dt>
+                  <dd className="font-medium">{user.city || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd className="font-medium">{user.active ? "Ativo" : "Bloqueado"}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+        </section>
       </main>
 
       <Dialog open={sigOpen} onOpenChange={setSigOpen}>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Eraser, Check } from "lucide-react";
+import { Eraser, Check, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SignaturePadProps {
@@ -11,8 +12,8 @@ interface SignaturePadProps {
 }
 
 /**
- * Assinatura desenhada em canvas. Emite dataURL PNG (fundo transparente)
- * via onChange sempre que o usuário conclui um traço.
+ * Assinatura em tela cheia. O bloco inline serve apenas de pré-visualização;
+ * o desenho acontece em um overlay que ocupa toda a tela do aparelho.
  */
 export function SignaturePad({
   value,
@@ -20,58 +21,204 @@ export function SignaturePad({
   className,
   height = 180,
 }: SignaturePadProps) {
+  const [open, setOpen] = useState(false);
+  const hasInk = !!value;
+  const openPad = useCallback(() => {
+    document.documentElement.requestFullscreen?.().catch(() => undefined);
+    window.screen?.orientation?.lock?.("landscape").catch(() => undefined);
+    setOpen(true);
+  }, []);
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      <button
+        type="button"
+        onClick={openPad}
+        className="relative flex w-full items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-white shadow-inner"
+        style={{ height }}
+      >
+        {value ? (
+          <img
+            src={value}
+            alt="Assinatura registrada"
+            className="max-h-full max-w-full object-contain p-2"
+          />
+        ) : (
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Maximize2 className="h-4 w-4" /> Toque para assinar em tela cheia ✍️
+          </span>
+        )}
+      </button>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {hasInk ? (
+            <span className="inline-flex items-center gap-1 text-emerald-600">
+              <Check className="h-3 w-3" /> Assinatura registrada
+            </span>
+          ) : (
+            "A assinatura abre em tela cheia para facilitar o traço."
+          )}
+        </p>
+        <div className="flex items-center gap-1">
+          <Button type="button" variant="outline" size="sm" onClick={openPad}>
+            <Maximize2 className="mr-1 h-4 w-4" /> {hasInk ? "Refazer" : "Assinar"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange?.(null)}
+            disabled={!hasInk}
+          >
+            <Eraser className="mr-1 h-4 w-4" /> Limpar
+          </Button>
+        </div>
+      </div>
+
+      {open && (
+        <FullscreenSignature
+          onConfirm={(data) => {
+            onChange?.(data);
+            setOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function FullscreenSignature({
+  onConfirm,
+}: {
+  onConfirm: (dataUrl: string | null) => void;
+}) {
+  const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastRef = useRef<{ x: number; y: number } | null>(null);
-  const [hasInk, setHasInk] = useState(!!value);
+  const [hasInk, setHasInk] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  const portraitRef = useRef(false);
+  portraitRef.current = isPortrait;
 
-  const resize = useCallback(() => {
+  const setup = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const previous =
+      canvas.dataset.ready === "true" && canvas.width > 0 ? canvas.toDataURL("image/png") : null;
     const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
+    const cssWidth = portraitRef.current ? rect.height : rect.width;
+    const cssHeight = portraitRef.current ? rect.width : rect.height;
+    if (!cssWidth || !cssHeight) return;
+    canvas.width = Math.floor(cssWidth * ratio);
+    canvas.height = Math.floor(cssHeight * ratio);
+    canvas.dataset.ready = "true";
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.scale(ratio, ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.lineWidth = 2.4;
-    ctx.strokeStyle = "#0f172a";
-    if (value) {
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgb(15 23 42)";
+    if (previous) {
       const img = new Image();
-      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-      img.src = value;
-      setHasInk(true);
+      img.onload = () => ctx.drawImage(img, 0, 0, cssWidth, cssHeight);
+      img.src = previous;
     }
-  }, [value]);
-
-  useEffect(() => {
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function pos(e: PointerEvent | React.PointerEvent) {
-    const canvas = canvasRef.current!;
+
+  const updateOrientation = useCallback(() => {
+    setIsPortrait(window.innerHeight > window.innerWidth);
+  }, []);
+
+  useEffect(() => {
+    updateOrientation();
+    window.requestAnimationFrame(setup);
+    const prev = document.body.style.overflow;
+    const prevPointerEvents = document.body.style.pointerEvents;
+    const prevTouchAction = document.body.style.touchAction;
+    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.pointerEvents = "auto";
+    document.body.style.touchAction = "none";
+    document.documentElement.style.overscrollBehavior = "none";
+    window.addEventListener("resize", setup);
+    window.addEventListener("resize", updateOrientation);
+    window.addEventListener("orientationchange", updateOrientation);
+    return () => {
+      document.body.style.overflow = prev;
+      document.body.style.pointerEvents = prevPointerEvents;
+      document.body.style.touchAction = prevTouchAction;
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
+      window.removeEventListener("resize", setup);
+      window.removeEventListener("resize", updateOrientation);
+      window.removeEventListener("orientationchange", updateOrientation);
+    };
+  }, [setup, updateOrientation]);
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    const requestFullscreen = shell?.requestFullscreen;
+    if (requestFullscreen) {
+      requestFullscreen.call(shell).catch(() => undefined);
+    }
+
+    const orientation = window.screen?.orientation;
+    orientation?.lock?.("landscape").catch(() => undefined);
+
+    return () => {
+      orientation?.unlock?.();
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => undefined);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    window.requestAnimationFrame(setup);
+  }, [isPortrait, setup]);
+
+  function pos(e: React.PointerEvent) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
+    if (isPortrait) {
+      // canvas está rotacionado 90°: converte coordenadas de tela para o espaço do canvas
+      const sx = e.clientX - (rect.left + rect.width / 2);
+      const sy = e.clientY - (rect.top + rect.height / 2);
+      return { x: rect.height / 2 + sy, y: rect.width / 2 - sx };
+    }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
-
   function onDown(e: React.PointerEvent) {
     e.preventDefault();
-    (e.target as Element).setPointerCapture(e.pointerId);
+    canvasRef.current?.setPointerCapture(e.pointerId);
+    const point = pos(e);
+    if (!point) return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = "rgb(15 23 42)";
+      ctx.fill();
+    }
     drawingRef.current = true;
-    lastRef.current = pos(e);
+    lastRef.current = point;
+    setHasInk(true);
   }
   function onMove(e: React.PointerEvent) {
     if (!drawingRef.current) return;
-    const ctx = canvasRef.current!.getContext("2d")!;
+    const canvas = canvasRef.current;
+    const previous = lastRef.current;
+    if (!canvas || !previous) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     const p = pos(e);
+    if (!p) return;
     ctx.beginPath();
-    ctx.moveTo(lastRef.current!.x, lastRef.current!.y);
+    ctx.moveTo(previous.x, previous.y);
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     lastRef.current = p;
@@ -79,23 +226,38 @@ export function SignaturePad({
   function onUp() {
     if (!drawingRef.current) return;
     drawingRef.current = false;
-    setHasInk(true);
-    onChange?.(canvasRef.current!.toDataURL("image/png"));
+    lastRef.current = null;
   }
-
   function clear() {
-    const canvas = canvasRef.current!;
-    const ctx = canvas.getContext("2d")!;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const ratio = window.devicePixelRatio || 1;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     setHasInk(false);
-    onChange?.(null);
+  }
+  function done() {
+    const canvas = canvasRef.current;
+    onConfirm(hasInk && canvas ? canvas.toDataURL("image/png") : null);
   }
 
-  return (
-    <div className={cn("space-y-2", className)}>
+  const overlay = (
+    <div
+      ref={shellRef}
+      className="pointer-events-auto fixed inset-0 z-[2147483647] overflow-hidden bg-white"
+      onContextMenu={(event) => event.preventDefault()}
+    >
       <div
-        className="relative rounded-lg border-2 border-dashed border-primary/30 bg-white shadow-inner"
-        style={{ height }}
+        className={cn(
+          "bg-white text-slate-950",
+          isPortrait
+            ? "absolute left-1/2 top-1/2 h-[100dvw] w-[100dvh] -translate-x-1/2 -translate-y-1/2 rotate-90"
+            : "h-[100dvh] w-[100dvw]",
+        )}
       >
         <canvas
           ref={canvasRef}
@@ -104,34 +266,28 @@ export function SignaturePad({
           onPointerUp={onUp}
           onPointerCancel={onUp}
           onPointerLeave={onUp}
-          className="h-full w-full touch-none rounded-lg"
+          className="pointer-events-auto h-full w-full touch-none select-none bg-white"
         />
-        {!hasInk && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-            Assine aqui com o dedo ou caneta ✍️
-          </div>
-        )}
       </div>
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          {hasInk ? (
-            <span className="inline-flex items-center gap-1 text-emerald-600">
-              <Check className="h-3 w-3" /> Assinatura registrada
-            </span>
-          ) : (
-            "Sua assinatura será usada em todos os checklists gerados."
-          )}
-        </p>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={clear}
-          disabled={!hasInk}
-        >
-          <Eraser className="mr-1 h-4 w-4" /> Limpar
-        </Button>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={clear}
+        className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] h-12 min-w-28 text-base font-semibold shadow-lg"
+      >
+        <Eraser className="mr-2 h-5 w-5" /> Limpar
+      </Button>
+      <Button
+        type="button"
+        onClick={done}
+        className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] h-12 min-w-36 text-base font-semibold shadow-lg"
+      >
+        <Check className="mr-2 h-5 w-5" /> Concluído
+      </Button>
     </div>
   );
+
+
+
+  return typeof document === "undefined" ? null : createPortal(overlay, document.body);
 }

@@ -3,10 +3,16 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import {
   emptyChecklistData,
   emptyInstalacaoData,
+  emptyIntervencaoData,
+  emptyRemapeamentoData,
+  isIntervencao,
+  type AnyChecklistData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type IntervencaoData,
+  type RemapeamentoData,
   type TipoChecklist,
 } from "./checklist-schema";
 
@@ -18,7 +24,7 @@ type ChecklistDbRow = Database["public"]["Tables"]["checklists"]["Row"];
 type ChecklistDbInsert = Database["public"]["Tables"]["checklists"]["Insert"];
 type ChecklistDbUpdate = Database["public"]["Tables"]["checklists"]["Update"];
 
-function checklistDataAsJson(data: ChecklistData | InstalacaoData): Json {
+function checklistDataAsJson(data: AnyChecklistData): Json {
   return data as unknown as Json;
 }
 
@@ -69,15 +75,62 @@ function mergeInstalacaoData(saved: Record<string, unknown>): InstalacaoData {
   } as InstalacaoData;
 }
 
+function mergeRemapeamentoData(saved: Record<string, unknown>): RemapeamentoData {
+  const base = emptyRemapeamentoData();
+  return {
+    ...base,
+    ...saved,
+    identificacao: { ...base.identificacao, ...(isRecord(saved.identificacao) ? saved.identificacao : {}) },
+    localizacao: { ...base.localizacao, ...(isRecord(saved.localizacao) ? saved.localizacao : {}) },
+    splitter: { ...base.splitter, ...(isRecord(saved.splitter) ? saved.splitter : {}) },
+    alimentacao: { ...base.alimentacao, ...(isRecord(saved.alimentacao) ? saved.alimentacao : {}) },
+    portas: Array.isArray(saved.portas) ? (saved.portas as RemapeamentoData["portas"]) : base.portas,
+    fusao: { ...base.fusao, ...(isRecord(saved.fusao) ? saved.fusao : {}) },
+    resultado: { ...base.resultado, ...(isRecord(saved.resultado) ? saved.resultado : {}) },
+  } as RemapeamentoData;
+}
+
+function mergeIntervencaoData(saved: Record<string, unknown>): IntervencaoData {
+  const base = emptyIntervencaoData();
+  const rota = isRecord(saved.rota) ? saved.rota : {};
+  const otdr = isRecord(saved.otdr) ? saved.otdr : {};
+  return {
+    ...base,
+    ...saved,
+    contexto: { ...base.contexto, ...(isRecord(saved.contexto) ? saved.contexto : {}) },
+    rota: {
+      ...base.rota,
+      ...rota,
+      pontos: Array.isArray(rota.pontos) ? (rota.pontos as IntervencaoData["rota"]["pontos"]) : [],
+    },
+    materiais: { ...base.materiais, ...(isRecord(saved.materiais) ? saved.materiais : {}) },
+    otdr: {
+      ...base.otdr,
+      ...otdr,
+      medicoes: Array.isArray(otdr.medicoes)
+        ? (otdr.medicoes as IntervencaoData["otdr"]["medicoes"])
+        : [],
+      laudos: Array.isArray(otdr.laudos) ? (otdr.laudos as IntervencaoData["otdr"]["laudos"]) : [],
+    },
+    sinal: { ...base.sinal, ...(isRecord(saved.sinal) ? saved.sinal : {}) },
+    execucao: { ...base.execucao, ...(isRecord(saved.execucao) ? saved.execucao : {}) },
+    resultado: { ...base.resultado, ...(isRecord(saved.resultado) ? saved.resultado : {}) },
+  } as IntervencaoData;
+}
+
 function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   const tipo: TipoChecklist = (row.tipo as TipoChecklist) ?? "validacao_ont";
   const savedData =
     row.dados && typeof row.dados === "object" && !Array.isArray(row.dados) ? row.dados : {};
-  return {
-    ...row,
-    tipo,
-    dados: tipo === "instalacao" ? mergeInstalacaoData(savedData) : mergeChecklistData(savedData),
-  } as unknown as ChecklistRow;
+  const dados =
+    tipo === "instalacao"
+      ? mergeInstalacaoData(savedData)
+      : tipo === "remapeamento_cto"
+        ? mergeRemapeamentoData(savedData)
+        : isIntervencao(tipo)
+          ? mergeIntervencaoData(savedData)
+          : mergeChecklistData(savedData);
+  return { ...row, tipo, dados } as unknown as ChecklistRow;
 }
 
 export async function listChecklists(opts: {
@@ -118,9 +171,23 @@ export async function createDraft(
   userId: string,
   tipo: TipoChecklist = "validacao_ont",
 ): Promise<string> {
-  const dados = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const dados =
+    tipo === "instalacao"
+      ? emptyInstalacaoData()
+      : tipo === "remapeamento_cto"
+        ? emptyRemapeamentoData()
+        : isIntervencao(tipo)
+          ? emptyIntervencaoData()
+          : emptyChecklistData();
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("provider_id")
+    .eq("id", userId)
+    .single();
+  if (profileError || !profile) throw new Error("Provedor do técnico não encontrado.");
   const draft: ChecklistDbInsert = {
     tecnico_id: userId,
+    provider_id: profile.provider_id,
     status: "rascunho",
     tipo,
     dados: checklistDataAsJson(dados),
@@ -151,7 +218,7 @@ export async function updateChecklist(
       | "modelo_ont_instalada"
       | "serial_ont_instalada"
     >
-  > & { dados?: ChecklistData | InstalacaoData },
+  > & { dados?: AnyChecklistData },
 ): Promise<void> {
   const { dados, ...fields } = patch;
   const databasePatch: ChecklistDbUpdate = {
@@ -223,6 +290,16 @@ export async function deleteFoto(foto: FotoRow): Promise<void> {
 }
 
 export async function signedFotoUrl(path: string, expiresIn = 3600): Promise<string> {
+  // Override para o fluxo do dossiê (almoxarifado): as URLs são geradas no
+  // servidor porque o RLS não deixa o usuário assinar diretamente. O caller
+  // popula __dossieSignedFotoMap antes de acionar a geração do PDF.
+  const map = (globalThis as unknown as { __dossieSignedFotoMap?: Map<string, string | null> })
+    .__dossieSignedFotoMap;
+  if (map?.has(path)) {
+    const url = map.get(path);
+    if (url) return url;
+    throw new Error("signed_url_missing_for_path");
+  }
   const { data, error } = await supabase.storage
     .from("evidencias")
     .createSignedUrl(path, expiresIn);

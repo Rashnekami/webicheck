@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { territoryNames } from "@/lib/profile-cities";
 
-export type AppRole = "admin" | "tecnico";
+export type AppRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc";
 
 export interface CurrentUser {
   id: string;
@@ -12,8 +13,17 @@ export interface CurrentUser {
   city: string | null;
   active: boolean;
   assinatura: string | null;
+  provider_id: string | null;
+  supervisor_id: string | null;
+  platform_admin: boolean;
+  cities: string[];
+  territories: string[];
   roles: AppRole[];
   isAdmin: boolean;
+  isWarehouse: boolean;
+  isSupervisor: boolean;
+  isNoc: boolean;
+  isPlatformAdmin: boolean;
 }
 
 export function useCurrentUser() {
@@ -22,12 +32,22 @@ export function useCurrentUser() {
     queryFn: async (): Promise<CurrentUser | null> => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return null;
-      const [{ data: profile }, { data: roles }] = await Promise.all([
+      const [{ data: profile }, { data: roles }, { data: cityRows }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", auth.user.id).maybeSingle(),
         supabase.from("user_roles").select("role").eq("user_id", auth.user.id),
+        supabase.from("user_cities").select("city").eq("user_id", auth.user.id),
       ]);
       const roleList = (roles ?? []).map((r) => r.role as AppRole);
-      const p = profile as (typeof profile & { assinatura?: string | null }) | null;
+      const cities = (cityRows ?? []).map((r) => r.city as string);
+      const p = profile as
+        | (typeof profile & {
+            assinatura?: string | null;
+            platform_admin?: boolean | null;
+            provider_id?: string | null;
+            supervisor_id?: string | null;
+          })
+        | null;
+      const platformAdmin = Boolean(p?.platform_admin);
       return {
         id: auth.user.id,
         email: p?.email ?? auth.user.email ?? "",
@@ -37,8 +57,17 @@ export function useCurrentUser() {
         city: p?.city ?? null,
         active: p?.active ?? true,
         assinatura: p?.assinatura ?? null,
+        provider_id: p?.provider_id ?? null,
+        supervisor_id: p?.supervisor_id ?? null,
+        platform_admin: platformAdmin,
+        cities,
+        territories: territoryNames(cities),
         roles: roleList,
         isAdmin: roleList.includes("admin"),
+        isWarehouse: roleList.includes("almoxarifado"),
+        isSupervisor: roleList.includes("supervisor"),
+        isNoc: roleList.includes("noc"),
+        isPlatformAdmin: platformAdmin,
       };
     },
     staleTime: 60_000,

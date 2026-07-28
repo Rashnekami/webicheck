@@ -8,6 +8,10 @@ import {
   ShieldCheck,
   Loader2,
   AlertTriangle,
+  ClipboardCheck,
+  Wrench,
+  Wifi,
+  MapPin,
 } from "lucide-react";
 import {
   BarChart,
@@ -54,31 +58,33 @@ import {
   type DashboardFilters,
   type PeriodPreset,
 } from "@/lib/dashboard-analytics";
-import {
-  generatePresentationZip,
-  presentationZipFilename,
-} from "@/services/presentation-export";
+import { generatePresentationZip, presentationZipFilename } from "@/services/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
-    meta: [
-      { title: "Dashboard — Webifibra" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Dashboard — Webifibra" }, { name: "robots", content: "noindex" }],
   }),
   component: Dashboard,
 });
 
 const COLORS = [
-  "#1a53ff",
-  "#0ea5e9",
-  "#22c55e",
-  "#f59e0b",
-  "#ef4444",
-  "#a855f7",
-  "#14b8a6",
-  "#eab308",
+  "#168cff",
+  "#19d8ff",
+  "#35d878",
+  "#ffb020",
+  "#ff5268",
+  "#8b7cff",
+  "#17c8b5",
+  "#f4d44d",
 ];
+
+const TOOLTIP_STYLE = {
+  backgroundColor: "rgba(3, 16, 39, .97)",
+  border: "1px solid rgba(43, 139, 255, .38)",
+  borderRadius: 14,
+  color: "#f8fafc",
+  boxShadow: "0 18px 48px rgba(0, 0, 0, .42)",
+};
 
 function Dashboard() {
   const { data: user, isLoading: userLoading } = useCurrentUser();
@@ -95,13 +101,11 @@ function Dashboard() {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [cidade, setCidade] = useState<string>("todas");
   const [tecnicoId, setTecnicoId] = useState<string>("todos");
-  const [tipo, setTipo] = useState<"todos" | "validacao_ont" | "instalacao">(
+  const [tipo, setTipo] = useState<"todos" | "validacao_ont" | "instalacao">("todos");
+  const [analista, setAnalista] = useState<string>("todos");
+  const [status, setStatus] = useState<"todos" | "com_troca" | "sem_troca" | "nao_informado">(
     "todos",
   );
-  const [analista, setAnalista] = useState<string>("todos");
-  const [status, setStatus] = useState<
-    "todos" | "com_troca" | "sem_troca" | "nao_informado"
-  >("todos");
   const [exporting, setExporting] = useState(false);
 
   const query = useQuery({
@@ -113,9 +117,7 @@ function Dashboard() {
   const profilesQuery = useQuery({
     queryKey: ["dashboard-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email");
+      const { data, error } = await supabase.from("profiles").select("id, full_name, email");
       if (error) throw error;
       return data ?? [];
     },
@@ -135,7 +137,7 @@ function Dashboard() {
   const canonAll = useMemo(() => {
     return (query.data ?? [])
       .filter((c) => c.status === "finalizado")
-      .filter((c) => (c as any).is_current !== false)
+      .filter((c) => c.is_current !== false)
       .map((c) => toCanon(c, nomePorId));
   }, [query.data, nomePorId]);
 
@@ -167,23 +169,21 @@ function Dashboard() {
   // Opções únicas para os selects (baseadas em TODO o dataset canonizado)
   const cidadesOpts = useMemo(
     () =>
-      Array.from(new Set(canonAll.map((r) => r.cidade).filter(Boolean))).sort(
-        (a, b) => a.localeCompare(b, "pt-BR"),
+      Array.from(new Set(canonAll.map((r) => r.cidade).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
       ),
     [canonAll],
   );
   const tecnicosOpts = useMemo(() => {
     const m = new Map<string, string>();
     canonAll.forEach((r) => m.set(r.tecnicoId, r.tecnicoNome));
-    return Array.from(m.entries()).sort((a, b) =>
-      a[1].localeCompare(b[1], "pt-BR"),
-    );
+    return Array.from(m.entries()).sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
   }, [canonAll]);
   const analistasOpts = useMemo(
     () =>
-      Array.from(
-        new Set(canonAll.map((r) => r.analistaNocNome).filter(Boolean)),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+      Array.from(new Set(canonAll.map((r) => r.analistaNocNome).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
     [canonAll],
   );
 
@@ -217,12 +217,9 @@ function Dashboard() {
     ];
     const rows = (query.data ?? []).filter((c) => {
       if (c.status !== "finalizado") return false;
-      if ((c as any).is_current === false) return false;
+      if (c.is_current === false) return false;
       const t = c.finalizado_em ? new Date(c.finalizado_em).getTime() : 0;
-      return (
-        t >= new Date(filters.startISO).getTime() &&
-        t < new Date(filters.endISO).getTime()
-      );
+      return t >= new Date(filters.startISO).getTime() && t < new Date(filters.endISO).getTime();
     });
     const lines = [header.join(";")];
     for (const c of rows) {
@@ -249,11 +246,7 @@ function Dashboard() {
               : "Não informado",
           canon.sintomas.join(" | "),
           canon.analistaNocNome,
-          canon.nocAutorizada === true
-            ? "Sim"
-            : canon.nocAutorizada === false
-              ? "Não"
-              : "",
+          canon.nocAutorizada === true ? "Sim" : canon.nocAutorizada === false ? "Não" : "",
         ]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(";"),
@@ -277,9 +270,7 @@ function Dashboard() {
         filterMetadata: {
           cidade: cidade !== "todas" ? cidade : undefined,
           tecnicoNome:
-            tecnicoId !== "todos"
-              ? tecnicosOpts.find(([id]) => id === tecnicoId)?.[1]
-              : undefined,
+            tecnicoId !== "todos" ? tecnicosOpts.find(([id]) => id === tecnicoId)?.[1] : undefined,
           tipo:
             tipo === "validacao_ont"
               ? "Validação de ONT"
@@ -308,7 +299,7 @@ function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-12">
+    <div className="webi-page min-h-screen pb-12">
       <header className="brand-gradient text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
@@ -321,9 +312,7 @@ function Dashboard() {
             </Link>
             <WebifibraLogo size={40} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">
-                Webifibra · análise
-              </p>
+              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra · análise</p>
               <h1 className="text-lg font-semibold">Dashboard de trocas de ONT</h1>
             </div>
           </div>
@@ -375,7 +364,7 @@ function Dashboard() {
 
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-6">
         {/* Filtros */}
-        <Card>
+        <Card className="border-blue-400/25 bg-blue-950/25">
           <CardContent className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4 lg:grid-cols-7">
             <div className="col-span-2 md:col-span-2 lg:col-span-2">
               <Label className="text-xs">Período</Label>
@@ -494,29 +483,28 @@ function Dashboard() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               {agg.totalNaoInformado} validaç
-              {agg.totalNaoInformado === 1 ? "ão" : "ões"} sem informação de
-              troca. Esses registros não são contados como trocas realizadas.
-              Peça ao técnico responsável para preencher o campo “A ONT foi
-              fisicamente substituída?” no checklist.
+              {agg.totalNaoInformado === 1 ? "ão" : "ões"} sem informação de troca. Esses registros
+              não são contados como trocas realizadas. Peça ao técnico responsável para preencher o
+              campo “A ONT foi fisicamente substituída?” no checklist.
             </p>
           </div>
         )}
 
         {query.isLoading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Carregando dados...
-          </p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Carregando dados...</p>
         ) : (
           <>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatCard label="Validações de ONT" value={agg.totalOnt} />
+              <StatCard icon={ClipboardCheck} label="Validações de ONT" value={agg.totalOnt} />
               <StatCard
+                icon={Wrench}
                 label="Trocas realizadas"
                 value={agg.totalTrocas}
                 sub={`${agg.totalSemTroca} sem troca`}
               />
-              <StatCard label="Instalações" value={agg.totalInstalacoes} />
+              <StatCard icon={Wifi} label="Instalações" value={agg.totalInstalacoes} />
               <StatCard
+                icon={MapPin}
                 label="Cidades com troca"
                 value={agg.cidadesComTroca.length}
               />
@@ -529,11 +517,14 @@ function Dashboard() {
               >
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={agg.sintomas} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
                     <XAxis type="number" allowDecimals={false} />
                     <YAxis type="category" dataKey="name" width={130} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={COLORS[0]} radius={[0, 4, 4, 0]} />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ fill: "rgba(0,132,255,.08)" }}
+                    />
+                    <Bar dataKey="value" fill={COLORS[0]} radius={[0, 9, 9, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -544,11 +535,14 @@ function Dashboard() {
               >
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={agg.modelos}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={COLORS[1]} radius={[4, 4, 0, 0]} />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ fill: "rgba(0,132,255,.08)" }}
+                    />
+                    <Bar dataKey="value" fill={COLORS[1]} radius={[9, 9, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -559,11 +553,14 @@ function Dashboard() {
               >
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={agg.analistas}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={COLORS[2]} radius={[4, 4, 0, 0]} />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ fill: "rgba(0,132,255,.08)" }}
+                    />
+                    <Bar dataKey="value" fill={COLORS[2]} radius={[9, 9, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -574,33 +571,37 @@ function Dashboard() {
               >
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={agg.tecnicos}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
                     <XAxis dataKey="name" />
                     <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill={COLORS[3]} radius={[4, 4, 0, 0]} />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ fill: "rgba(0,132,255,.08)" }}
+                    />
+                    <Bar dataKey="value" fill={COLORS[3]} radius={[9, 9, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
 
-              <ChartCard
-                title="Cidades com mais trocas"
-                subtitle="Distribuição geográfica"
-              >
+              <ChartCard title="Cidades com mais trocas" subtitle="Distribuição geográfica">
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
                     <Pie
                       data={agg.cidades}
                       dataKey="value"
                       nameKey="name"
-                      outerRadius={110}
+                      innerRadius={62}
+                      outerRadius={108}
+                      paddingAngle={3}
+                      stroke="#07152c"
+                      strokeWidth={3}
                       label
                     >
                       {agg.cidades.map((_, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -651,22 +652,27 @@ function Dashboard() {
 }
 
 function StatCard({
+  icon: Icon,
   label,
   value,
   sub,
 }: {
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number | string;
   sub?: string;
 }) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          {label}
-        </p>
-        <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
-        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+    <Card className="overflow-hidden bg-gradient-to-br from-blue-950/75 to-slate-950/65">
+      <CardContent className="flex items-center gap-3 p-4 sm:p-5">
+        <div className="webi-icon h-11 w-11 shrink-0">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-2xl font-extrabold tracking-tight text-white">{value}</p>
+          <p className="text-xs font-medium text-slate-400">{label}</p>
+          {sub && <p className="mt-0.5 text-[11px] text-cyan-400">{sub}</p>}
+        </div>
       </CardContent>
     </Card>
   );
@@ -682,12 +688,15 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <Card>
+    <Card className="webi-chart overflow-hidden">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">{title}</CardTitle>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        )}
+        <CardTitle className="flex items-center gap-2 text-base text-white">
+          <span className="webi-icon h-8 w-8 rounded-lg">
+            <BarChart3 className="h-4 w-4" />
+          </span>
+          {title}
+        </CardTitle>
+        {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>

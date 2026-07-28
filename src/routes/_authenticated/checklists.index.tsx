@@ -15,6 +15,7 @@ import {
 
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { createDraft, deleteChecklist, listChecklists } from "@/lib/checklists";
+import { deleteChecklistCascade } from "@/lib/platform-admin.functions";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +30,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { TIPO_LABEL, type TipoChecklist } from "@/lib/checklist-schema";
+import {
+  INTERVENCAO_DESCRICAO,
+  TIPOS_INTERVENCAO,
+  TIPO_LABEL,
+  type TipoChecklist,
+} from "@/lib/checklist-schema";
 import { formatChecklistCode } from "@/lib/checklist-code";
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
@@ -47,7 +53,7 @@ function ChecklistsList() {
   const [tab, setTab] = useState<"todos" | "rascunho" | "finalizado">("todos");
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const scope = user?.isAdmin ? "all" : "mine";
+  const scope = user?.isAdmin || user?.isSupervisor || user?.isNoc ? "all" : "mine";
 
   const query = useQuery({
     queryKey: ["checklists", scope, user?.id],
@@ -66,12 +72,17 @@ function ChecklistsList() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => deleteChecklist(id),
+    mutationFn: async (c: { id: string; status: string }) => {
+      if (c.status === "finalizado") {
+        return deleteChecklistCascade({ data: { checklistId: c.id } });
+      }
+      return deleteChecklist(c.id);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["checklists"] });
-      toast.success("Rascunho removido.");
+      toast.success("Checklist removido.");
     },
-    onError: () => toast.error("Não foi possível remover."),
+    onError: (e: Error) => toast.error(e.message || "Não foi possível remover."),
   });
 
   const items = (query.data ?? []).filter((c) => {
@@ -88,28 +99,35 @@ function ChecklistsList() {
       c.serial,
       c.codigo_validacao,
       c.numero_publico,
+      c.exchange_ticket_code,
     ]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="webi-page min-h-screen">
       <header className="brand-gradient text-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <Link
               to="/painel"
-              className="rounded-full bg-white/15 p-2 hover:bg-white/25"
+              className="webi-icon h-10 w-10 rounded-full hover:border-cyan-300/70"
               aria-label="Voltar"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <WebifibraLogo size={40} className="rounded-xl" />
             <div>
-              <p className="text-xs uppercase tracking-wider opacity-80">Webifibra</p>
+              <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Webifibra</p>
               <h1 className="text-lg font-semibold">
-                {user?.isAdmin ? "Todos os checklists" : "Meus checklists"}
+                {user?.isAdmin
+                  ? "Todos os checklists"
+                  : user?.isSupervisor
+                    ? "Checklists da equipe"
+                    : user?.isNoc
+                      ? "Checklists do provedor"
+                      : "Meus checklists"}
               </h1>
             </div>
           </div>
@@ -120,7 +138,7 @@ function ChecklistsList() {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="bg-white/15 text-white hover:bg-white/25"
+                    className="border-blue-400/30 bg-blue-500/10 text-cyan-100 hover:bg-blue-500/20"
                   >
                     <BarChart3 className="mr-1 h-3.5 w-3.5" /> Dashboard
                   </Button>
@@ -134,7 +152,7 @@ function ChecklistsList() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-5 space-y-4">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             placeholder="Buscar por OS, cliente, cidade, serial, código..."
@@ -169,7 +187,7 @@ function ChecklistsList() {
               <ul className="space-y-2">
                 {items.map((c) => (
                   <li key={c.id}>
-                    <Card className="transition hover:border-primary/40">
+                    <Card className="webi-nav-card">
                       <CardContent className="flex items-start justify-between gap-3 p-4">
                         <Link to="/checklists/$id" params={{ id: c.id }} className="flex-1">
                           <p className="mb-1 flex items-center gap-1 text-xs font-medium text-primary">
@@ -194,11 +212,26 @@ function ChecklistsList() {
                               {TIPO_LABEL[c.tipo]}
                             </Badge>
                             {c.status === "finalizado" ? (
-                              <Badge className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15">
+                              <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15">
                                 Finalizado
                               </Badge>
                             ) : (
                               <Badge variant="secondary">Rascunho</Badge>
+                            )}
+                            {c.review_status === "aprovado" && (
+                              <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-300">
+                                Aprovado
+                              </Badge>
+                            )}
+                            {c.review_status === "reprovado" && (
+                              <Badge className="border-rose-400/30 bg-rose-500/10 text-rose-300">
+                                {c.locked_for_rework ? "Reprovado (refazer)" : "Reprovado"}
+                              </Badge>
+                            )}
+                            {c.review_status === "pendente" && c.status === "finalizado" && (
+                              <Badge className="border-amber-400/30 bg-amber-500/10 text-amber-300">
+                                Aguardando revisão
+                              </Badge>
                             )}
                           </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -215,23 +248,34 @@ function ChecklistsList() {
                                 }) || ""
                               : `Atualizado em ${new Date(c.updated_at).toLocaleString("pt-BR")}`}
                           </p>
+                          {(c as { rmap_code?: string | null }).rmap_code && (
+                            <p className="mt-1 text-xs font-semibold text-cyan-400">
+                              RMAP: {(c as { rmap_code?: string | null }).rmap_code}
+                            </p>
+                          )}
+                          {c.exchange_ticket_code && (
+                            <p className="mt-1 text-xs font-semibold text-amber-400">
+                              Ticket da troca: {c.exchange_ticket_code}
+                            </p>
+                          )}
                         </Link>
                         <div className="flex flex-col items-end gap-1.5">
                           {(c.status === "rascunho" && c.tecnico_id === user?.id) ||
-                          user?.isAdmin ? (
+                          user?.isAdmin ||
+                          user?.isPlatformAdmin ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
                                 const msg =
                                   c.status === "finalizado"
-                                    ? `Apagar checklist finalizado ${c.numero_publico || c.codigo_validacao || ""}? Esta ação é permanente.`
+                                    ? `Apagar checklist finalizado ${c.numero_publico || c.codigo_validacao || ""}? Esta ação é permanente e removerá contra-prova, tickets e evidências vinculadas.`
                                     : "Remover este rascunho?";
-                                if (confirm(msg)) remove.mutate(c.id);
+                                if (confirm(msg)) remove.mutate({ id: c.id, status: c.status });
                               }}
                               title={
-                                user?.isAdmin && c.status === "finalizado"
-                                  ? "Apagar (admin)"
+                                c.status === "finalizado"
+                                  ? "Apagar finalizado (dono)"
                                   : "Remover rascunho"
                               }
                             >
@@ -250,15 +294,16 @@ function ChecklistsList() {
       </main>
 
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Qual checklist você quer preencher?</DialogTitle>
             <DialogDescription>
               Escolha o tipo de atendimento. Cada modelo tem seus próprios campos e gera um PDF
               específico.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="-mx-1 grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain px-1 pb-1 sm:grid-cols-3">
+
             <button
               type="button"
               disabled={create.isPending}
@@ -288,7 +333,37 @@ function ChecklistsList() {
                 cliente.
               </p>
             </button>
+            <button
+              type="button"
+              disabled={create.isPending}
+              onClick={() => create.mutate("remapeamento_cto")}
+              className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition hover:border-primary hover:bg-primary/5"
+            >
+              <div className="rounded-full bg-cyan-500/10 p-2 text-cyan-600">
+                <Wifi className="h-5 w-5" />
+              </div>
+              <h3 className="font-semibold">Remapeamento CTO/NAP</h3>
+              <p className="text-xs text-muted-foreground">
+                Mapeamento de portas do splitter com GPS, cores TIA-598 e análise de potência.
+              </p>
+            </button>
+            {TIPOS_INTERVENCAO.map((t) => (
+              <button
+                key={t}
+                type="button"
+                disabled={create.isPending}
+                onClick={() => create.mutate(t)}
+                className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition hover:border-primary hover:bg-primary/5"
+              >
+                <div className="rounded-full bg-amber-500/10 p-2 text-amber-600">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold">{TIPO_LABEL[t]}</h3>
+                <p className="text-xs text-muted-foreground">{INTERVENCAO_DESCRICAO[t]}</p>
+              </button>
+            ))}
           </div>
+
         </DialogContent>
       </Dialog>
     </div>

@@ -11,6 +11,7 @@ import {
   Loader2,
   Save,
   Trash2,
+  MonitorUp,
 } from "lucide-react";
 
 import { WebifibraLogo } from "@/components/webifibra-logo";
@@ -37,6 +38,8 @@ import {
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { ChecklistForm } from "@/components/checklist/checklist-form";
 import { InstalacaoForm } from "@/components/checklist/instalacao-form";
+import { RemapeamentoForm } from "@/components/checklist/remapeamento-form";
+import { IntervencaoForm } from "@/components/checklist/intervencao-form";
 import {
   deleteFoto,
   finalizeChecklist,
@@ -48,16 +51,29 @@ import {
 } from "@/lib/checklists";
 import {
   FOTO_CATEGORIAS,
+  FOTO_CATEGORIAS_REDE,
   TIPO_LABEL,
+  isIntervencao,
+  type AnyChecklistData,
   type ChecklistData,
   type ChecklistRow,
   type FotoRow,
   type InstalacaoData,
+  type IntervencaoData,
+  type RemapeamentoData,
+  type TipoIntervencao,
 } from "@/lib/checklist-schema";
 import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
 import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
+import { generateRemapeamentoPdf } from "@/components/checklist/remapeamento-pdf";
+import { generateIntervencaoPdf } from "@/components/checklist/intervencao-pdf";
+import { IntervencaoAiCard } from "@/components/checklist/intervencao-ai-card";
 import { DocumentActions } from "@/components/checklist/document-actions";
+import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-card";
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
+import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
+import { OntAiAnalysisCard } from "@/components/checklist/ont-ai-analysis-card";
+import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   ensureChecklistSnapshot,
   getChecklistSnapshotSummary,
@@ -134,7 +150,7 @@ function ChecklistDetail() {
     : (ownerQuery.data?.assinatura ?? null);
 
   const [header, setHeader] = useState<HeaderPatch>({});
-  const [data, setData] = useState<ChecklistData | InstalacaoData | null>(null);
+  const [data, setData] = useState<AnyChecklistData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -144,6 +160,17 @@ function ChecklistDetail() {
   const row = query.data;
   const readOnly = !row || row.status === "finalizado" || row.tecnico_id !== user?.id;
   const tipo = row?.tipo ?? "validacao_ont";
+  const diagnosticCode = row
+    ? `${row.numero_publico ?? row.codigo_validacao ?? ""}${row.revision_number > 1 ? `-R${row.revision_number}` : ""}`
+    : "";
+
+  function openDiagnostic() {
+    if (!diagnosticCode) {
+      toast.error("Este checklist ainda não possui código para o diagnóstico.");
+      return;
+    }
+    window.location.href = `webidiagnostic://open?checklist_code=${encodeURIComponent(diagnosticCode)}&webicheck_url=${encodeURIComponent(window.location.origin)}`;
+  }
 
   useEffect(() => {
     if (!row) return;
@@ -207,21 +234,37 @@ function ChecklistDetail() {
   const missing = useMemo(() => {
     const errs: string[] = [];
     if (!data) return errs;
-    if (!header.cliente?.trim()) errs.push("Cliente");
     if (!header.cidade?.trim()) errs.push("Cidade");
     if (!header.data_atendimento) errs.push("Data do atendimento");
     if (tipo === "validacao_ont") {
+      if (!header.cliente?.trim()) errs.push("Cliente");
       const d = data as ChecklistData;
       if (!header.modelo?.trim()) errs.push("Modelo da ONT");
       if (!header.serial?.trim()) errs.push("Serial da ONT");
-      if (!d.teste_cabeado.aplicabilidade) {
+      const equipmentUnavailable = d.sintoma.ont_queimada || d.sintoma.ont_danificada_cliente;
+      if (!equipmentUnavailable && !d.teste_cabeado.aplicabilidade) {
         errs.push("Aplicabilidade do teste cabeado");
       }
       if (!d.relato?.trim()) errs.push("Relato do técnico");
-    } else {
-      const d = data as InstalacaoData;
+    } else if (tipo === "instalacao") {
+      if (!header.cliente?.trim()) errs.push("Cliente");
       if (!header.endereco?.trim()) errs.push("Endereço");
-      if (!d.assinatura_cliente) errs.push("Assinatura do cliente");
+    } else if (tipo === "remapeamento_cto") {
+      // Remapeamento não exige cliente/endereço: é uma intervenção de rede.
+      const d = data as RemapeamentoData;
+      if (!d.identificacao.cto_codigo?.trim()) errs.push("Código da CTO/NAP");
+      const ativoOk = d.localizacao.ativo?.confirmed || !!d.localizacao.confirmada;
+      if (!ativoOk) errs.push("Confirmação manual da localização da CTO no mapa");
+      if (!d.splitter.tipo) errs.push("Tipo do splitter");
+    } else if (isIntervencao(tipo)) {
+      const d = data as IntervencaoData;
+      if (!d.contexto.causa) errs.push("Causa da intervenção");
+      if (!d.contexto.descricao?.trim()) errs.push("Descrição da ocorrência");
+      if (d.rota.pontos.length === 0) errs.push("Pelo menos um ponto georreferenciado no mapa");
+      if (!d.resultado.estado) errs.push("Estado final da intervenção");
+      if (tipo === "melhoria_sinal" && (!d.sinal.antes_dbm || !d.sinal.depois_dbm)) {
+        errs.push("Potência óptica antes e depois");
+      }
     }
     return errs;
   }, [header, data, tipo]);
@@ -240,12 +283,34 @@ function ChecklistDetail() {
       setPdfBusy(true);
       const publicUrl = publicUrlHint || (await resolveValidationUrl());
       const merged = { ...row, ...header, dados: data } as ChecklistRow;
+      const counterproof = await getChecklistCounterproof({ data: { checklistId: id } });
+      const counterproofDocument =
+        counterproof && "status" in counterproof && counterproof.status === "validated"
+          ? counterproof
+          : null;
       if (tipo === "instalacao") {
         await generateInstalacaoPdf({
           row: merged,
           tecnicoNome,
           assinatura: tecnicoAssinatura,
           publicUrl,
+          counterproof: counterproofDocument,
+        });
+      } else if (isIntervencao(tipo)) {
+        await generateIntervencaoPdf({
+          row: merged,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
+          publicUrl,
+          fotos: fotosQuery.data ?? [],
+        });
+      } else if (tipo === "remapeamento_cto") {
+        await generateRemapeamentoPdf({
+          row: merged,
+          tecnicoNome,
+          assinatura: tecnicoAssinatura,
+          publicUrl,
+          fotos: fotosQuery.data ?? [],
         });
       } else {
         await generateChecklistPdf({
@@ -254,6 +319,7 @@ function ChecklistDetail() {
           tecnicoNome,
           assinatura: tecnicoAssinatura,
           publicUrl,
+          counterproof: counterproofDocument,
         });
       }
     } catch (e) {
@@ -273,19 +339,25 @@ function ChecklistDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div
+      className={
+        tipo === "instalacao" || isIntervencao(tipo)
+          ? "webi-page min-h-screen bg-[#020817] pb-24"
+          : "webi-page min-h-screen pb-24"
+      }
+    >
       <header className="brand-gradient sticky top-0 z-10 text-white shadow-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link
               to="/checklists"
-              className="rounded-full bg-white/15 p-2 hover:bg-white/25"
+              className="webi-icon h-10 w-10 rounded-full hover:border-cyan-300/70"
               aria-label="Voltar"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div className="min-w-0">
-              <p className="truncate text-xs uppercase tracking-wider opacity-80">
+              <p className="truncate text-xs uppercase tracking-[.16em] text-cyan-400">
                 {TIPO_LABEL[tipo]} · {row.status === "finalizado" ? "Finalizado" : "Rascunho"}
               </p>
               <h1 className="truncate text-base font-semibold">
@@ -297,7 +369,9 @@ function ChecklistDetail() {
             {row.status === "finalizado" ? (
               <Badge className="bg-emerald-500/20 text-white hover:bg-emerald-500/30">
                 <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                {row.codigo_validacao}
+                {row.intervention_code ||
+                  (row as ChecklistRow & { rmap_code?: string | null }).rmap_code ||
+                  row.codigo_validacao}
               </Badge>
             ) : save.isPending ? (
               <Badge className="bg-white/20 text-white">
@@ -314,7 +388,7 @@ function ChecklistDetail() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 py-4">
+      <main className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:px-6">
         {tipo === "instalacao" ? (
           <InstalacaoForm
             header={{
@@ -337,13 +411,96 @@ function ChecklistDetail() {
               setDirty(true);
             }}
           />
-        ) : (
+        ) : isIntervencao(tipo) ? (
+          <>
+            <IntervencaoForm
+              tipo={tipo as TipoIntervencao}
+              header={{
+                os: header.os ?? null,
+                cliente: header.cliente ?? null,
+                cidade: header.cidade ?? null,
+                endereco: header.endereco ?? null,
+                data_atendimento: header.data_atendimento ?? null,
+                hora_atendimento: header.hora_atendimento ?? null,
+              }}
+              data={data as IntervencaoData}
+              checklistId={row.id}
+              tecnicoId={row.tecnico_id}
+              readOnly={readOnly}
+              onHeaderChange={(patch) => {
+                setHeader((p) => ({ ...p, ...patch }));
+                setDirty(true);
+              }}
+              onDataChange={(fn) => {
+                setData((p) => fn(p as IntervencaoData));
+                setDirty(true);
+              }}
+            />
+            <FotosSection
+              checklistId={id}
+              tecnicoId={row.tecnico_id}
+              readOnly={readOnly}
+              canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
+              fotos={fotosQuery.data ?? []}
+              categorias={FOTO_CATEGORIAS_REDE}
+              titulo="Evidências fotográficas (antes e depois)"
+            />
+            {row.status === "rascunho" && row.tecnico_id === user?.id && (
+              <IntervencaoAiCard
+                checklistId={id}
+                analysis={(data as IntervencaoData).ai_analysis ?? null}
+                disabled={dirty || save.isPending}
+                disabledReason={
+                  dirty || save.isPending
+                    ? "Salvando alterações... aguarde antes de solicitar a análise."
+                    : undefined
+                }
+              />
+            )}
+          </>
+        ) : tipo === "remapeamento_cto" ? (
+          <RemapeamentoForm
+            header={{
+              os: header.os ?? null,
+              cliente: header.cliente ?? null,
+              cidade: header.cidade ?? null,
+              endereco: header.endereco ?? null,
+              data_atendimento: header.data_atendimento ?? null,
+              hora_atendimento: header.hora_atendimento ?? null,
+            }}
+            data={data as RemapeamentoData}
+            checklistId={row.id}
+            tecnicoId={row.tecnico_id}
+            readOnly={readOnly}
+            onHeaderChange={(patch) => {
+              setHeader((p) => ({ ...p, ...patch }));
+              setDirty(true);
+            }}
+            onDataChange={(fn) => {
+              setData((p) => fn(p as RemapeamentoData));
+              setDirty(true);
+            }}
+          />
+        ) : null}
+        {tipo === "remapeamento_cto" ? (
+          <FotosSection
+            checklistId={id}
+            tecnicoId={row.tecnico_id}
+            readOnly={readOnly}
+            canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
+            fotos={fotosQuery.data ?? []}
+            categorias={FOTO_CATEGORIAS_REDE}
+            titulo="Evidências fotográficas da CTO (antes e depois)"
+          />
+        ) : null}
+        {tipo === "validacao_ont" ? (
           <>
             <ChecklistForm
               header={{
                 os: header.os ?? null,
                 cliente: header.cliente ?? null,
                 cidade: header.cidade ?? null,
+                endereco: header.endereco ?? null,
                 modelo: header.modelo ?? null,
                 serial: header.serial ?? null,
                 cto_porta: header.cto_porta ?? null,
@@ -374,11 +531,27 @@ function ChecklistDetail() {
               canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
               fotos={fotosQuery.data ?? []}
             />
+
+            {row.status === "rascunho" && row.tecnico_id === user?.id && (
+              <OntAiAnalysisCard
+                checklistId={id}
+                analysis={(data as ChecklistData).ai_analysis ?? null}
+                tipoManutencao={(data as ChecklistData).tipo_manutencao ?? null}
+                disabled={dirty || save.isPending}
+                disabledReason={
+                  dirty || save.isPending
+                    ? "Salvando alterações... aguarde antes de solicitar a análise."
+                    : undefined
+                }
+              />
+            )}
           </>
-        )}
+        ) : null}
+
 
         {row.status === "finalizado" && (
           <>
+            <CustomerCounterproofCard checklistId={id} isAdmin={!!user?.isAdmin} />
             <DocumentActions
               row={{ ...row, ...header, dados: data } as ChecklistRow}
               tecnicoNome={tecnicoNome}
@@ -386,6 +559,7 @@ function ChecklistDetail() {
               isAdmin={!!user?.isAdmin}
               onDownloadPdf={handlePdf}
               pdfBusy={pdfBusy}
+              fotos={fotosQuery.data ?? []}
             />
 
             <CaseRevisionsPanel
@@ -396,12 +570,29 @@ function ChecklistDetail() {
               tecnicoAssinatura={tecnicoAssinatura}
             />
 
+            <SupervisorReviewCard
+              row={row as ChecklistRow}
+              canReview={!!(user?.isSupervisor || user?.isAdmin || user?.isPlatformAdmin)}
+            />
+
             <Card>
               <CardContent className="space-y-1 p-4 text-sm">
                 <p>
                   <span className="text-muted-foreground">Código de validação:</span>{" "}
                   <b>{row.codigo_validacao}</b>
                 </p>
+                {row.intervention_code && (
+                  <p>
+                    <span className="text-muted-foreground">Código da intervenção:</span>{" "}
+                    <b>{row.intervention_code}</b>
+                  </p>
+                )}
+                {row.exchange_ticket_code && (
+                  <p>
+                    <span className="text-muted-foreground">Ticket da troca:</span>{" "}
+                    <b>{row.exchange_ticket_code}</b>
+                  </p>
+                )}
                 <p>
                   <span className="text-muted-foreground">Finalizado em:</span>{" "}
                   {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "—"}
@@ -415,12 +606,27 @@ function ChecklistDetail() {
         )}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3">
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-blue-400/20 bg-[#030d21]/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-6">
           <Button variant="outline" onClick={() => navigate({ to: "/checklists" })}>
             Voltar
           </Button>
           <div className="flex items-center gap-2">
+            {row.status === "finalizado" &&
+              (import.meta.env.VITE_WEBI_DIAGNOSTIC_ENABLED === "true" ? (
+                <Button variant="outline" onClick={openDiagnostic}>
+                  <MonitorUp className="mr-1.5 h-4 w-4" /> Abrir no Webi Diagnostic
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled
+                  title="Integração com Webi Diagnostic em homologação"
+                  aria-label="Webi Diagnostic em homologação"
+                >
+                  <MonitorUp className="mr-1.5 h-4 w-4" /> Webi Diagnostic — Em homologação
+                </Button>
+              ))}
             {row.status === "finalizado" && (
               <Button onClick={() => handlePdf()} disabled={pdfBusy}>
                 {pdfBusy ? (
@@ -501,15 +707,19 @@ function FotosSection({
   readOnly,
   canDelete,
   fotos,
+  categorias = FOTO_CATEGORIAS,
+  titulo = "Fotos de evidência",
 }: {
   checklistId: string;
   tecnicoId: string;
   readOnly: boolean;
   canDelete: boolean;
   fotos: FotoRow[];
+  categorias?: { value: FotoRow["categoria"]; label: string }[];
+  titulo?: string;
 }) {
   const qc = useQueryClient();
-  const [cat, setCat] = useState<FotoRow["categoria"]>("etiqueta");
+  const [cat, setCat] = useState<FotoRow["categoria"]>(categorias[0]?.value ?? "etiqueta");
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -536,7 +746,7 @@ function FotosSection({
     <Card>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">Fotos de evidência</h3>
+          <h3 className="text-base font-semibold">{titulo}</h3>
           <span className="text-xs text-muted-foreground">
             {fotos.length} anexada{fotos.length === 1 ? "" : "s"}
           </span>
@@ -551,7 +761,7 @@ function FotosSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FOTO_CATEGORIAS.map((c) => (
+                  {categorias.map((c) => (
                     <SelectItem key={c.value} value={c.value}>
                       {c.label}
                     </SelectItem>

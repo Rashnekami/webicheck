@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, Pencil, Search, ShieldCheck, UserCog, UserX } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,14 @@ import {
   listAdminUsers,
   updateAdminUser,
 } from "@/lib/admin-users.functions";
+import {
+  createTechnicianCredential,
+  listProviderLoginAccounts,
+  resetTechnicianPassword,
+} from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
+import { listProviderSupervisors } from "@/lib/supervisor.functions";
+import { CityExceptionManager } from "@/components/admin/city-exception-manager";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -32,6 +39,14 @@ export const Route = createFileRoute("/_authenticated/usuarios")({
   }),
   component: UsersPage,
 });
+
+const ROLE_LABEL: Record<ManagedUserRole, string> = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  noc: "NOC",
+  almoxarifado: "Almoxarifado",
+  tecnico: "Técnico",
+};
 
 type UserDraft = {
   email: string;
@@ -41,6 +56,8 @@ type UserDraft = {
   city: string;
   active: boolean;
   role: ManagedUserRole;
+  supervisorId: string | null;
+  supervisorCities: string[];
 };
 
 function toDraft(user: AdminUserRecord): UserDraft {
@@ -52,6 +69,8 @@ function toDraft(user: AdminUserRecord): UserDraft {
     city: user.city ?? "",
     active: user.active,
     role: user.role,
+    supervisorId: user.supervisor_id,
+    supervisorCities: user.supervisor_cities ?? [],
   };
 }
 
@@ -68,6 +87,28 @@ function UsersPage() {
     enabled: currentUser?.isAdmin === true,
   });
 
+  const accountsQuery = useQuery({
+    queryKey: ["provider-login-accounts"],
+    queryFn: () => listProviderLoginAccounts(),
+    enabled: currentUser?.isAdmin === true,
+  });
+  const accountByUserId = useMemo(
+    () => new Map((accountsQuery.data ?? []).map((a) => [a.user_id, a])),
+    [accountsQuery.data],
+  );
+
+  const [credTarget, setCredTarget] = useState<AdminUserRecord | null>(null);
+
+  const supervisorsQuery = useQuery({
+    queryKey: ["provider-supervisors"],
+    queryFn: () => listProviderSupervisors(),
+    enabled: currentUser?.isAdmin === true,
+  });
+  const supervisorById = useMemo(
+    () => new Map((supervisorsQuery.data ?? []).map((s) => [s.id, s])),
+    [supervisorsQuery.data],
+  );
+
   const updateUser = useMutation({
     mutationFn: async ({ user, values }: { user: AdminUserRecord; values: UserDraft }) =>
       updateAdminUser({
@@ -80,6 +121,8 @@ function UsersPage() {
           city: values.city,
           active: values.active,
           role: values.role,
+          supervisorId: values.role === "tecnico" ? values.supervisorId : null,
+          supervisorCities: values.role === "supervisor" ? values.supervisorCities : [],
         },
       }),
     onSuccess: async () => {
@@ -87,6 +130,7 @@ function UsersPage() {
       setEditing(null);
       setDraft(null);
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      await queryClient.invalidateQueries({ queryKey: ["provider-supervisors"] });
       await queryClient.invalidateQueries({ queryKey: ["current-user"] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -151,16 +195,18 @@ function UsersPage() {
   const activeCount = usersQuery.data?.filter((user) => user.active).length ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="webi-page mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6">
+      <div className="webi-header flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center sm:p-6">
         <div>
           <Button asChild variant="ghost" size="sm" className="-ml-2 mb-1">
             <Link to="/painel">
               <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
             </Link>
           </Button>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <UserCog className="h-6 w-6 text-primary" />
+          <h1 className="flex items-center gap-3 text-2xl font-bold text-white">
+            <span className="webi-icon h-11 w-11">
+              <UserCog className="h-5 w-5" />
+            </span>
             Usuários
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -169,7 +215,9 @@ function UsersPage() {
         </div>
         <div className="flex gap-2 text-sm">
           <Badge variant="secondary">{usersQuery.data?.length ?? 0} cadastrados</Badge>
-          <Badge className="bg-emerald-500/15 text-emerald-700">{activeCount} ativos</Badge>
+          <Badge className="border-emerald-400/30 bg-emerald-500/15 text-emerald-400">
+            {activeCount} ativos
+          </Badge>
         </div>
       </div>
 
@@ -182,6 +230,17 @@ function UsersPage() {
           placeholder="Buscar por nome, e-mail, matrícula ou cidade"
         />
       </div>
+
+      {currentUser && (
+        <CityExceptionManager
+          providerId={currentUser.provider_id}
+          currentUserId={currentUser.id}
+          technicians={(usersQuery.data ?? []).map((u) => ({
+            id: u.id,
+            full_name: u.full_name,
+          }))}
+        />
+      )}
 
       {usersQuery.isLoading && (
         <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
@@ -199,7 +258,7 @@ function UsersPage() {
 
       <div className="grid gap-3 md:grid-cols-2">
         {filteredUsers.map((user) => (
-          <Card key={user.id} className={!user.active ? "opacity-70" : ""}>
+          <Card key={user.id} className={`webi-nav-card ${!user.active ? "opacity-65" : ""}`}>
             <CardContent className="flex items-start justify-between gap-3 p-4">
               <div className="min-w-0 space-y-2">
                 <div>
@@ -210,9 +269,26 @@ function UsersPage() {
                         <ShieldCheck className="mr-1 h-3 w-3" /> Admin
                       </Badge>
                     )}
+                    {user.role === "supervisor" && (
+                      <Badge className="border-blue-400/30 bg-blue-500/15 text-blue-300">
+                        Supervisor
+                      </Badge>
+                    )}
+                    {user.role === "noc" && (
+                      <Badge className="border-purple-400/30 bg-purple-500/15 text-purple-300">
+                        NOC
+                      </Badge>
+                    )}
+                    {user.role === "almoxarifado" && (
+                      <Badge variant="secondary">Almoxarifado</Badge>
+                    )}
                     <Badge
                       variant={user.active ? "default" : "secondary"}
-                      className={user.active ? "bg-emerald-500/15 text-emerald-700" : undefined}
+                      className={
+                        user.active
+                          ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-400"
+                          : undefined
+                      }
                     >
                       {user.active ? "Ativo" : "Inativo"}
                     </Badge>
@@ -224,20 +300,38 @@ function UsersPage() {
                   {user.city && <p>Cidade: {user.city}</p>}
                   {user.phone && <p>Telefone: {user.phone}</p>}
                   <p>Cadastro: {new Date(user.created_at).toLocaleDateString("pt-BR")}</p>
+                  {user.supervisor_id && (
+                    <p>Supervisor: {supervisorById.get(user.supervisor_id)?.full_name ?? "—"}</p>
+                  )}
+                  {user.role === "supervisor" && user.supervisor_cities.length > 0 && (
+                    <p>Cidades cobertas: {user.supervisor_cities.join(", ")}</p>
+                  )}
+                  {accountByUserId.get(user.id) && (
+                    <p className="font-mono text-cyan-400">
+                      Login: {accountByUserId.get(user.id)!.login}
+                    </p>
+                  )}
                   {!user.has_profile && (
-                    <p className="font-medium text-amber-700">
+                    <p className="font-medium text-amber-400">
                       Perfil incompleto — revise antes de ativar.
                     </p>
                   )}
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
-                <Pencil className="mr-1.5 h-4 w-4" /> Editar
-              </Button>
+              <div className="flex flex-col gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => openEditor(user)}>
+                  <Pencil className="mr-1.5 h-4 w-4" /> Editar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setCredTarget(user)}>
+                  <KeyRound className="mr-1.5 h-4 w-4" />
+                  {accountByUserId.get(user.id) ? "Redefinir" : "Login/Senha"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
 
       {!usersQuery.isLoading && filteredUsers.length === 0 && (
         <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
@@ -299,7 +393,7 @@ function UsersPage() {
                 <Label htmlFor="user-city">Cidade</Label>
                 <select
                   id="user-city"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
                   value={draft.city}
                   onChange={(event) => setDraft({ ...draft, city: event.target.value })}
                 >
@@ -318,7 +412,7 @@ function UsersPage() {
                 <Label htmlFor="user-role">Perfil</Label>
                 <select
                   id="user-role"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
                   value={draft.role}
                   onChange={(event) =>
                     setDraft({
@@ -328,14 +422,74 @@ function UsersPage() {
                   }
                 >
                   <option value="tecnico">Técnico</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="noc">NOC (leitura)</option>
+                  <option value="almoxarifado">Almoxarifado (somente trocas)</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
+
+              {draft.role === "tecnico" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="user-supervisor">Supervisor responsável</Label>
+                  <select
+                    id="user-supervisor"
+                    className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
+                    value={draft.supervisorId ?? ""}
+                    onChange={(e) => setDraft({ ...draft, supervisorId: e.target.value || null })}
+                  >
+                    <option value="">Sem supervisor</option>
+                    {(supervisorsQuery.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name}
+                        {s.cities.length ? ` — ${s.cities.join(", ")}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {draft.role === "supervisor" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Cidades cobertas</Label>
+                  <div className="flex flex-wrap gap-2 rounded-xl border border-blue-400/20 bg-slate-950/45 p-3">
+                    {PROFILE_CITIES.map((city) => {
+                      const checked = draft.supervisorCities.includes(city);
+                      return (
+                        <label
+                          key={city}
+                          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition ${
+                            checked
+                              ? "border-cyan-400/60 bg-cyan-500/15 text-cyan-200"
+                              : "border-blue-400/20 text-slate-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-3 w-3"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(draft.supervisorCities);
+                              if (e.target.checked) next.add(city);
+                              else next.delete(city);
+                              setDraft({ ...draft, supervisorCities: Array.from(next) });
+                            }}
+                          />
+                          {city}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    O supervisor verá e revisará checklists dos técnicos atribuídos e das cidades marcadas.
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="user-active">Situação do acesso</Label>
                 <select
                   id="user-active"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-11 w-full rounded-xl border border-blue-400/20 bg-slate-950/45 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-400/60"
                   value={draft.active ? "active" : "inactive"}
                   onChange={(event) =>
                     setDraft({
@@ -348,7 +502,7 @@ function UsersPage() {
                   <option value="inactive">Inativo</option>
                 </select>
                 {!draft.active && (
-                  <p className="text-xs text-amber-700">
+                  <p className="text-xs text-amber-400">
                     O login será bloqueado e as chaves de integração ativas serão revogadas.
                   </p>
                 )}
@@ -377,6 +531,126 @@ function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CredentialDialog
+        user={credTarget}
+        existingLogin={credTarget ? accountByUserId.get(credTarget.id)?.login ?? null : null}
+        onClose={() => setCredTarget(null)}
+        onSaved={() => {
+          setCredTarget(null);
+          queryClient.invalidateQueries({ queryKey: ["provider-login-accounts"] });
+        }}
+      />
     </div>
   );
 }
+
+function CredentialDialog({
+  user,
+  existingLogin,
+  onClose,
+  onSaved,
+}: {
+  user: AdminUserRecord | null;
+  existingLogin: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const isReset = Boolean(existingLogin);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Usuário inválido.");
+      if (isReset) {
+        const accounts = await listProviderLoginAccounts();
+        const acc = accounts.find((a) => a.user_id === user.id);
+        if (!acc) throw new Error("Credencial não encontrada.");
+        return resetTechnicianPassword({ data: { accountId: acc.id, newPassword: password } });
+      }
+      return createTechnicianCredential({
+        data: {
+          login,
+          password,
+          fullName: user.full_name || user.email,
+          matricula: user.matricula,
+          phone: user.phone,
+          city: user.city,
+          role: user.role,
+          linkToUserId: user.id,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success(isReset ? "Senha redefinida." : "Login criado.");
+      setLogin("");
+      setPassword("");
+      onSaved();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <Dialog
+      open={Boolean(user)}
+      onOpenChange={(open) => {
+        if (!open && !mutation.isPending) {
+          setLogin("");
+          setPassword("");
+          onClose();
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isReset ? "Redefinir senha" : "Criar login e senha"}</DialogTitle>
+          <DialogDescription>
+            {isReset
+              ? `Nova senha para o login ${existingLogin}.`
+              : `Criando credencial interna para ${user?.full_name ?? ""}.`}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {!isReset && (
+            <div className="space-y-1.5">
+              <Label>Login</Label>
+              <Input
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                placeholder="ex.: t0112"
+                autoComplete="off"
+              />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Senha (mín. 8 caracteres)</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={
+              mutation.isPending ||
+              password.length < 8 ||
+              (!isReset && !/^[a-z0-9._-]{3,40}$/.test(login.trim().toLowerCase()))
+            }
+          >
+            {mutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            {isReset ? "Redefinir" : "Salvar credencial"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

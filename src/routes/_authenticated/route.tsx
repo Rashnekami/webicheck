@@ -12,15 +12,24 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active, city")
+      .select("active, city, provider_id, platform_admin, cities_configured_at")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
     }
-    if (!profile.city?.trim()) {
+    if (!profile.provider_id || !profile.cities_configured_at) {
       throw redirect({ to: "/completar-cadastro" });
+    }
+    const { data: provider } = await supabase
+      .from("providers")
+      .select("status")
+      .eq("id", profile.provider_id)
+      .maybeSingle();
+    if (provider?.status !== "active" && !profile.platform_admin) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/auth" });
     }
     return { user: data.user };
   },
@@ -39,7 +48,7 @@ function AuthenticatedLayout() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active, city")
+        .select("active, city, provider_id, platform_admin, cities_configured_at")
         .eq("id", data.user.id)
         .maybeSingle();
       if (!profile?.active) {
@@ -47,8 +56,18 @@ function AuthenticatedLayout() {
         navigate({ to: "/auth", replace: true });
         return;
       }
-      if (!profile.city?.trim()) {
+      if (!profile.provider_id || !profile.cities_configured_at) {
         navigate({ to: "/completar-cadastro", replace: true });
+        return;
+      }
+      const { data: provider } = await supabase
+        .from("providers")
+        .select("status")
+        .eq("id", profile.provider_id)
+        .maybeSingle();
+      if (provider?.status !== "active" && !profile.platform_admin) {
+        await supabase.auth.signOut();
+        navigate({ to: "/auth", replace: true });
         return;
       }
       setReady(true);

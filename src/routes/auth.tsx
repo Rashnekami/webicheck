@@ -51,10 +51,16 @@ const signupSchema = z.object({
 });
 const forgotSchema = z.object({ email: emailSchema });
 
+function finishLogin() {
+  const returnTo = sessionStorage.getItem("webicheck.return_to");
+  sessionStorage.removeItem("webicheck.return_to");
+  window.location.assign(returnTo?.startsWith("/") ? returnTo : "/painel");
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<"login" | "signup" | "forgot">("login");
+  const [tab, setTab] = useState<"login" | "interno" | "signup" | "forgot">("login");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -77,7 +83,7 @@ function AuthPage() {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      navigate({ to: "/painel", replace: true });
+      finishLogin();
     });
   }, [navigate]);
 
@@ -107,8 +113,9 @@ function AuthPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="login">E-mail</TabsTrigger>
+                <TabsTrigger value="interno">Login</TabsTrigger>
                 <TabsTrigger value="signup">Cadastrar</TabsTrigger>
                 <TabsTrigger value="forgot">Esqueci</TabsTrigger>
               </TabsList>
@@ -116,6 +123,13 @@ function AuthPage() {
               <TabsContent value="login" className="pt-4">
                 <LoginForm />
                 <GoogleButton className="mt-4" />
+              </TabsContent>
+
+              <TabsContent value="interno" className="pt-4">
+                <InternalLoginForm />
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Use o login e senha fornecidos pelo supervisor do seu provedor.
+                </p>
               </TabsContent>
 
               <TabsContent value="signup" className="pt-4">
@@ -186,7 +200,7 @@ function LoginForm() {
       return;
     }
 
-    navigate({ to: "/painel", replace: true });
+    finishLogin();
   }
 
   return (
@@ -271,7 +285,7 @@ function SignupForm({ onDone }: { onDone: () => void }) {
     }
     if (data.session) {
       toast.success("Conta criada com sucesso.");
-      navigate({ to: "/painel", replace: true });
+      finishLogin();
     } else {
       toast.success("Cadastro realizado. Verifique seu e-mail para confirmar o acesso.");
       onDone();
@@ -398,7 +412,7 @@ function GoogleButton({ className }: { className?: string }) {
     }
     // Se result.redirected => o navegador vai redirecionar; se não, sessão já foi setada.
     if (!result.redirected) {
-      window.location.href = "/painel";
+      finishLogin();
     }
   }
   return (
@@ -435,5 +449,132 @@ function GoogleButton({ className }: { className?: string }) {
       )}
       Continuar com Google
     </Button>
+  );
+}
+
+const RESERVED_SUBDOMAINS = new Set([
+  "www",
+  "checktecnico",
+  "webicheck",
+  "app",
+  "id-preview",
+  "localhost",
+  "preview",
+]);
+
+function detectProviderSlugFromHost(): string {
+  if (typeof window === "undefined") return "webifibra";
+  const host = window.location.hostname;
+  const parts = host.split(".");
+  // Ex.: webifibra.checktecnico.life -> ["webifibra","checktecnico","life"]
+  if (parts.length >= 3) {
+    const first = parts[0].toLowerCase();
+    if (!RESERVED_SUBDOMAINS.has(first) && /^[a-z0-9-]{2,40}$/.test(first)) {
+      return first;
+    }
+  }
+  return "webifibra";
+}
+
+function InternalLoginForm() {
+  const navigate = useNavigate();
+  const [providerSlug, setProviderSlug] = useState(() => detectProviderSlugFromHost());
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!providerSlug || !login || !password) {
+      toast.error("Preencha todos os campos.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await fetch("/api/public/auth/login-internal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider_slug: providerSlug, login, password }),
+      });
+      const body = (await resp.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+        error?: string;
+      };
+      if (!resp.ok || !body.access_token || !body.refresh_token) {
+        toast.error(body.error || "Login ou senha inválidos.");
+        return;
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: body.access_token,
+        refresh_token: body.refresh_token,
+      });
+      if (error) {
+        toast.error("Não foi possível iniciar a sessão.");
+        return;
+      }
+      const { data: session } = await supabase.auth.getUser();
+      if (!session.user) {
+        toast.error("Sessão inválida.");
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active, city")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      if (!profile?.active) {
+        await supabase.auth.signOut();
+        toast.error("Seu acesso está inativo.");
+        return;
+      }
+      if (!profile.city?.trim()) {
+        navigate({ to: "/completar-cadastro", replace: true });
+        return;
+      }
+      finishLogin();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="int-provider">Provedor</Label>
+        <Input
+          id="int-provider"
+          value={providerSlug}
+          onChange={(e) => setProviderSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+          placeholder="webifibra"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="int-login">Login</Label>
+        <Input
+          id="int-login"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+          placeholder="T0112"
+          autoComplete="username"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="int-password">Senha</Label>
+        <Input
+          id="int-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
+      </div>
+      <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Entrar
+      </Button>
+    </form>
   );
 }

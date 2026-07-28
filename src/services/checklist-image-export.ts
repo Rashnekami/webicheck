@@ -39,7 +39,7 @@ export async function exportNodeAsPng(node: HTMLElement, filename: string): Prom
   const dataUrl = await toPng(node, {
     pixelRatio: 2,
     cacheBust: true,
-    backgroundColor: "#ffffff",
+    backgroundColor: getComputedStyle(node).backgroundColor || "#ffffff",
     style: { transform: "none" },
   });
   const resp = await fetch(dataUrl);
@@ -55,7 +55,12 @@ export async function exportNodeAsPng(node: HTMLElement, filename: string): Prom
   return blob;
 }
 
-export function buildImageFilename(opts: { os?: string | null; numero?: string | null }): string {
+export function buildImageFilename(opts: {
+  os?: string | null;
+  numero?: string | null;
+  part?: "technician" | "customer";
+  counterproofCode?: string | null;
+}): string {
   const safe = (s?: string | null) =>
     (s ?? "")
       .toString()
@@ -64,7 +69,13 @@ export function buildImageFilename(opts: { os?: string | null; numero?: string |
       .slice(0, 40);
   const os = safe(opts.os);
   const num = safe(opts.numero);
-  if (os) return `checklist-webifibra-OS-${os}.png`;
-  if (num) return `checklist-webifibra-${num}.png`;
+  const suffix =
+    opts.part === "customer"
+      ? `cliente-${safe(opts.counterproofCode) || "contra-prova"}`
+      : opts.part === "technician"
+        ? "tecnico"
+        : "";
+  if (os) return `checklist-webifibra-OS-${os}${suffix ? `-${suffix}` : ""}.png`;
+  if (num) return `checklist-webifibra-${num}${suffix ? `-${suffix}` : ""}.png`;
   return `checklist-webifibra.png`;
 }

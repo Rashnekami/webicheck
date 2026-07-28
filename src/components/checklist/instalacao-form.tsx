@@ -1,21 +1,23 @@
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SignaturePad } from "@/components/signature-pad";
-import { PenLine } from "lucide-react";
-import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+  CheckCircle2,
+  ChevronLeft,
+  ShieldCheck,
+} from "lucide-react";
+import { useState } from "react";
 import type { ChecklistRow, InstalacaoData } from "@/lib/checklist-schema";
+import {
+  INSTALACAO_TECHNICIAN_QUESTIONS,
+  readInstalacaoAnswer,
+  type InstalacaoAnswer,
+} from "@/lib/instalacao-checklist";
+import { WebiCitySelect } from "@/components/checklist/webi-city-select";
+import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
+
 
 type HeaderShape = Pick<
   ChecklistRow,
@@ -40,39 +42,17 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">
-          <span className="mr-2 text-primary">{n}.</span>
+    <Card className="overflow-hidden rounded-2xl border-cyan-500/35 bg-[#06152d] text-slate-100 shadow-[inset_0_0_32px_rgba(0,105,255,0.07),0_0_22px_rgba(0,105,255,0.08)]">
+      <CardHeader className="border-b border-blue-500/20 pb-3">
+        <CardTitle className="flex items-center text-base">
+          <span className="mr-2 grid h-7 w-7 place-items-center rounded-lg bg-blue-600 text-xs text-white shadow-[0_0_16px_rgba(0,119,255,0.35)]">
+            {n}
+          </span>
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">{children}</CardContent>
     </Card>
-  );
-}
-
-function Cb({
-  checked,
-  onCheckedChange,
-  label,
-  disabled,
-}: {
-  checked: boolean;
-  onCheckedChange: (v: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-input bg-background p-2.5 text-sm hover:bg-accent/40">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={(v) => onCheckedChange(!!v)}
-        disabled={disabled}
-        className="mt-0.5"
-      />
-      <span className="leading-snug">{label}</span>
-    </label>
   );
 }
 
@@ -83,16 +63,43 @@ export function InstalacaoForm({
   onHeaderChange,
   onDataChange,
 }: Props) {
-  const [sigOpen, setSigOpen] = useState(false);
-  const [sigDraft, setSigDraft] = useState<string | null>(null);
+  useChecklistAutoFill({ header, readOnly, onHeaderChange });
+  const respostas = data.respostas ?? {};
 
-  const setItens = (patch: Partial<InstalacaoData["itens"]>) =>
-    onDataChange((p) => ({ ...p, itens: { ...p.itens, ...patch } }));
+  const total = INSTALACAO_TECHNICIAN_QUESTIONS.length;
+  const answered = INSTALACAO_TECHNICIAN_QUESTIONS.filter(
+    (q) => readInstalacaoAnswer(respostas, q.id) !== null,
+  ).length;
+  const firstUnanswered = INSTALACAO_TECHNICIAN_QUESTIONS.findIndex(
+    (q) => readInstalacaoAnswer(respostas, q.id) === null,
+  );
+  const [current, setCurrent] = useState<number>(firstUnanswered === -1 ? total : firstUnanswered);
+
+  const setAnswer = (id: string, answer: InstalacaoAnswer) => {
+    onDataChange((p) => ({
+      ...p,
+      respostas: { ...(p.respostas ?? {}), [id]: answer },
+    }));
+  };
+
   const setVel = (patch: Partial<InstalacaoData["velocidade"]>) =>
     onDataChange((p) => ({ ...p, velocidade: { ...p.velocidade, ...patch } }));
 
+  const allAnswered = answered === total;
+  const showReview = current >= total;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 rounded-3xl border border-blue-500/30 bg-[#020817] p-3 text-slate-100 shadow-[inset_0_0_48px_rgba(0,105,255,0.08),0_0_28px_rgba(0,105,255,0.12)] sm:p-5 [&_input]:border-cyan-500/35 [&_input]:bg-[#041126] [&_input]:text-slate-100 [&_input]:placeholder:text-slate-500 [&_label]:text-slate-300 [&_textarea]:border-cyan-500/35 [&_textarea]:bg-[#041126] [&_textarea]:text-slate-100">
+      <div className="rounded-2xl border border-blue-500/35 bg-[radial-gradient(circle_at_top_right,rgba(0,170,255,.18),transparent_38%),linear-gradient(145deg,#06152d,#020817)] px-4 py-5 text-center">
+        <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-400/50 bg-blue-600/20 text-cyan-300 shadow-[0_0_22px_rgba(0,200,255,.2)]">
+          <ShieldCheck className="h-7 w-7" />
+        </div>
+        <h2 className="text-xl font-black tracking-wide text-white">
+          CHECKLIST DO <span className="text-cyan-300">TÉCNICO</span>
+        </h2>
+        <p className="mt-1 text-sm text-slate-400">Validação técnica do atendimento</p>
+      </div>
+
       <Section n={1} title="Identificação do atendimento">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="space-y-1.5">
@@ -121,10 +128,11 @@ export function InstalacaoForm({
           </div>
           <div className="space-y-1.5">
             <Label>Cidade</Label>
-            <Input
-              value={header.cidade ?? ""}
+            <WebiCitySelect
+              value={header.cidade}
               disabled={readOnly}
-              onChange={(e) => onHeaderChange({ cidade: e.target.value })}
+              dark
+              onChange={(cidade) => onHeaderChange({ cidade })}
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
@@ -160,60 +168,129 @@ export function InstalacaoForm({
         </div>
       </Section>
 
-      <Section n={2} title="Validação técnica e orientação ao cliente">
-        <div className="grid grid-cols-1 gap-2">
-          <Cb
-            checked={data.itens.velocidade_ok}
-            onCheckedChange={(v) => setItens({ velocidade_ok: v })}
-            label="Teste de velocidade realizado via cabo/roteador, comprovando a entrega da banda contratada."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.navegacao_ok}
-            onCheckedChange={(v) => setItens({ navegacao_ok: v })}
-            label="Navegação e estabilidade da conexão validadas no momento da instalação."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.wifi_orientado}
-            onCheckedChange={(v) => setItens({ wifi_orientado: v })}
-            label="Cliente orientado sobre a diferença das redes Wi-Fi: 5 GHz (maior velocidade, menor alcance) e 2,4 GHz (maior alcance, menor velocidade)."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.placa_orientado}
-            onCheckedChange={(v) => setItens({ placa_orientado: v })}
-            label="Cliente orientado que a velocidade via Wi-Fi depende da capacidade da placa de rede do aparelho (celular, TV, console, etc.)."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.cabo_orientado}
-            onCheckedChange={(v) => setItens({ cabo_orientado: v })}
-            label="Orientado a utilizar cabo de rede em Smart TVs, videogames e equipamentos que exigem maior estabilidade."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.posicionamento_ok}
-            onCheckedChange={(v) => setItens({ posicionamento_ok: v })}
-            label="Posicionamento do roteador validado e orientado sobre possíveis interferências físicas (paredes, móveis, espelhos, eletrodomésticos, etc.)."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.downdetector}
-            onCheckedChange={(v) => setItens({ downdetector: v })}
-            label="Apresentado o site Downdetector ao cliente e orientado a verificar possíveis quedas globais de aplicativos antes de acionar o suporte."
-            disabled={readOnly}
-          />
-          <Cb
-            checked={data.itens.duvidas_sanadas}
-            onCheckedChange={(v) => setItens({ duvidas_sanadas: v })}
-            label="Dúvidas finais do cliente sanadas no local."
-            disabled={readOnly}
+      <Section n={2} title="Perguntas do técnico">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>
+            {Math.min(current + 1, total)} de {total}
+          </span>
+          <span>
+            {answered} de {total} respondidas
+          </span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-300 shadow-[0_0_12px_rgba(0,210,255,.45)] transition-all"
+            style={{ width: `${(answered / total) * 100}%` }}
           />
         </div>
+
+        {!showReview ? (
+          <div className="space-y-4 pt-2">
+            <div className="flex items-start gap-3 rounded-2xl border border-blue-500/30 bg-[#041126] p-4">
+              <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-blue-600 text-sm font-black shadow-[0_0_16px_rgba(0,119,255,.3)]">
+                {String(current + 1).padStart(2, "0")}
+              </span>
+              <p className="min-h-16 text-sm font-medium leading-6 text-slate-100">
+              {INSTALACAO_TECHNICIAN_QUESTIONS[current].question}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {(["sim", "nao"] as const).map((ans) => {
+                const q = INSTALACAO_TECHNICIAN_QUESTIONS[current];
+                const selected = readInstalacaoAnswer(respostas, q.id) === ans;
+                return (
+                  <Button
+                    key={ans}
+                    type="button"
+                    disabled={readOnly}
+                    variant="outline"
+                    className={
+                      selected
+                        ? ans === "sim"
+                          ? "h-12 border-emerald-400 bg-emerald-600 text-white shadow-[0_0_16px_rgba(34,197,94,.25)] hover:bg-emerald-500"
+                          : "h-12 border-red-400 bg-red-600 text-white shadow-[0_0_16px_rgba(239,68,68,.25)] hover:bg-red-500"
+                        : "h-12 border-blue-500/40 bg-[#071b3a] text-slate-100 hover:bg-blue-900/60"
+                    }
+                    onClick={() => {
+                      setAnswer(q.id, ans);
+                      // avança para a próxima não-respondida
+                      const nextUnanswered = INSTALACAO_TECHNICIAN_QUESTIONS.findIndex(
+                        (qq, idx) =>
+                          idx !== current &&
+                          readInstalacaoAnswer({ ...respostas, [q.id]: ans }, qq.id) === null,
+                      );
+                      setCurrent(nextUnanswered === -1 ? total : nextUnanswered);
+                    }}
+                  >
+                    {ans === "sim" ? "✓ SIM" : "✕ NÃO"}
+                  </Button>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={current === 0}
+                onClick={() => setCurrent((i) => Math.max(0, i - 1))}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={current >= total - 1}
+                onClick={() => setCurrent((i) => Math.min(total - 1, i + 1))}
+              >
+                Pular
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            {allAnswered && (
+                <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3 text-sm text-emerald-300">
+                <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
+                Todas as perguntas foram respondidas.
+              </div>
+            )}
+            {INSTALACAO_TECHNICIAN_QUESTIONS.map((q, idx) => {
+              const ans = readInstalacaoAnswer(respostas, q.id);
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  disabled={readOnly}
+                  className="flex w-full items-start justify-between gap-3 rounded-xl border border-blue-500/25 bg-[#041126] p-3 text-left text-xs text-slate-100 hover:bg-blue-950"
+                  onClick={() => setCurrent(idx)}
+                >
+                  <span className="leading-snug">
+                    <span className="mr-2 rounded-md bg-blue-700 px-1.5 py-0.5 text-white">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    {q.question}
+                  </span>
+                  <b
+                    className={
+                      ans === "nao"
+                        ? "text-red-400"
+                        : ans === "sim"
+                          ? "text-emerald-400"
+                          : "text-slate-500"
+                    }
+                  >
+                    {ans === "sim" ? "Sim" : ans === "nao" ? "Não" : "—"}
+                  </b>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </Section>
 
-      <Section n={3} title="Medições do teste de velocidade">
+      <Section n={3} title="Teste de velocidade — realizado via Wi-Fi">
         <div className="grid grid-cols-3 gap-2">
           <div className="space-y-1.5">
             <Label>Download (Mbps)</Label>
@@ -252,61 +329,11 @@ export function InstalacaoForm({
           disabled={readOnly}
           onChange={(e) => onDataChange((p) => ({ ...p, observacoes: e.target.value }))}
         />
+        <p className="text-xs text-slate-400">
+          A assinatura do cliente é coletada exclusivamente na Contra-Prova Digital, após a
+          finalização do checklist.
+        </p>
       </Section>
-
-      <Section n={5} title="Assinatura do cliente">
-        <div className="rounded-lg border bg-muted/30 p-3">
-          {data.assinatura_cliente ? (
-            <img
-              src={data.assinatura_cliente}
-              alt="Assinatura do cliente"
-              className="mx-auto h-28 object-contain"
-            />
-          ) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              Cliente ainda não assinou.
-            </p>
-          )}
-        </div>
-        {!readOnly && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSigDraft(data.assinatura_cliente ?? null);
-              setSigOpen(true);
-            }}
-          >
-            <PenLine className="mr-1.5 h-4 w-4" />
-            {data.assinatura_cliente ? "Refazer assinatura" : "Coletar assinatura do cliente"}
-          </Button>
-        )}
-      </Section>
-
-      <Dialog open={sigOpen} onOpenChange={setSigOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assinatura do cliente</DialogTitle>
-            <DialogDescription>
-              Peça ao cliente para assinar com o dedo ou caneta.
-            </DialogDescription>
-          </DialogHeader>
-          <SignaturePad value={sigDraft} onChange={setSigDraft} height={180} />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSigOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                onDataChange((p) => ({ ...p, assinatura_cliente: sigDraft }));
-                setSigOpen(false);
-              }}
-              disabled={!sigDraft}
-            >
-              Confirmar assinatura
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
