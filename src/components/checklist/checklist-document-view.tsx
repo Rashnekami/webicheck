@@ -12,6 +12,8 @@ import {
   type InstallationDocumentPart,
 } from "@/components/checklist/installation-dark-document";
 import { ValidationDarkDocument } from "@/components/checklist/validation-dark-document";
+import { NetworkDarkDocument } from "@/components/checklist/network-dark-document";
+import type { ResolvedFoto } from "@/lib/checklist-photo-uris";
 import { labelTipoManutencao, RECOMENDACAO_LABEL } from "@/lib/ont-checklist-ai";
 import type { StoredAiAnalysis } from "@/lib/checklist-schema";
 
@@ -25,6 +27,10 @@ interface Props {
   fixedWidth?: number;
   counterproof?: CounterproofDocumentInfo | null;
   documentPart?: InstallationDocumentPart;
+  /** Evidências fotográficas resolvidas (usadas nos documentos de rede). */
+  fotos?: ResolvedFoto[];
+  /** URL da evidência cartográfica (remapeamento / intervenções). */
+  mapUrl?: string | null;
 }
 
 const BRAND = "#1a53ff";
@@ -183,6 +189,8 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
       fixedWidth,
       counterproof,
       documentPart = "combined",
+      fotos,
+      mapUrl,
     },
     ref,
   ) {
@@ -190,6 +198,27 @@ export const ChecklistDocumentView = forwardRef<HTMLDivElement, Props>(
     const h = payload.header;
     const d = payload.dados as Record<string, Record<string, unknown> | string>;
     const qr = useQrDataUrl(publicUrl ?? null);
+
+    const isRede =
+      payload.tipo === "remapeamento_cto" ||
+      payload.tipo === "rompimento" ||
+      payload.tipo === "readequacao" ||
+      payload.tipo === "melhoria_sinal";
+
+    if (isRede) {
+      return (
+        <NetworkDarkDocument
+          ref={ref}
+          payload={payload}
+          publicUrl={publicUrl}
+          shortHash={shortHash}
+          version={version}
+          fixedWidth={fixedWidth}
+          fotos={fotos}
+          mapUrl={mapUrl}
+        />
+      );
+    }
 
     if (isInstal) {
       return (

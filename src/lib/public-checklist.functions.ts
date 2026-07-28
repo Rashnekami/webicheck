@@ -9,7 +9,13 @@ type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | { [k: string]: JsonValue } | JsonValue[];
 
 export interface SnapshotPayload {
-  tipo: "validacao_ont" | "instalacao";
+  tipo:
+    | "validacao_ont"
+    | "instalacao"
+    | "remapeamento_cto"
+    | "rompimento"
+    | "readequacao"
+    | "melhoria_sinal";
   header: { [k: string]: JsonValue };
   dados: { [k: string]: JsonValue };
   tecnico: { full_name: string; assinatura: string | null };
