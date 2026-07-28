@@ -174,7 +174,12 @@ export function RemapeamentoForm({
           : null;
       return {
         ...p,
-        localizacao: { ...p.localizacao, confirmada: { lat, lng }, distancia_m: distancia },
+        localizacao: {
+          ...p.localizacao,
+          confirmada: { lat, lng },
+          confirmada_em: new Date().toISOString(),
+          distancia_m: distancia,
+        },
       };
     });
     toast.success("Posição da CTO confirmada.");
