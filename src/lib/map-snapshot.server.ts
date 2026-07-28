@@ -87,17 +87,24 @@ export async function renderStaticMapPng(args: RenderSnapshotArgs): Promise<Rend
   const grid = tileGridFor(args.center, zoom, width, height);
   const canvas = new Uint8Array(width * height * 4);
 
+  const imagery = isImageryStyle(style);
+
   await Promise.all(
     grid.tiles.map(async (tile) => {
-      // O token nunca vai na URL: só no cabeçalho Authorization, para não
-      // aparecer em logs de rede/CDN nem em mensagens de erro.
-      const url = `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}`;
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      // Satélite: serviço raster World_Imagery (exige token em query string).
+      // Demais estilos: static basemap tiles com Authorization Bearer, sem
+      // token na URL. Em nenhum caso o token é registrado em log ou erro.
+      const url = imagery
+        ? `${IMAGERY_TILES_BASE}/${tile.z}/${tile.y}/${tile.x}?token=${encodeURIComponent(token)}`
+        : `${STATIC_TILES_BASE}/${style}/static/tile/${tile.z}/${tile.y}/${tile.x}`;
+      const res = await fetch(
+        url,
+        imagery ? undefined : { headers: { Authorization: `Bearer ${token}` } },
+      );
       if (!res.ok) throw new Error(`Falha ao obter tile ${tile.z}/${tile.x}/${tile.y} (${res.status}).`);
       const buf = new Uint8Array(await res.arrayBuffer());
-      const decoded = UPNG.decode(buf.buffer as ArrayBuffer);
-      const rgba = new Uint8Array(UPNG.toRGBA8(decoded)[0]);
-      blitRgba(canvas, width, height, rgba, decoded.width, decoded.height, tile.dx, tile.dy);
+      const decoded = decodeTile(buf);
+      blitRgba(canvas, width, height, decoded.rgba, decoded.width, decoded.height, tile.dx, tile.dy);
     }),
   );
 
