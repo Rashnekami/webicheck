@@ -218,7 +218,7 @@ export function RemapeamentoForm({
     onSuccess: (info) => {
       onDataChange((p) => ({
         ...p,
-        localizacao: { ...p.localizacao, snapshot: info },
+        localizacao: { ...p.localizacao, snapshot: info as MapSnapshotInfo },
       }));
       toast.success("Imagem cartográfica gerada.");
     },
