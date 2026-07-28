@@ -285,17 +285,6 @@ export const reactivateChecklistSnapshot = createServerFn({ method: "POST" })
 // -----------------------------------------------------------------
 // PÚBLICO: sem auth. Busca por token e devolve dados sanitizados.
 // -----------------------------------------------------------------
-const PUBLIC_FOTO_LABEL: Record<string, string> = {
-  etiqueta: "Etiqueta",
-  leds: "LEDs",
-  fonte: "Fonte",
-  teste_cabeado: "Teste cabeado",
-  teste_wifi: "Teste Wi-Fi",
-  antes: "Antes da intervenção",
-  depois: "Depois da intervenção",
-  outro: "Outro",
-};
-
 export const getPublicChecklist = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => d)
   .handler(async ({ data }): Promise<PublicSnapshotView> => {
@@ -465,6 +454,16 @@ export const getPublicChecklist = createServerFn({ method: "POST" })
         tipo === "melhoria_sinal";
 
       if (isRede) {
+        const PUBLIC_FOTO_LABEL: Record<string, string> = {
+          etiqueta: "Etiqueta",
+          leds: "LEDs",
+          fonte: "Fonte",
+          teste_cabeado: "Teste cabeado",
+          teste_wifi: "Teste Wi-Fi",
+          antes: "Antes da intervenção",
+          depois: "Depois da intervenção",
+          outro: "Outro",
+        };
         const dados = (chk?.dados ?? payload.dados ?? {}) as Record<string, any>;
         if (!payload.dados || Object.keys(payload.dados).length === 0) {
           payload.dados = dados as SnapshotPayload["dados"];
