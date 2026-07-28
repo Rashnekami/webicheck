@@ -173,10 +173,20 @@ function FullscreenSignature({
     };
   }, []);
 
+  useEffect(() => {
+    window.requestAnimationFrame(setup);
+  }, [isPortrait, setup]);
+
   function pos(e: React.PointerEvent) {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
+    if (isPortrait) {
+      // canvas está rotacionado 90°: converte coordenadas de tela para o espaço do canvas
+      const sx = e.clientX - (rect.left + rect.width / 2);
+      const sy = e.clientY - (rect.top + rect.height / 2);
+      return { x: rect.height / 2 + sy, y: rect.width / 2 - sx };
+    }
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
   function onDown(e: React.PointerEvent) {
@@ -207,9 +217,21 @@ function FullscreenSignature({
     drawingRef.current = false;
     setHasInk(true);
   }
+  function clear() {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const ratio = window.devicePixelRatio || 1;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    setHasInk(false);
+  }
   function done() {
     const canvas = canvasRef.current;
-    onConfirm(hasInk && canvas ? canvas.toDataURL("image/png") : value || null);
+    onConfirm(hasInk && canvas ? canvas.toDataURL("image/png") : null);
   }
 
   const overlay = (
@@ -234,11 +256,22 @@ function FullscreenSignature({
       </div>
       <Button
         type="button"
+        variant="outline"
+        onClick={clear}
+        className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-[max(0.75rem,env(safe-area-inset-left))] h-12 min-w-28 text-base font-semibold shadow-lg"
+      >
+        <Eraser className="mr-2 h-5 w-5" /> Limpar
+      </Button>
+      <Button
+        type="button"
         onClick={done}
         className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] h-12 min-w-36 text-base font-semibold shadow-lg"
       >
         <Check className="mr-2 h-5 w-5" /> Concluído
       </Button>
+    </div>
+  );
+
     </div>
   );
 
