@@ -26,8 +26,22 @@ export const generateMapSnapshot = createServerFn({ method: "POST" })
     if (error || !row) throw new Error("Checklist não encontrado ou sem permissão.");
 
     const dados = (row.dados ?? {}) as Record<string, any>;
-    const loc = (dados.localizacao ?? {}) as Record<string, any>;
-    const ativo = loc.ativo ?? (loc.confirmada ? { ...loc.confirmada, tipo: "CTO" } : null);
+    // Intervenções de rede guardam a rota multiponto em `dados.rota`;
+    // remapeamento guarda o ativo único em `dados.localizacao`.
+    const isRoute = Array.isArray(dados.rota?.pontos) && dados.rota.pontos.length > 0;
+    const loc = (isRoute ? dados.rota : (dados.localizacao ?? {})) as Record<string, any>;
+    const routePoints: Array<{ lat: number; lng: number; tipo?: string }> = isRoute
+      ? dados.rota.pontos.filter(
+          (p: any) => typeof p?.lat === "number" && typeof p?.lng === "number",
+        )
+      : [];
+    const ativo = isRoute
+      ? {
+          lat: routePoints.reduce((sum, p) => sum + p.lat, 0) / routePoints.length,
+          lng: routePoints.reduce((sum, p) => sum + p.lng, 0) / routePoints.length,
+          tipo: "ROTA",
+        }
+      : (loc.ativo ?? (loc.confirmada ? { ...loc.confirmada, tipo: "CTO" } : null));
     if (!ativo || typeof ativo.lat !== "number" || typeof ativo.lng !== "number") {
       throw new Error("Confirme a localização do ativo no mapa antes de gerar o snapshot.");
     }
@@ -35,7 +49,14 @@ export const generateMapSnapshot = createServerFn({ method: "POST" })
     const style: string = loc.meta?.basemap_style?.startsWith?.("arcgis/")
       ? loc.meta.basemap_style
       : "arcgis/imagery";
-    const zoom: number = Number(loc.meta?.zoom) || 18;
+    let zoom: number = Number(loc.meta?.zoom) || 18;
+    if (isRoute && routePoints.length > 1) {
+      // Enquadra toda a rota: reduz o zoom conforme a maior distância angular.
+      const spanLat = Math.max(...routePoints.map((p) => p.lat)) - Math.min(...routePoints.map((p) => p.lat));
+      const spanLng = Math.max(...routePoints.map((p) => p.lng)) - Math.min(...routePoints.map((p) => p.lng));
+      const span = Math.max(spanLat, spanLng, 0.0002);
+      zoom = Math.max(12, Math.min(19, Math.floor(Math.log2(360 / span)) - 1));
+    }
     const revision = row.revision_number ?? 1;
 
     const existing = loc.snapshot as MapSnapshotInfo | undefined;
@@ -51,15 +72,22 @@ export const generateMapSnapshot = createServerFn({ method: "POST" })
     }
 
     const { renderStaticMapPng } = await import("@/lib/map-snapshot.server");
-    const points: Array<{ lat: number; lng: number; color?: [number, number, number] }> = [
-      { lat: ativo.lat, lng: ativo.lng, color: [225, 29, 72] },
-    ];
-    if (loc.gps_original?.lat && loc.gps_original?.lng) {
-      points.push({
-        lat: loc.gps_original.lat,
-        lng: loc.gps_original.lng,
-        color: [0, 198, 255],
-      });
+    const ROUTE_COLORS: Record<string, [number, number, number]> = {
+      INICIO: [34, 197, 94],
+      ROMPIMENTO: [225, 29, 72],
+      FUSAO: [245, 158, 11],
+      FIM: [59, 130, 246],
+    };
+    const points: Array<{ lat: number; lng: number; color?: [number, number, number] }> = isRoute
+      ? routePoints.map((p) => ({
+          lat: p.lat,
+          lng: p.lng,
+          color: ROUTE_COLORS[String(p.tipo)] ?? ([168, 85, 247] as [number, number, number]),
+        }))
+      : [{ lat: ativo.lat, lng: ativo.lng, color: [225, 29, 72] }];
+    const gps = loc.gps_original ?? loc.gps_tecnico;
+    if (gps?.lat && gps?.lng) {
+      points.push({ lat: gps.lat, lng: gps.lng, color: [0, 198, 255] });
     }
 
     const rendered = await renderStaticMapPng({
@@ -90,10 +118,9 @@ export const generateMapSnapshot = createServerFn({ method: "POST" })
       revision_number: revision,
     };
 
-    const nextDados = {
-      ...dados,
-      localizacao: { ...loc, ativo, snapshot: info },
-    };
+    const nextDados = isRoute
+      ? { ...dados, rota: { ...loc, snapshot: info } }
+      : { ...dados, localizacao: { ...loc, ativo, snapshot: info } };
     const { error: updateError } = await supabaseAdmin
       .from("checklists")
       .update({ dados: nextDados as unknown as Record<string, never> })
