@@ -242,9 +242,11 @@ function ChecklistDetail() {
       if (!header.cliente?.trim()) errs.push("Cliente");
       if (!header.endereco?.trim()) errs.push("Endereço");
     } else if (tipo === "remapeamento_cto") {
+      // Remapeamento não exige cliente/endereço: é uma intervenção de rede.
       const d = data as RemapeamentoData;
       if (!d.identificacao.cto_codigo?.trim()) errs.push("Código da CTO/NAP");
-      if (!d.localizacao.confirmada) errs.push("Confirmação manual da localização da CTO no mapa");
+      const ativoOk = d.localizacao.ativo?.confirmed || !!d.localizacao.confirmada;
+      if (!ativoOk) errs.push("Confirmação manual da localização da CTO no mapa");
       if (!d.splitter.tipo) errs.push("Tipo do splitter");
     }
     return errs;
