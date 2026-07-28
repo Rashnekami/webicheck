@@ -17,6 +17,8 @@ import {
   FileClock,
   Wifi,
   MapPin,
+  Zap,
+
   
 } from "lucide-react";
 
