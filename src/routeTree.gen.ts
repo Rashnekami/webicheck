@@ -18,6 +18,7 @@ import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
 import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
+import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
@@ -77,6 +78,12 @@ const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
   path: '/trocas-ont',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRemapeamentosRoute =
+  AuthenticatedRemapeamentosRouteImport.update({
+    id: '/remapeamentos',
+    path: '/remapeamentos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
   id: '/provedor',
   path: '/provedor',
@@ -169,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
+  '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -193,6 +201,7 @@ export interface FileRoutesByTo {
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
+  '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -219,6 +228,7 @@ export interface FileRoutesById {
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
+  '/_authenticated/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -245,6 +255,7 @@ export interface FileRouteTypes {
     | '/painel'
     | '/plataforma'
     | '/provedor'
+    | '/remapeamentos'
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/painel'
     | '/plataforma'
     | '/provedor'
+    | '/remapeamentos'
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
@@ -294,6 +306,7 @@ export interface FileRouteTypes {
     | '/_authenticated/painel'
     | '/_authenticated/plataforma'
     | '/_authenticated/provedor'
+    | '/_authenticated/remapeamentos'
     | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
     | '/contra-prova/$token'
@@ -387,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/trocas-ont'
       fullPath: '/trocas-ont'
       preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/remapeamentos': {
+      id: '/_authenticated/remapeamentos'
+      path: '/remapeamentos'
+      fullPath: '/remapeamentos'
+      preLoaderRoute: typeof AuthenticatedRemapeamentosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/provedor': {
@@ -497,6 +517,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
+  AuthenticatedRemapeamentosRoute: typeof AuthenticatedRemapeamentosRoute
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
@@ -510,6 +531,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
+  AuthenticatedRemapeamentosRoute: AuthenticatedRemapeamentosRoute,
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
