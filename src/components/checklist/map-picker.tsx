@@ -19,8 +19,8 @@ export function MapPicker({ center, userLocation, marker, disabled, onConfirm }:
   const key = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
   const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
   const ref = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
   const [manual, setManual] = useState({
     lat: (marker ?? center).lat.toString(),
@@ -43,7 +43,7 @@ export function MapPicker({ center, userLocation, marker, disabled, onConfirm }:
 
   useEffect(() => {
     if (!ready || !ref.current || mapRef.current) return;
-    const map = new google.maps.Map(ref.current, {
+    const map = new (window as any).google.maps.Map(ref.current, {
       center,
       zoom: 19,
       mapTypeId: "hybrid",
@@ -53,11 +53,11 @@ export function MapPicker({ center, userLocation, marker, disabled, onConfirm }:
     });
     mapRef.current = map;
     if (userLocation) {
-      new google.maps.Marker({
+      new (window as any).google.maps.Marker({
         position: userLocation,
         map,
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
+          path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 6,
           fillColor: "#00c6ff",
           fillOpacity: 1,
@@ -68,14 +68,14 @@ export function MapPicker({ center, userLocation, marker, disabled, onConfirm }:
       });
     }
     const initial = marker ?? center;
-    markerRef.current = new google.maps.Marker({
+    markerRef.current = new (window as any).google.maps.Marker({
       position: initial,
       map,
       draggable: !disabled,
       title: "CTO / NAP",
     });
     if (!disabled) {
-      map.addListener("click", (e: google.maps.MapMouseEvent) => {
+      map.addListener("click", (e: any) => {
         if (!e.latLng) return;
         markerRef.current?.setPosition(e.latLng);
       });
