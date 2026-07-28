@@ -263,57 +263,73 @@ function RemapCard({ row }: { row: RemapRow }) {
 }
 
 function RemapMap({ rows }: { rows: RemapRow[] }) {
-  const key = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
-  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
+  const apiKey = arcgisBrowserKey();
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const [ready, setReady] = useState(false);
+  const basemapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const [mode, setMode] = useState<BasemapMode>(DEFAULT_BASEMAP_MODE);
 
   const points = useMemo(
     () =>
       rows
-        .map((r) => ({ row: r, pos: r.dados?.localizacao?.confirmada }))
+        .map((r) => {
+          const loc = r.dados?.localizacao;
+          const pos = loc?.ativo?.confirmed ? loc.ativo : loc?.confirmada;
+          return { row: r, pos: pos as { lat: number; lng: number } | undefined };
+        })
         .filter((p): p is { row: RemapRow; pos: { lat: number; lng: number } } => !!p.pos),
     [rows],
   );
 
   useEffect(() => {
-    if (!key) return;
-    // @ts-expect-error injected global
-    if (window.google?.maps) { setReady(true); return; }
-    (window as unknown as { initWebiRemapMap?: () => void }).initWebiRemapMap = () => setReady(true);
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&callback=initWebiRemapMap${channel ? `&channel=${channel}` : ""}`;
-    s.async = true;
-    document.head.appendChild(s);
-  }, [key, channel]);
+    if (!apiKey || !ref.current || mapRef.current) return;
+    let cancelled = false;
+    (async () => {
+      const maplibre = await import("maplibre-gl");
+      const { BasemapStyle } = await import("@esri/maplibre-arcgis");
+      if (cancelled || !ref.current) return;
+      const map = new maplibre.Map({
+        container: ref.current,
+        center: [points[0]?.pos.lng ?? -50.6156, points[0]?.pos.lat ?? -24.3269],
+        zoom: points.length ? 13 : 10,
+        maxZoom: 22,
+        attributionControl: false,
+      });
+      mapRef.current = map;
+      map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+      basemapRef.current = BasemapStyle.applyStyle(map, {
+        style: basemapStyleFor(DEFAULT_BASEMAP_MODE),
+        token: apiKey,
+      });
+    })();
+    return () => {
+      cancelled = true;
+      mapRef.current?.remove?.();
+      mapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey]);
 
   useEffect(() => {
-    if (!ready || !ref.current) return;
-    const g = (window as any).google;
-    if (!mapRef.current) {
-      mapRef.current = new g.maps.Map(ref.current, {
-        center: points[0]?.pos ?? { lat: -24.3269, lng: -50.6156 },
-        zoom: 12,
-        mapTypeId: "hybrid",
-        mapTypeControl: true,
-        streetViewControl: false,
-        fullscreenControl: true,
-      });
-    }
+    basemapRef.current?.updateStyle({ style: basemapStyleFor(mode) });
+  }, [mode]);
+
+  useEffect(() => {
     const map = mapRef.current;
-    const markers: any[] = [];
-    const bounds = new g.maps.LatLngBounds();
-    const info = new g.maps.InfoWindow();
-    for (const p of points) {
-      const m = new g.maps.Marker({
-        position: p.pos,
-        map,
-        title: p.row.rmap_code || "RMAP",
-      });
-      m.addListener("click", () => {
+    if (!map) return;
+    let cancelled = false;
+    (async () => {
+      const maplibre = await import("maplibre-gl");
+      if (cancelled || !mapRef.current) return;
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      const bounds = new maplibre.LngLatBounds();
+      for (const p of points) {
         const stats = computeSplitterStats(p.row.dados);
-        info.setContent(
+        const el = document.createElement("div");
+        el.innerHTML = `<svg width="22" height="28" viewBox="0 0 24 32"><path d="M12 0C5.9 0 1 4.9 1 11c0 8 11 21 11 21s11-13 11-21C23 4.9 18.1 0 12 0z" fill="#e11d48" stroke="#fff" stroke-width="2"/><circle cx="12" cy="11" r="4" fill="#fff"/></svg>`;
+        const popup = new maplibre.Popup({ offset: 24 }).setHTML(
           `<div style="font-family:system-ui;color:#0f172a;min-width:200px">
             <div style="font-weight:700;color:#0369a1">${p.row.rmap_code || "RMAP"}</div>
             <div style="font-size:12px">CTO ${p.row.dados?.identificacao?.cto_codigo || "—"}</div>
@@ -322,27 +338,51 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
             <a href="/checklists/${p.row.id}" style="display:inline-block;margin-top:6px;color:#0369a1;font-weight:600;font-size:12px">Abrir remapeamento →</a>
           </div>`,
         );
-        info.open({ anchor: m, map });
-      });
-      markers.push(m);
-      bounds.extend(p.pos);
-    }
-    if (points.length > 1) map.fitBounds(bounds, 60);
-    else if (points.length === 1) { map.setCenter(points[0].pos); map.setZoom(18); }
-    return () => { markers.forEach((m) => m.setMap(null)); };
-  }, [ready, points]);
+        const marker = new maplibre.Marker({ element: el, anchor: "bottom" })
+          .setLngLat([p.pos.lng, p.pos.lat])
+          .setPopup(popup)
+          .addTo(mapRef.current);
+        markersRef.current.push(marker);
+        bounds.extend([p.pos.lng, p.pos.lat]);
+      }
+      if (points.length > 1) mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 18 });
+      else if (points.length === 1)
+        mapRef.current.flyTo({ center: [points[0].pos.lng, points[0].pos.lat], zoom: 18 });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [points]);
 
-  if (!key) {
+  if (!apiKey) {
     return (
       <div className="rounded-xl border border-blue-500/30 bg-[#041126] p-4 text-sm text-slate-400">
-        Chave do Google Maps não configurada — mapa indisponível.
+        Chave do ArcGIS (VITE_ARCGIS_API_KEY) não configurada — mapa indisponível.
       </div>
     );
   }
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {BASEMAP_OPTIONS.map((opt) => (
+          <button
+            key={opt.mode}
+            type="button"
+            onClick={() => setMode(opt.mode)}
+            className={
+              "rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition " +
+              (mode === opt.mode
+                ? "border-cyan-400 bg-blue-600 text-white"
+                : "border-blue-500/40 bg-[#071b3a] text-slate-300")
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
       <p className="text-xs text-muted-foreground">
-        {points.length} de {rows.length} remapeamentos com localização confirmada exibidos no mapa.
+        {points.length} de {rows.length} remapeamentos com localização confirmada exibidos no mapa ·{" "}
+        {MAP_ATTRIBUTION_NOTE}
       </p>
       <div ref={ref} className="h-[520px] w-full overflow-hidden rounded-xl border border-blue-500/40" />
     </div>
