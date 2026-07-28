@@ -202,6 +202,26 @@ export function RemapeamentoForm({
     });
     toast.success("Localização da CTO confirmada.");
   };
+  // Posição oficial do ativo: apenas confirmação manual (nunca o GPS).
+  const ativoPos =
+    data.localizacao.ativo?.confirmed && typeof data.localizacao.ativo.lat === "number"
+      ? { lat: data.localizacao.ativo.lat, lng: data.localizacao.ativo.lng }
+      : (data.localizacao.confirmada ?? null);
+
+  const generateSnapshot = useServerFn(generateMapSnapshot);
+  const snapshotMutation = useMutation({
+    mutationFn: () => generateSnapshot({ data: { checklistId, force: true } }),
+    onSuccess: (info) => {
+      onDataChange((p) => ({
+        ...p,
+        localizacao: { ...p.localizacao, snapshot: info },
+      }));
+      toast.success("Imagem cartográfica gerada.");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar imagem do mapa."),
+  });
+
 
   // Fusões
   const addFusao = () =>
