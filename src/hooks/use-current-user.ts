@@ -59,6 +59,8 @@ export function useCurrentUser() {
         provider_id: p?.provider_id ?? null,
         supervisor_id: p?.supervisor_id ?? null,
         platform_admin: platformAdmin,
+        cities,
+        territories: territoryNames(cities),
         roles: roleList,
         isAdmin: roleList.includes("admin"),
         isWarehouse: roleList.includes("almoxarifado"),
