@@ -60,7 +60,6 @@ export function SignaturePad({
           )}
         </p>
         <div className="flex items-center gap-1">
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
           <Button type="button" variant="outline" size="sm" onClick={openPad}>
             <Maximize2 className="mr-1 h-4 w-4" /> {hasInk ? "Refazer" : "Assinar"}
           </Button>
