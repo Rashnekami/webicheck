@@ -8,6 +8,7 @@ import {
   MAP_ATTRIBUTION_NOTE,
   arcgisBrowserKey,
   basemapStyleFor,
+  basemapStyleUrl,
   type BasemapMode,
 } from "@/lib/map-basemaps";
 import {
@@ -296,10 +297,10 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
     let cancelled = false;
     (async () => {
       const maplibre = await import("maplibre-gl");
-      const { BasemapStyle } = await import("@esri/maplibre-arcgis");
       if (cancelled || !ref.current) return;
       const map = new maplibre.Map({
         container: ref.current,
+        style: basemapStyleUrl(basemapStyleFor(DEFAULT_BASEMAP_MODE), apiKey),
         center: [points[0]?.pos.lng ?? -50.6156, points[0]?.pos.lat ?? -24.3269],
         zoom: points.length ? 13 : 10,
         maxZoom: 22,
@@ -307,10 +308,6 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
       });
       mapRef.current = map;
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
-      basemapRef.current = BasemapStyle.applyStyle(map, {
-        style: basemapStyleFor(DEFAULT_BASEMAP_MODE),
-        token: apiKey,
-      });
     })();
     return () => {
       cancelled = true;
@@ -321,7 +318,8 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
   }, [apiKey]);
 
   useEffect(() => {
-    basemapRef.current?.updateStyle({ style: basemapStyleFor(mode) });
+    if (!mapRef.current || !apiKey) return;
+    mapRef.current.setStyle(basemapStyleUrl(basemapStyleFor(mode), apiKey));
   }, [mode]);
 
   useEffect(() => {

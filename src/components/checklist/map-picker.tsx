@@ -9,6 +9,7 @@ import {
   arcgisBrowserKey,
   basemapModeForStyle,
   basemapStyleFor,
+  basemapStyleUrl,
   type BasemapMode,
 } from "@/lib/map-basemaps";
 
@@ -52,7 +53,6 @@ export function MapPicker({
   const apiKey = arcgisBrowserKey();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const basemapRef = useRef<any>(null);
   const ativoMarkerRef = useRef<any>(null);
   const gpsMarkerRef = useRef<any>(null);
   const [mode, setMode] = useState<BasemapMode>(
@@ -78,11 +78,11 @@ export function MapPicker({
     (async () => {
       try {
         const maplibre = await import("maplibre-gl");
-        const { BasemapStyle } = await import("@esri/maplibre-arcgis");
         if (cancelled || !containerRef.current) return;
 
         const map = new maplibre.Map({
           container: containerRef.current,
+          style: basemapStyleUrl(basemapStyleFor(mode), apiKey),
           center: [initialTarget.lng, initialTarget.lat],
           zoom: 18,
           maxZoom: 22,
@@ -91,11 +91,6 @@ export function MapPicker({
         mapRef.current = map;
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
 
-        // Attribution Esri/ArcGIS é obrigatória e é adicionada pelo BasemapStyle.
-        basemapRef.current = BasemapStyle.applyStyle(map, {
-          style: basemapStyleFor(mode),
-          token: apiKey,
-        });
 
         // Marcador do técnico (GPS): ícone circular com rótulo próprio.
         if (userLocation) {
@@ -146,8 +141,8 @@ export function MapPicker({
 
   // Troca de camada (mapa / satélite / híbrido) preservando os marcadores.
   useEffect(() => {
-    if (!basemapRef.current) return;
-    basemapRef.current.updateStyle({ style: basemapStyleFor(mode) });
+    if (!mapRef.current || !apiKey) return;
+    mapRef.current.setStyle(basemapStyleUrl(basemapStyleFor(mode), apiKey));
   }, [mode]);
 
   const centerOnGps = () => {

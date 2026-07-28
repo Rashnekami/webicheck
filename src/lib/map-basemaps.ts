@@ -25,6 +25,11 @@ export function basemapStyleFor(mode: BasemapMode): string {
   return (BASEMAP_OPTIONS.find((o) => o.mode === mode) ?? BASEMAP_OPTIONS[2]).style;
 }
 
+/** URL do Basemap Styles Service (v2) consumível diretamente pelo MapLibre. */
+export function basemapStyleUrl(style: string, token: string): string {
+  return `https://basemapstyles-api.arcgis.com/arcgis/rest/services/styles/v2/styles/${style}?token=${encodeURIComponent(token)}`;
+}
+
 export function basemapModeForStyle(style: string | null | undefined): BasemapMode {
   return BASEMAP_OPTIONS.find((o) => o.style === style)?.mode ?? DEFAULT_BASEMAP_MODE;
 }
