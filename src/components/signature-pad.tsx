@@ -78,7 +78,6 @@ export function SignaturePad({
       {open && (
         <FullscreenSignature
           value={value}
-          onCancel={() => setOpen(false)}
           onConfirm={(data) => {
             onChange?.(data);
             setOpen(false);
@@ -91,11 +90,9 @@ export function SignaturePad({
 
 function FullscreenSignature({
   value,
-  onCancel,
   onConfirm,
 }: {
   value?: string | null;
-  onCancel: () => void;
   onConfirm: (dataUrl: string | null) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
@@ -180,7 +177,7 @@ function FullscreenSignature({
 
     return () => {
       orientation?.unlock?.();
-      if (document.fullscreenElement === shell) {
+      if (document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => undefined);
       }
     };
@@ -229,29 +226,29 @@ function FullscreenSignature({
     <div ref={shellRef} className="fixed inset-0 z-[2147483647] overflow-hidden bg-white">
       <div
         className={cn(
-          "grid bg-white text-slate-950",
+          "bg-white text-slate-950",
           isPortrait
-            ? "absolute left-1/2 top-1/2 h-[100dvw] w-[100dvh] -translate-x-1/2 -translate-y-1/2 rotate-90 grid-rows-[1fr_auto]"
-            : "h-[100dvh] w-[100dvw] grid-rows-[1fr_auto]",
+            ? "absolute left-1/2 top-1/2 h-[100dvw] w-[100dvh] -translate-x-1/2 -translate-y-1/2 rotate-90"
+            : "h-[100dvh] w-[100dvw]",
         )}
       >
-        <div className="relative min-h-0 bg-white">
-          <canvas
-            ref={canvasRef}
-            onPointerDown={onDown}
-            onPointerMove={onMove}
-            onPointerUp={onUp}
-            onPointerCancel={onUp}
-            onPointerLeave={onUp}
-            className="h-full w-full touch-none bg-white"
-          />
-        </div>
-        <div className="flex justify-end border-t bg-background px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <Button type="button" onClick={done} className="h-12 min-w-40 text-base font-semibold">
-            <Check className="mr-2 h-5 w-5" /> Concluído
-          </Button>
-        </div>
+        <canvas
+          ref={canvasRef}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}
+          onPointerLeave={onUp}
+          className="h-full w-full touch-none bg-white"
+        />
       </div>
+      <Button
+        type="button"
+        onClick={done}
+        className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] h-12 min-w-36 text-base font-semibold shadow-lg"
+      >
+        <Check className="mr-2 h-5 w-5" /> Concluído
+      </Button>
     </div>
   );
 
