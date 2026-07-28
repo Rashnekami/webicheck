@@ -137,7 +137,12 @@ export async function createDraft(
   userId: string,
   tipo: TipoChecklist = "validacao_ont",
 ): Promise<string> {
-  const dados = tipo === "instalacao" ? emptyInstalacaoData() : emptyChecklistData();
+  const dados =
+    tipo === "instalacao"
+      ? emptyInstalacaoData()
+      : tipo === "remapeamento_cto"
+        ? emptyRemapeamentoData()
+        : emptyChecklistData();
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("provider_id")
@@ -155,6 +160,30 @@ export async function createDraft(
   if (error) throw error;
   return data.id;
 }
+
+export async function updateChecklist(
+  id: string,
+  patch: Partial<
+    Pick<
+      ChecklistRow,
+      | "os"
+      | "cliente"
+      | "cidade"
+      | "endereco"
+      | "plano"
+      | "modelo"
+      | "serial"
+      | "cto_porta"
+      | "data_atendimento"
+      | "hora_atendimento"
+      | "troca_realizada"
+      | "modelo_ont_retirada"
+      | "serial_ont_retirada"
+      | "modelo_ont_instalada"
+      | "serial_ont_instalada"
+    >
+  > & { dados?: ChecklistData | InstalacaoData | RemapeamentoData },
+): Promise<void> {
 
 export async function updateChecklist(
   id: string,
