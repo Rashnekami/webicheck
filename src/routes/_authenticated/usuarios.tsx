@@ -25,9 +25,9 @@ import {
   updateAdminUser,
 } from "@/lib/admin-users.functions";
 import {
-  createTechnicianCredential,
+  autoGenerateTechnicianCredential,
+  autoResetTechnicianPassword,
   listProviderLoginAccounts,
-  resetTechnicianPassword,
 } from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 import { listProviderSupervisors } from "@/lib/supervisor.functions";
@@ -545,6 +545,10 @@ function UsersPage() {
   );
 }
 
+// Login e senha temporária agora são sempre gerados pelo sistema
+// (tec01, tec02...) — o admin não digita mais nada, só confirma e
+// entrega a credencial. must_change_password=true força a troca no
+// primeiro acesso do técnico.
 function CredentialDialog({
   user,
   existingLogin,
@@ -556,9 +560,8 @@ function CredentialDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
   const isReset = Boolean(existingLogin);
+  const [issued, setIssued] = useState<{ login: string; password: string } | null>(null);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -567,12 +570,11 @@ function CredentialDialog({
         const accounts = await listProviderLoginAccounts();
         const acc = accounts.find((a) => a.user_id === user.id);
         if (!acc) throw new Error("Credencial não encontrada.");
-        return resetTechnicianPassword({ data: { accountId: acc.id, newPassword: password } });
+        const result = await autoResetTechnicianPassword({ data: { accountId: acc.id } });
+        return { login: existingLogin as string, password: result.password };
       }
-      return createTechnicianCredential({
+      const result = await autoGenerateTechnicianCredential({
         data: {
-          login,
-          password,
           fullName: user.full_name || user.email,
           matricula: user.matricula,
           phone: user.phone,
@@ -581,73 +583,65 @@ function CredentialDialog({
           linkToUserId: user.id,
         },
       });
+      return { login: result.login, password: result.password };
     },
-    onSuccess: () => {
-      toast.success(isReset ? "Senha redefinida." : "Login criado.");
-      setLogin("");
-      setPassword("");
+    onSuccess: (result) => {
+      setIssued(result);
       onSaved();
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
+  function close() {
+    setIssued(null);
+    onClose();
+  }
+
   return (
     <Dialog
       open={Boolean(user)}
       onOpenChange={(open) => {
-        if (!open && !mutation.isPending) {
-          setLogin("");
-          setPassword("");
-          onClose();
-        }
+        if (!open && !mutation.isPending) close();
       }}
     >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isReset ? "Redefinir senha" : "Criar login e senha"}</DialogTitle>
           <DialogDescription>
-            {isReset
-              ? `Nova senha para o login ${existingLogin}.`
-              : `Criando credencial interna para ${user?.full_name ?? ""}.`}
+            {issued
+              ? "Anote e entregue agora — a senha temporária não é mostrada de novo."
+              : isReset
+                ? `Gerar uma nova senha temporária para o login ${existingLogin}.`
+                : `Gerar credencial interna para ${user?.full_name ?? ""}. O técnico será obrigado a trocar a senha no primeiro acesso.`}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          {!isReset && (
-            <div className="space-y-1.5">
-              <Label>Login</Label>
-              <Input
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                placeholder="ex.: t0112"
-                autoComplete="off"
-              />
-            </div>
-          )}
-          <div className="space-y-1.5">
-            <Label>Senha (mín. 8 caracteres)</Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+
+        {issued && (
+          <div className="space-y-1 rounded-md border border-amber-400/40 bg-amber-500/10 p-3 text-sm">
+            <p>
+              <strong>Login:</strong> {issued.login}
+            </p>
+            <p>
+              <strong>Senha temporária:</strong>{" "}
+              <code className="rounded bg-black/20 px-1.5 py-0.5">{issued.password}</code>
+            </p>
           </div>
-        </div>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={
-              mutation.isPending ||
-              password.length < 8 ||
-              (!isReset && !/^[a-z0-9._-]{3,40}$/.test(login.trim().toLowerCase()))
-            }
-          >
-            {mutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-            {isReset ? "Redefinir" : "Salvar credencial"}
-          </Button>
+          {issued ? (
+            <Button onClick={close}>Ok, entendi</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={close} disabled={mutation.isPending}>
+                Cancelar
+              </Button>
+              <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+                {mutation.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                {isReset ? "Gerar nova senha" : "Gerar login e senha"}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

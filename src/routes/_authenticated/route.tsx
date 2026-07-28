@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active, city, provider_id, platform_admin, cities_configured_at")
+      .select("active, city, provider_id, platform_admin, cities_configured_at, must_change_password")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
@@ -21,6 +21,9 @@ export const Route = createFileRoute("/_authenticated")({
     }
     if (!profile.provider_id || !profile.cities_configured_at) {
       throw redirect({ to: "/completar-cadastro" });
+    }
+    if (profile.must_change_password) {
+      throw redirect({ to: "/trocar-senha" });
     }
     const { data: provider } = await supabase
       .from("providers")
@@ -48,7 +51,7 @@ function AuthenticatedLayout() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active, city, provider_id, platform_admin, cities_configured_at")
+        .select("active, city, provider_id, platform_admin, cities_configured_at, must_change_password")
         .eq("id", data.user.id)
         .maybeSingle();
       if (!profile?.active) {
@@ -58,6 +61,10 @@ function AuthenticatedLayout() {
       }
       if (!profile.provider_id || !profile.cities_configured_at) {
         navigate({ to: "/completar-cadastro", replace: true });
+        return;
+      }
+      if (profile.must_change_password) {
+        navigate({ to: "/trocar-senha", replace: true });
         return;
       }
       const { data: provider } = await supabase

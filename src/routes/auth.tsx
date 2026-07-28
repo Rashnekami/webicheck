@@ -13,10 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SignaturePad } from "@/components/signature-pad";
 import { Loader2 } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
-import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -43,12 +41,6 @@ const loginSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
 });
-const signupSchema = z.object({
-  full_name: z.string().trim().min(2, { message: "Informe seu nome completo" }).max(120),
-  city: z.string().refine(isKnownProfileCity, { message: "Selecione sua cidade" }),
-  email: emailSchema,
-  password: passwordSchema,
-});
 const forgotSchema = z.object({ email: emailSchema });
 
 function finishLogin() {
@@ -60,7 +52,7 @@ function finishLogin() {
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<"login" | "interno" | "signup" | "forgot">("login");
+  const [tab, setTab] = useState<"login" | "interno" | "forgot">("login");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -113,10 +105,9 @@ function AuthPage() {
           </CardHeader>
           <CardContent>
             <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="login">E-mail</TabsTrigger>
                 <TabsTrigger value="interno">Login</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
                 <TabsTrigger value="forgot">Esqueci</TabsTrigger>
               </TabsList>
 
@@ -129,15 +120,6 @@ function AuthPage() {
                 <InternalLoginForm />
                 <p className="mt-3 text-xs text-muted-foreground">
                   Use o login e senha fornecidos pelo supervisor do seu provedor.
-                </p>
-              </TabsContent>
-
-              <TabsContent value="signup" className="pt-4">
-                <SignupForm onDone={() => setTab("login")} />
-                <GoogleButton className="mt-4" />
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Novos cadastros são criados como técnico. A liberação administrativa é feita por
-                  um administrador.
                 </p>
               </TabsContent>
 
@@ -233,125 +215,6 @@ function LoginForm() {
       <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
         {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Entrar
-      </Button>
-    </form>
-  );
-}
-
-function SignupForm({ onDone }: { onDone: () => void }) {
-  const navigate = useNavigate();
-  const [signature, setSignature] = useState<string | null>(null);
-  const [signatureError, setSignatureError] = useState<string | null>(null);
-  const form = useForm<z.infer<typeof signupSchema>>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { full_name: "", city: "", email: "", password: "" },
-  });
-
-  async function onSubmit(values: z.infer<typeof signupSchema>) {
-    if (!signature) {
-      setSignatureError("Desenhe sua assinatura antes de continuar.");
-      return;
-    }
-    setSignatureError(null);
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: values.full_name, city: values.city },
-      },
-    });
-    if (error) {
-      toast.error(
-        error.message.includes("registered")
-          ? "Este e-mail já está cadastrado."
-          : "Não foi possível criar a conta.",
-      );
-      return;
-    }
-    // Persistir assinatura: precisa da sessão. Se signUp criou sessão, gravar já;
-    // caso contrário, guardar em localStorage para gravar após confirmação/login.
-    if (data.session && data.user) {
-      await supabase
-        .from("profiles")
-        .update({ assinatura: signature, city: values.city } as never)
-        .eq("id", data.user.id);
-    } else {
-      try {
-        localStorage.setItem("webifibra.pending_signature", signature);
-      } catch {
-        /* ignore */
-      }
-    }
-    if (data.session) {
-      toast.success("Conta criada com sucesso.");
-      finishLogin();
-    } else {
-      toast.success("Cadastro realizado. Verifique seu e-mail para confirmar o acesso.");
-      onDone();
-    }
-  }
-
-  return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-      <div className="space-y-1.5">
-        <Label htmlFor="su-name">Nome completo</Label>
-        <Input id="su-name" autoComplete="name" {...form.register("full_name")} />
-        {form.formState.errors.full_name && (
-          <p className="text-xs text-destructive">{form.formState.errors.full_name.message}</p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="su-email">E-mail</Label>
-        <Input
-          id="su-email"
-          type="email"
-          autoComplete="email"
-          inputMode="email"
-          {...form.register("email")}
-        />
-        {form.formState.errors.email && (
-          <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="su-city">Cidade onde você atende</Label>
-        <select
-          id="su-city"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          {...form.register("city")}
-        >
-          <option value="">Selecione sua cidade</option>
-          {PROFILE_CITIES.map((city) => (
-            <option key={city} value={city}>
-              {city}
-            </option>
-          ))}
-        </select>
-        {form.formState.errors.city && (
-          <p className="text-xs text-destructive">{form.formState.errors.city.message}</p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="su-pwd">Senha</Label>
-        <Input
-          id="su-pwd"
-          type="password"
-          autoComplete="new-password"
-          {...form.register("password")}
-        />
-        {form.formState.errors.password && (
-          <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
-        )}
-      </div>
-      <div className="space-y-1.5">
-        <Label>Assinatura</Label>
-        <SignaturePad value={signature} onChange={setSignature} height={150} />
-        {signatureError && <p className="text-xs text-destructive">{signatureError}</p>}
-      </div>
-      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
-        {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Criar conta
       </Button>
     </form>
   );

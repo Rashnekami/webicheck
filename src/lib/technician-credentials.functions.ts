@@ -204,6 +204,100 @@ export const resetTechnicianPassword = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+function randomTempPassword(): string {
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  return Buffer.from(bytes).toString("base64url") + "#1";
+}
+
+// Igual a createTechnicianCredential, mas login e senha são gerados pelo
+// sistema (tec01, tec02...) em vez do admin digitar — reduz erro humano
+// e credenciais fracas. must_change_password=true: o técnico é obrigado
+// a trocar a senha temporária no primeiro acesso.
+export const autoGenerateTechnicianCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      providerId?: string;
+      fullName: string;
+      matricula?: string | null;
+      phone?: string | null;
+      city?: string | null;
+      role: "tecnico" | "almoxarifado" | "admin" | "supervisor" | "noc";
+      linkToUserId?: string | null;
+    }) => {
+      if (!data.fullName || data.fullName.trim().length < 2)
+        throw new Error("Informe o nome completo.");
+      if (!["tecnico", "almoxarifado", "admin", "supervisor", "noc"].includes(data.role))
+        throw new Error("Perfil inválido.");
+      return { ...data, fullName: data.fullName.trim() };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const { providerId: adminProviderId, platformAdmin } = await loadAdminProvider(context.userId);
+    const providerId = platformAdmin && data.providerId ? data.providerId : adminProviderId;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: login, error: loginErr } = await supabaseAdmin.rpc(
+      "generate_next_technician_login" as never,
+      { _provider_id: providerId } as never,
+    );
+    if (loginErr || !login) throw new Error("Falha ao gerar login.");
+    const password = randomTempPassword();
+
+    const result = await createTechnicianCredential({
+      data: {
+        providerId: data.providerId,
+        login: login as unknown as string,
+        password,
+        fullName: data.fullName,
+        matricula: data.matricula,
+        phone: data.phone,
+        city: data.city,
+        role: data.role,
+        linkToUserId: data.linkToUserId,
+      },
+    });
+
+    const { error: mcpErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: true } as never)
+      .eq("id", result.userId);
+    if (mcpErr) throw new Error("Credencial criada, mas falha ao exigir troca de senha.");
+
+    return { ...result, password };
+  });
+
+// Igual a resetTechnicianPassword, mas a senha temporária é gerada pelo
+// sistema (não digitada pelo admin) e marca must_change_password=true.
+export const autoResetTechnicianPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { accountId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { providerId, platformAdmin } = await loadAdminProvider(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: acc, error: accErr } = await supabaseAdmin
+      .from("provider_login_accounts")
+      .select("id, user_id, provider_id")
+      .eq("id", data.accountId)
+      .single();
+    if (accErr || !acc) throw new Error("Credencial não encontrada.");
+    if (!platformAdmin && acc.provider_id !== providerId)
+      throw new Error("Credencial de outro provedor.");
+
+    const password = randomTempPassword();
+    await resetTechnicianPassword({ data: { accountId: data.accountId, newPassword: password } });
+
+    const { error: mcpErr } = await supabaseAdmin
+      .from("profiles")
+      .update({ must_change_password: true } as never)
+      .eq("id", acc.user_id);
+    if (mcpErr) throw new Error("Senha redefinida, mas falha ao exigir troca.");
+
+    return { ok: true, password };
+  });
+
 export const deactivateTechnicianCredential = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { accountId: string; active: boolean }) => data)
