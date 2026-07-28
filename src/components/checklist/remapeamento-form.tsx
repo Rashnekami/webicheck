@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { generateMapSnapshot } from "@/lib/map-snapshot.functions";
+import type { MapSnapshotInfo } from "@/lib/checklist-schema";
 import {
   ChevronDown,
   ChevronUp,
