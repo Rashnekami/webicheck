@@ -2,9 +2,10 @@ import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/r
 import QRCode from "qrcode";
 
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
-import type { ChecklistRow, RemapeamentoData } from "@/lib/checklist-schema";
+import type { ChecklistRow, FotoRow, RemapeamentoData } from "@/lib/checklist-schema";
 import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fibers";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
+import { resolveFotoDataUris, type ResolvedFoto } from "@/lib/checklist-photo-uris";
 
 const C = {
   page: "#020817",
