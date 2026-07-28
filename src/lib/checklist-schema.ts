@@ -248,6 +248,7 @@ export interface RemapeamentoData {
   localizacao: {
     gps_original: RemapGpsPoint | null;
     confirmada: { lat: number; lng: number } | null;
+    confirmada_em: string | null;
     distancia_m: number | null;
   };
   splitter: {
@@ -277,7 +278,7 @@ export interface RemapeamentoData {
 export function emptyRemapeamentoData(): RemapeamentoData {
   return {
     identificacao: { setor: "", cto_codigo: "" },
-    localizacao: { gps_original: null, confirmada: null, distancia_m: null },
+    localizacao: { gps_original: null, confirmada: null, confirmada_em: null, distancia_m: null },
     splitter: { tipo: null, tipo_outro: "", potencia_entrada_dbm: "" },
     alimentacao: { cabo: "", tubo: "", fibra: "", cor_fibra: "", origem: "", observacao: "" },
     portas: [],
@@ -327,6 +328,7 @@ export interface ChecklistRow {
   modelo_ont_instalada: string | null;
   serial_ont_instalada: string | null;
   exchange_ticket_code: string | null;
+  rmap_code?: string | null;
   review_status?: "pendente" | "aprovado" | "reprovado" | null;
   review_comment?: string | null;
   reviewed_by?: string | null;
