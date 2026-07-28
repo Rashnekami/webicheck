@@ -214,7 +214,13 @@ export function emptyInstalacaoData(): InstalacaoData {
 
 // -------- Remapeamento de CTO/NAP --------
 export type SplitterKind = "1x4" | "1x8" | "1x16" | "outro";
-export type RemapPortStatus = "ocupada" | "livre" | "nao_identificado";
+// "nao_identificado" mantido por retrocompatibilidade dos registros já salvos.
+export type RemapPortStatus =
+  | "ocupada"
+  | "livre"
+  | "reserva"
+  | "nao_identificada"
+  | "nao_identificado";
 
 export interface RemapGpsPoint {
   lat: number;
@@ -240,6 +246,52 @@ export interface RemapFusaoItem {
   depois_dbm: string;
 }
 
+export type MapAtivoTipo =
+  | "CTO"
+  | "CEO"
+  | "CAIXA_EMENDA"
+  | "POSTE"
+  | "ROMPIMENTO"
+  | "FUSAO"
+  | "INICIO"
+  | "FIM"
+  | "OUTRO";
+
+/** Ativo geográfico confirmado manualmente pelo técnico (nunca preenchido pelo GPS). */
+export interface RemapAtivoLocation {
+  tipo: MapAtivoTipo;
+  lat: number;
+  lng: number;
+  confirmed: boolean;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+}
+
+/** Metadados cartográficos — contra-prova técnica geográfica. */
+export interface RemapMapMeta {
+  map_provider: "arcgis";
+  map_engine: "maplibre";
+  basemap_style: string;
+  zoom: number;
+  gps_accuracy_m: number | null;
+  distancia_tecnico_ativo_m: number | null;
+}
+
+/** Snapshot cartográfico gerado no backend (nunca screenshot do DOM). */
+export interface MapSnapshotInfo {
+  snapshot_path: string;
+  provider: string;
+  style: string;
+  center_lat: number;
+  center_lng: number;
+  zoom: number;
+  width: number;
+  height: number;
+  generated_at: string;
+  sha256: string;
+  revision_number: number;
+}
+
 export interface RemapeamentoData {
   identificacao: {
     setor: string;
@@ -247,9 +299,13 @@ export interface RemapeamentoData {
   };
   localizacao: {
     gps_original: RemapGpsPoint | null;
+    /** Legado/espelho da posição do ativo — mantido para leitura retroativa. */
     confirmada: { lat: number; lng: number } | null;
     confirmada_em: string | null;
     distancia_m: number | null;
+    ativo?: RemapAtivoLocation | null;
+    meta?: RemapMapMeta | null;
+    snapshot?: MapSnapshotInfo | null;
   };
   splitter: {
     tipo: SplitterKind | null;
@@ -278,7 +334,15 @@ export interface RemapeamentoData {
 export function emptyRemapeamentoData(): RemapeamentoData {
   return {
     identificacao: { setor: "", cto_codigo: "" },
-    localizacao: { gps_original: null, confirmada: null, confirmada_em: null, distancia_m: null },
+    localizacao: {
+      gps_original: null,
+      confirmada: null,
+      confirmada_em: null,
+      distancia_m: null,
+      ativo: null,
+      meta: null,
+      snapshot: null,
+    },
     splitter: { tipo: null, tipo_outro: "", potencia_entrada_dbm: "" },
     alimentacao: { cabo: "", tubo: "", fibra: "", cor_fibra: "", origem: "", observacao: "" },
     portas: [],

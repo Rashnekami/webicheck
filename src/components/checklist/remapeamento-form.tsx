@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { generateMapSnapshot } from "@/lib/map-snapshot.functions";
+import type { MapSnapshotInfo } from "@/lib/checklist-schema";
 import {
   ChevronDown,
   ChevronUp,
@@ -29,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
-import { MapPicker } from "@/components/checklist/map-picker";
+import { MapPicker, type MapConfirmMeta } from "@/components/checklist/map-picker";
 import {
   FIBER_COLORS,
   computeSplitterStats,
@@ -152,9 +156,11 @@ export function RemapeamentoForm({
           accuracy_m: Math.round(pos.coords.accuracy ?? 0),
           captured_at: new Date().toISOString(),
         };
+        // O GPS registra apenas a posição do TÉCNICO e centraliza o mapa.
+        // A localização do ativo (CTO) nunca é preenchida automaticamente.
         onDataChange((p) => ({
           ...p,
-          localizacao: { ...p.localizacao, gps_original: gps, confirmada: p.localizacao.confirmada ?? { lat: gps.lat, lng: gps.lng } },
+          localizacao: { ...p.localizacao, gps_original: gps },
         }));
         setCapturing(false);
       },
@@ -166,24 +172,60 @@ export function RemapeamentoForm({
     );
   };
 
-  const confirmMarker = (lat: number, lng: number) => {
+  const confirmMarker = (lat: number, lng: number, meta: MapConfirmMeta) => {
     onDataChange((p) => {
-      const distancia =
-        p.localizacao.gps_original
-          ? haversineMeters(p.localizacao.gps_original, { lat, lng })
-          : null;
+      const distancia = p.localizacao.gps_original
+        ? haversineMeters(p.localizacao.gps_original, { lat, lng })
+        : null;
+      const agora = new Date().toISOString();
       return {
         ...p,
         localizacao: {
           ...p.localizacao,
+          ativo: {
+            tipo: "CTO",
+            lat,
+            lng,
+            confirmed: true,
+            confirmed_at: agora,
+            confirmed_by: tecnicoId ?? null,
+          },
+          meta: {
+            map_provider: "arcgis",
+            map_engine: "maplibre",
+            basemap_style: meta.basemap_style,
+            zoom: meta.zoom,
+            gps_accuracy_m: p.localizacao.gps_original?.accuracy_m ?? null,
+            distancia_tecnico_ativo_m: distancia,
+          },
           confirmada: { lat, lng },
-          confirmada_em: new Date().toISOString(),
+          confirmada_em: agora,
           distancia_m: distancia,
         },
       };
     });
-    toast.success("Posição da CTO confirmada.");
+    toast.success("Localização da CTO confirmada.");
   };
+  // Posição oficial do ativo: apenas confirmação manual (nunca o GPS).
+  const ativoPos =
+    data.localizacao.ativo?.confirmed && typeof data.localizacao.ativo.lat === "number"
+      ? { lat: data.localizacao.ativo.lat, lng: data.localizacao.ativo.lng }
+      : (data.localizacao.confirmada ?? null);
+
+  const generateSnapshot = useServerFn(generateMapSnapshot);
+  const snapshotMutation = useMutation({
+    mutationFn: () => generateSnapshot({ data: { checklistId, force: true } }),
+    onSuccess: (info) => {
+      onDataChange((p) => ({
+        ...p,
+        localizacao: { ...p.localizacao, snapshot: info as MapSnapshotInfo },
+      }));
+      toast.success("Imagem cartográfica gerada.");
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar imagem do mapa."),
+  });
+
 
   // Fusões
   const addFusao = () =>
@@ -294,21 +336,20 @@ export function RemapeamentoForm({
           )}
         </div>
 
-        {data.localizacao.gps_original ? (
+        {data.localizacao.gps_original || ativoPos ? (
           <MapPicker
             center={
-              data.localizacao.confirmada ?? {
-                lat: data.localizacao.gps_original.lat,
-                lng: data.localizacao.gps_original.lng,
+              ativoPos ?? {
+                lat: data.localizacao.gps_original!.lat,
+                lng: data.localizacao.gps_original!.lng,
               }
             }
             userLocation={data.localizacao.gps_original}
-            marker={data.localizacao.confirmada ?? {
-              lat: data.localizacao.gps_original.lat,
-              lng: data.localizacao.gps_original.lng,
-            }}
+            marker={ativoPos}
             disabled={readOnly}
-            confirmed={!!data.localizacao.confirmada}
+            confirmed={!!ativoPos}
+            initialStyle={data.localizacao.meta?.basemap_style ?? null}
+            ativoLabel="CTO"
             onConfirm={confirmMarker}
           />
         ) : (
@@ -317,7 +358,7 @@ export function RemapeamentoForm({
           </div>
         )}
 
-        {data.localizacao.confirmada ? (
+        {ativoPos ? (
           <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2">
               <div className="flex items-center gap-1.5 text-emerald-300">
@@ -325,17 +366,23 @@ export function RemapeamentoForm({
                 <span className="font-semibold uppercase tracking-wider">Localização da CTO confirmada</span>
               </div>
               <div className="mt-1 font-mono text-emerald-100">
-                {data.localizacao.confirmada.lat.toFixed(6)}, {data.localizacao.confirmada.lng.toFixed(6)}
+                {ativoPos.lat.toFixed(6)}, {ativoPos.lng.toFixed(6)}
               </div>
               {data.localizacao.confirmada_em && (
                 <div className="mt-0.5 text-[10px] text-emerald-300/80">
                   em {new Date(data.localizacao.confirmada_em).toLocaleString("pt-BR")}
                 </div>
               )}
+              {data.localizacao.meta && (
+                <div className="mt-0.5 text-[10px] text-emerald-300/70">
+                  {data.localizacao.meta.basemap_style} · zoom {data.localizacao.meta.zoom} ·{" "}
+                  ArcGIS/MapLibre
+                </div>
+              )}
             </div>
             <a
               className="rounded-lg border border-cyan-500/40 bg-[#041126] p-2 text-cyan-300 hover:bg-blue-950"
-              href={`https://maps.google.com/?q=${data.localizacao.confirmada.lat},${data.localizacao.confirmada.lng}`}
+              href={`https://maps.google.com/?q=${ativoPos.lat},${ativoPos.lng}`}
               target="_blank"
               rel="noreferrer"
             >
@@ -345,6 +392,30 @@ export function RemapeamentoForm({
         ) : (
           <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-2 text-xs text-rose-200">
             ⚠ A localização da CTO ainda não foi confirmada. Sem confirmação manual o remapeamento não pode ser finalizado.
+          </div>
+        )}
+
+        {ativoPos && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-500/30 bg-[#041126] p-2 text-xs text-slate-300">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={readOnly || snapshotMutation.isPending}
+              onClick={() => snapshotMutation.mutate()}
+            >
+              {snapshotMutation.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {data.localizacao.snapshot ? "Regerar imagem do mapa" : "Gerar imagem do mapa"}
+            </Button>
+            <span className="text-slate-400">
+              {data.localizacao.snapshot
+                ? `Imagem cartográfica gravada (${data.localizacao.snapshot.sha256.slice(0, 10)}…) — usada no PDF.`
+                : "A imagem de satélite do PDF é gerada no servidor a partir do ponto confirmado."}
+            </span>
           </div>
         )}
 
