@@ -31,6 +31,7 @@ import {
 } from "@/lib/technician-credentials.functions";
 import { PROFILE_CITIES, isKnownProfileCity } from "@/lib/profile-cities";
 import { listProviderSupervisors } from "@/lib/supervisor.functions";
+import { CityExceptionManager } from "@/components/admin/city-exception-manager";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
@@ -229,6 +230,17 @@ function UsersPage() {
           placeholder="Buscar por nome, e-mail, matrícula ou cidade"
         />
       </div>
+
+      {currentUser && (
+        <CityExceptionManager
+          providerId={currentUser.provider_id}
+          currentUserId={currentUser.id}
+          technicians={(usersQuery.data ?? []).map((u) => ({
+            id: u.id,
+            full_name: u.full_name,
+          }))}
+        />
+      )}
 
       {usersQuery.isLoading && (
         <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
