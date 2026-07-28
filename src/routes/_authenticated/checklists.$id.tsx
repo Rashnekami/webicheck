@@ -375,6 +375,29 @@ function ChecklistDetail() {
               setDirty(true);
             }}
           />
+        ) : tipo === "remapeamento_cto" ? (
+          <RemapeamentoForm
+            header={{
+              os: header.os ?? null,
+              cliente: header.cliente ?? null,
+              cidade: header.cidade ?? null,
+              endereco: header.endereco ?? null,
+              data_atendimento: header.data_atendimento ?? null,
+              hora_atendimento: header.hora_atendimento ?? null,
+            }}
+            data={data as RemapeamentoData}
+            checklistId={row.id}
+            tecnicoId={row.tecnico_id}
+            readOnly={readOnly}
+            onHeaderChange={(patch) => {
+              setHeader((p) => ({ ...p, ...patch }));
+              setDirty(true);
+            }}
+            onDataChange={(fn) => {
+              setData((p) => fn(p as RemapeamentoData));
+              setDirty(true);
+            }}
+          />
         ) : (
           <>
             <ChecklistForm
