@@ -341,7 +341,23 @@ function ChecklistsList() {
                 Mapeamento de portas do splitter com GPS, cores TIA-598 e análise de potência.
               </p>
             </button>
+            {TIPOS_INTERVENCAO.map((t) => (
+              <button
+                key={t}
+                type="button"
+                disabled={create.isPending}
+                onClick={() => create.mutate(t)}
+                className="flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition hover:border-primary hover:bg-primary/5"
+              >
+                <div className="rounded-full bg-amber-500/10 p-2 text-amber-600">
+                  <Wrench className="h-5 w-5" />
+                </div>
+                <h3 className="font-semibold">{TIPO_LABEL[t]}</h3>
+                <p className="text-xs text-muted-foreground">{INTERVENCAO_DESCRICAO[t]}</p>
+              </button>
+            ))}
           </div>
+
         </DialogContent>
       </Dialog>
     </div>
