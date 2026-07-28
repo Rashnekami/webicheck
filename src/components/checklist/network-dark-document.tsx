@@ -489,6 +489,70 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                   </tbody>
                 </table>
               </Panel>
+
+              <Panel title="Alimentação da CTO">
+                <InfoGrid
+                  items={[
+                    { label: "Cabo", value: remap.alimentacao?.cabo ?? "" },
+                    { label: "Tubo", value: remap.alimentacao?.tubo ?? "" },
+                    { label: "Fibra", value: remap.alimentacao?.fibra ?? "" },
+                    { label: "Cor da fibra", value: remap.alimentacao?.cor_fibra ?? "" },
+                  ]}
+                />
+                {remap.alimentacao?.origem ? (
+                  <div style={{ marginTop: 8 }}>
+                    <Body>Origem: {remap.alimentacao.origem}</Body>
+                  </div>
+                ) : null}
+                {remap.alimentacao?.observacao ? <Body>{remap.alimentacao.observacao}</Body> : null}
+              </Panel>
+
+              <Panel title="Fusões realizadas">
+                {(remap.fusao?.itens ?? []).length > 0 ? (
+                  <Table
+                    columns={[
+                      { key: "fibra", label: "FIBRA" },
+                      { key: "motivo", label: "MOTIVO" },
+                      { key: "antes", label: "ANTES (dBm)", align: "right" },
+                      { key: "depois", label: "DEPOIS (dBm)", align: "right" },
+                    ]}
+                    rows={(remap.fusao?.itens ?? []).map((f) => ({
+                      fibra: f.fibra || "—",
+                      motivo: f.motivo || "—",
+                      antes: f.antes_dbm || "—",
+                      depois: f.depois_dbm || "—",
+                    }))}
+                  />
+                ) : (
+                  <Body>
+                    {remap.fusao?.necessaria === "nao"
+                      ? "Nenhuma fusão necessária."
+                      : "Nenhuma fusão registrada."}
+                  </Body>
+                )}
+              </Panel>
+
+              <Panel title="Resultado do remapeamento">
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: remap.resultado?.estado === "sim" ? C.green : C.amber,
+                  }}
+                >
+                  {remap.resultado?.estado === "sim"
+                    ? "CTO remapeada integralmente."
+                    : remap.resultado?.estado === "parcialmente"
+                      ? "CTO remapeada parcialmente."
+                      : "Resultado não informado."}
+                </p>
+                {remap.resultado?.pendencia ? (
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>
+                    Pendências: {remap.resultado.pendencia}
+                  </div>
+                ) : null}
+              </Panel>
             </>
           ) : (
             <>
