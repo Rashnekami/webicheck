@@ -446,6 +446,7 @@ export type Database = {
           revision_notes: string | null
           revision_number: number
           revision_reason: string | null
+          rmap_code: string | null
           serial: string | null
           serial_ont_instalada: string | null
           serial_ont_retirada: string | null
@@ -490,6 +491,7 @@ export type Database = {
           revision_notes?: string | null
           revision_number?: number
           revision_reason?: string | null
+          rmap_code?: string | null
           serial?: string | null
           serial_ont_instalada?: string | null
           serial_ont_retirada?: string | null
@@ -534,6 +536,7 @@ export type Database = {
           revision_notes?: string | null
           revision_number?: number
           revision_reason?: string | null
+          rmap_code?: string | null
           serial?: string | null
           serial_ont_instalada?: string | null
           serial_ont_retirada?: string | null
