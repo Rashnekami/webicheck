@@ -39,7 +39,6 @@ describe("map-static", () => {
     expect(buf[ring]).toBe(255);
     expect(buf[ring + 3]).toBe(255);
   });
-}
 
   it("compõe tiles mesmo com deslocamento fracionário", () => {
     const w = 8;
