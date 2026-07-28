@@ -77,7 +77,6 @@ export function SignaturePad({
 
       {open && (
         <FullscreenSignature
-          value={value}
           onConfirm={(data) => {
             onChange?.(data);
             setOpen(false);
@@ -89,10 +88,8 @@ export function SignaturePad({
 }
 
 function FullscreenSignature({
-  value,
   onConfirm,
 }: {
-  value?: string | null;
   onConfirm: (dataUrl: string | null) => void;
 }) {
   const shellRef = useRef<HTMLDivElement>(null);
