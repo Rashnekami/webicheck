@@ -226,10 +226,10 @@ function ChecklistDetail() {
   const missing = useMemo(() => {
     const errs: string[] = [];
     if (!data) return errs;
-    if (!header.cliente?.trim()) errs.push("Cliente");
     if (!header.cidade?.trim()) errs.push("Cidade");
     if (!header.data_atendimento) errs.push("Data do atendimento");
     if (tipo === "validacao_ont") {
+      if (!header.cliente?.trim()) errs.push("Cliente");
       const d = data as ChecklistData;
       if (!header.modelo?.trim()) errs.push("Modelo da ONT");
       if (!header.serial?.trim()) errs.push("Serial da ONT");
@@ -238,8 +238,14 @@ function ChecklistDetail() {
         errs.push("Aplicabilidade do teste cabeado");
       }
       if (!d.relato?.trim()) errs.push("Relato do técnico");
-    } else {
+    } else if (tipo === "instalacao") {
+      if (!header.cliente?.trim()) errs.push("Cliente");
       if (!header.endereco?.trim()) errs.push("Endereço");
+    } else if (tipo === "remapeamento_cto") {
+      const d = data as RemapeamentoData;
+      if (!d.identificacao.cto_codigo?.trim()) errs.push("Código da CTO/NAP");
+      if (!d.localizacao.confirmada) errs.push("Confirmação manual da localização da CTO no mapa");
+      if (!d.splitter.tipo) errs.push("Tipo do splitter");
     }
     return errs;
   }, [header, data, tipo]);
