@@ -51,6 +51,7 @@ import {
 } from "@/lib/checklists";
 import {
   FOTO_CATEGORIAS,
+  FOTO_CATEGORIAS_REDE,
   TIPO_LABEL,
   isIntervencao,
   type AnyChecklistData,
