@@ -99,36 +99,23 @@ function FullscreenSignature({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastRef = useRef<{ x: number; y: number } | null>(null);
-  const [hasInk, setHasInk] = useState(!!value);
+  const [hasInk, setHasInk] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
-
-  const paintImage = useCallback((src: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(rect.width / img.width, rect.height / img.height, 1);
-      const width = img.width * scale;
-      const height = img.height * scale;
-      ctx.drawImage(img, 0, 0, width, height);
-      setHasInk(true);
-    };
-    img.src = src;
-  }, []);
+  const portraitRef = useRef(false);
+  portraitRef.current = isPortrait;
 
   const setup = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const currentImage =
-      hasInk && canvas.dataset.ready === "true" ? canvas.toDataURL("image/png") : value || null;
+    const previous =
+      canvas.dataset.ready === "true" && canvas.width > 0 ? canvas.toDataURL("image/png") : null;
     const ratio = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    canvas.width = Math.floor(rect.width * ratio);
-    canvas.height = Math.floor(rect.height * ratio);
+    const cssWidth = portraitRef.current ? rect.height : rect.width;
+    const cssHeight = portraitRef.current ? rect.width : rect.height;
+    if (!cssWidth || !cssHeight) return;
+    canvas.width = Math.floor(cssWidth * ratio);
+    canvas.height = Math.floor(cssHeight * ratio);
     canvas.dataset.ready = "true";
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -137,10 +124,13 @@ function FullscreenSignature({
     ctx.lineJoin = "round";
     ctx.lineWidth = 4;
     ctx.strokeStyle = "rgb(15 23 42)";
-    if (currentImage) {
-      paintImage(currentImage);
+    if (previous) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, cssWidth, cssHeight);
+      img.src = previous;
     }
-  }, [hasInk, paintImage, value]);
+  }, []);
+
 
   const updateOrientation = useCallback(() => {
     setIsPortrait(window.innerHeight > window.innerWidth);
