@@ -3,6 +3,21 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 
+// Consulta must_change_password separado do resto do perfil: essa coluna
+// só existe depois que a migration de auth hardening for aplicada no
+// banco. Enquanto isso não acontecer (ou em qualquer outro erro nessa
+// coluna específica), degrada para "false" em vez de derrubar o login
+// inteiro — um erro aqui NUNCA deve ser tratado como "conta inativa".
+async function fetchMustChangePassword(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("must_change_password")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return false;
+  return Boolean((data as { must_change_password?: boolean }).must_change_password);
+}
+
 // Managed gate — a autenticação depende do localStorage (sem SSR).
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -12,7 +27,7 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active, city, provider_id, platform_admin, cities_configured_at, must_change_password")
+      .select("active, city, provider_id, platform_admin, cities_configured_at")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
@@ -22,7 +37,7 @@ export const Route = createFileRoute("/_authenticated")({
     if (!profile.provider_id || !profile.cities_configured_at) {
       throw redirect({ to: "/completar-cadastro" });
     }
-    if (profile.must_change_password) {
+    if (await fetchMustChangePassword(data.user.id)) {
       throw redirect({ to: "/trocar-senha" });
     }
     const { data: provider } = await supabase
@@ -51,7 +66,7 @@ function AuthenticatedLayout() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active, city, provider_id, platform_admin, cities_configured_at, must_change_password")
+        .select("active, city, provider_id, platform_admin, cities_configured_at")
         .eq("id", data.user.id)
         .maybeSingle();
       if (!profile?.active) {
@@ -63,7 +78,7 @@ function AuthenticatedLayout() {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      if (profile.must_change_password) {
+      if (await fetchMustChangePassword(data.user.id)) {
         navigate({ to: "/trocar-senha", replace: true });
         return;
       }
