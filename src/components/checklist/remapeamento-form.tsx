@@ -746,26 +746,30 @@ function PortaCard({
           ))}
         </div>
       </div>
-      {porta.status === "ocupada" && (
+      {(porta.status === "ocupada" || porta.status === "livre") && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="sm:col-span-2 space-y-1">
-            <Label className="text-xs">Cliente</Label>
-            <Input
-              className="h-8"
-              value={porta.cliente ?? ""}
-              disabled={readOnly}
-              onChange={(e) => onChange({ cliente: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">ID (opcional)</Label>
-            <Input
-              className="h-8"
-              value={porta.cliente_id ?? ""}
-              disabled={readOnly}
-              onChange={(e) => onChange({ cliente_id: e.target.value })}
-            />
-          </div>
+          {porta.status === "ocupada" && (
+            <>
+              <div className="sm:col-span-2 space-y-1">
+                <Label className="text-xs">Cliente</Label>
+                <Input
+                  className="h-8"
+                  value={porta.cliente ?? ""}
+                  disabled={readOnly}
+                  onChange={(e) => onChange({ cliente: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">ID (opcional)</Label>
+                <Input
+                  className="h-8"
+                  value={porta.cliente_id ?? ""}
+                  disabled={readOnly}
+                  onChange={(e) => onChange({ cliente_id: e.target.value })}
+                />
+              </div>
+            </>
+          )}
           <div className="sm:col-span-3 space-y-1">
             <Label className="text-xs">Potência saída (dBm)</Label>
             <Input
@@ -777,8 +781,34 @@ function PortaCard({
               onChange={(e) => onChange({ potencia_dbm: e.target.value })}
             />
           </div>
+          <div className="sm:col-span-3 space-y-1">
+            <Label className="text-xs">Passante trocado?</Label>
+            <div className="-mx-1 flex gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {(["sim", "nao"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  disabled={readOnly}
+                  className={
+                    "shrink-0 whitespace-nowrap rounded-md border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition " +
+                    (porta.passante_trocado === v
+                      ? v === "sim"
+                        ? "border-emerald-400 bg-emerald-600 text-white"
+                        : "border-slate-400 bg-slate-600 text-white"
+                      : "border-blue-500/40 bg-[#071b3a] text-slate-300")
+                  }
+                  onClick={() =>
+                    onChange({ passante_trocado: porta.passante_trocado === v ? null : v })
+                  }
+                >
+                  {v === "sim" ? "Sim" : "Não"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
+
     </div>
   );
 }
