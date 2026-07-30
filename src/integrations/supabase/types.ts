@@ -935,7 +935,6 @@ export type Database = {
           full_name: string
           id: string
           matricula: string | null
-          must_change_password: boolean
           phone: string | null
           platform_admin: boolean
           provider_id: string
@@ -952,7 +951,6 @@ export type Database = {
           full_name?: string
           id: string
           matricula?: string | null
-          must_change_password?: boolean
           phone?: string | null
           platform_admin?: boolean
           provider_id: string
@@ -969,7 +967,6 @@ export type Database = {
           full_name?: string
           id?: string
           matricula?: string | null
-          must_change_password?: boolean
           phone?: string | null
           platform_admin?: boolean
           provider_id?: string

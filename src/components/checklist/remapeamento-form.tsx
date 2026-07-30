@@ -688,8 +688,9 @@ function PortaCard({
   const color = fiberColorBySlug(porta.cor);
   return (
     <div className="rounded-xl border border-blue-500/25 bg-[#041126] p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+
           <span className="font-mono text-sm font-bold text-white">
             P{String(porta.numero).padStart(2, "0")}
           </span>
@@ -721,14 +722,15 @@ function PortaCard({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex gap-1">
+        <div className="-mx-1 flex w-full gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:w-auto">
           {(["ocupada", "livre", "nao_identificado"] as RemapPortStatus[]).map((s) => (
             <button
               key={s}
               type="button"
               disabled={readOnly}
               className={
-                "rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition " +
+                "shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide transition " +
+
                 (porta.status === s
                   ? s === "ocupada"
                     ? "border-emerald-400 bg-emerald-600 text-white"

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
 import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -22,6 +23,7 @@ import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authen
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedMinhaContaRouteImport } from './routes/_authenticated/minha-conta'
 import { Route as AuthenticatedIntervencoesRouteImport } from './routes/_authenticated/intervencoes'
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
@@ -35,6 +37,11 @@ import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes
 import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
 import { Route as ApiPublicAuthLoginInternalRouteImport } from './routes/api/public/auth/login-internal'
 
+const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
+  id: '/trocar-senha',
+  path: '/trocar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
   id: '/completar-cadastro',
   path: '/completar-cadastro',
@@ -98,6 +105,11 @@ const AuthenticatedPlataformaRoute = AuthenticatedPlataformaRouteImport.update({
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMinhaContaRoute = AuthenticatedMinhaContaRouteImport.update({
+  id: '/minha-conta',
+  path: '/minha-conta',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedIntervencoesRoute =
@@ -177,10 +189,12 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
+  '/trocar-senha': typeof TrocarSenhaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/intervencoes': typeof AuthenticatedIntervencoesRoute
+  '/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
@@ -203,10 +217,12 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
+  '/trocar-senha': typeof TrocarSenhaRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
   '/intervencoes': typeof AuthenticatedIntervencoesRoute
+  '/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
@@ -231,10 +247,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
+  '/trocar-senha': typeof TrocarSenhaRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
   '/_authenticated/intervencoes': typeof AuthenticatedIntervencoesRoute
+  '/_authenticated/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
@@ -259,10 +277,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/autorizar-agent'
     | '/completar-cadastro'
+    | '/trocar-senha'
     | '/dashboard'
     | '/informativos'
     | '/integracoes'
     | '/intervencoes'
+    | '/minha-conta'
     | '/painel'
     | '/plataforma'
     | '/provedor'
@@ -285,10 +305,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/autorizar-agent'
     | '/completar-cadastro'
+    | '/trocar-senha'
     | '/dashboard'
     | '/informativos'
     | '/integracoes'
     | '/intervencoes'
+    | '/minha-conta'
     | '/painel'
     | '/plataforma'
     | '/provedor'
@@ -312,10 +334,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/autorizar-agent'
     | '/completar-cadastro'
+    | '/trocar-senha'
     | '/_authenticated/dashboard'
     | '/_authenticated/informativos'
     | '/_authenticated/integracoes'
     | '/_authenticated/intervencoes'
+    | '/_authenticated/minha-conta'
     | '/_authenticated/painel'
     | '/_authenticated/plataforma'
     | '/_authenticated/provedor'
@@ -340,6 +364,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AutorizarAgentRoute: typeof AutorizarAgentRoute
   CompletarCadastroRoute: typeof CompletarCadastroRoute
+  TrocarSenhaRoute: typeof TrocarSenhaRoute
   ContraProvaTokenRoute: typeof ContraProvaTokenRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
   ApiPublicAuthLoginInternalRoute: typeof ApiPublicAuthLoginInternalRoute
@@ -352,6 +377,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/trocar-senha': {
+      id: '/trocar-senha'
+      path: '/trocar-senha'
+      fullPath: '/trocar-senha'
+      preLoaderRoute: typeof TrocarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/completar-cadastro': {
       id: '/completar-cadastro'
       path: '/completar-cadastro'
@@ -441,6 +473,13 @@ declare module '@tanstack/react-router' {
       path: '/painel'
       fullPath: '/painel'
       preLoaderRoute: typeof AuthenticatedPainelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/minha-conta': {
+      id: '/_authenticated/minha-conta'
+      path: '/minha-conta'
+      fullPath: '/minha-conta'
+      preLoaderRoute: typeof AuthenticatedMinhaContaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/intervencoes': {
@@ -535,6 +574,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
   AuthenticatedIntervencoesRoute: typeof AuthenticatedIntervencoesRoute
+  AuthenticatedMinhaContaRoute: typeof AuthenticatedMinhaContaRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
@@ -550,6 +590,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
   AuthenticatedIntervencoesRoute: AuthenticatedIntervencoesRoute,
+  AuthenticatedMinhaContaRoute: AuthenticatedMinhaContaRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
@@ -569,6 +610,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   AutorizarAgentRoute: AutorizarAgentRoute,
   CompletarCadastroRoute: CompletarCadastroRoute,
+  TrocarSenhaRoute: TrocarSenhaRoute,
   ContraProvaTokenRoute: ContraProvaTokenRoute,
   ValidarTokenRoute: ValidarTokenRoute,
   ApiPublicAuthLoginInternalRoute: ApiPublicAuthLoginInternalRoute,
