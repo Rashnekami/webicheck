@@ -257,6 +257,8 @@ export interface RemapPort {
   cliente?: string;
   cliente_id?: string;
   potencia_dbm?: string; // string para permitir vazio/decimal com vírgula
+  /** Indica se o passante daquela porta foi trocado durante o remapeamento. */
+  passante_trocado?: YesNo;
 }
 
 export interface RemapFusaoItem {
