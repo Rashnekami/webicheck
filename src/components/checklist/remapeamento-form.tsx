@@ -688,8 +688,9 @@ function PortaCard({
   const color = fiberColorBySlug(porta.cor);
   return (
     <div className="rounded-xl border border-blue-500/25 bg-[#041126] p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+
           <span className="font-mono text-sm font-bold text-white">
             P{String(porta.numero).padStart(2, "0")}
           </span>
