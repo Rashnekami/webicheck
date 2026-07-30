@@ -482,17 +482,8 @@ function ChecklistDetail() {
             }}
           />
         ) : null}
-        {tipo === "remapeamento_cto" ? (
-          <FotosSection
-            checklistId={id}
-            tecnicoId={row.tecnico_id}
-            readOnly={readOnly}
-            canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
-            fotos={fotosQuery.data ?? []}
-            categorias={FOTO_CATEGORIAS_REDE}
-            titulo="Evidências fotográficas da CTO (antes e depois)"
-          />
-        ) : null}
+        {/* Fotos do remapeamento ficam nos blocos ANTES/DEPOIS dentro do próprio formulário */}
+
         {tipo === "validacao_ont" ? (
           <>
             <ChecklistForm
