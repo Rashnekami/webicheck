@@ -489,6 +489,13 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                           <td style={{ padding: "5px 2px", textAlign: "right" }}>
                             {p.potencia_dbm ? `${p.potencia_dbm} dBm` : "—"}
                           </td>
+                          <td style={{ padding: "5px 2px", textAlign: "right", color: C.muted }}>
+                            {p.passante_trocado === "sim"
+                              ? "Trocado"
+                              : p.passante_trocado === "nao"
+                                ? "Não trocado"
+                                : "—"}
+                          </td>
                         </tr>
                       );
                     })}
