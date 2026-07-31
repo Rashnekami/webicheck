@@ -425,6 +425,10 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                       label: "Perda média",
                       value: stats?.perda_media_db != null ? `${stats.perda_media_db} dB` : "—",
                     },
+                    {
+                      label: "Ocupação",
+                      value: stats ? `${stats.ocupadas}/${stats.total}` : "—",
+                    },
                   ]}
                 />
               </Panel>
@@ -438,8 +442,10 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                       <th style={{ padding: "4px 2px" }}>STATUS</th>
                       <th style={{ padding: "4px 2px" }}>CLIENTE / ID</th>
                       <th style={{ padding: "4px 2px", textAlign: "right" }}>POTÊNCIA</th>
+                      <th style={{ padding: "4px 2px", textAlign: "right" }}>PASSANTE</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {(remap.portas ?? []).map((p) => {
                       const color = fiberColorBySlug(p.cor);
