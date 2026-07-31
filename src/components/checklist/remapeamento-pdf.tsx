@@ -108,11 +108,12 @@ const s = StyleSheet.create({
     borderBottomColor: "#12335c",
     paddingVertical: 3.4,
   },
-  cPorta: { width: "9%", fontSize: 7.4, fontWeight: 700 },
-  cCor: { width: "20%" },
-  cStatus: { width: "17%" },
-  cCliente: { width: "34%", fontSize: 7, color: C.text },
-  cPot: { width: "20%", fontSize: 7.2, textAlign: "right" },
+  cPorta: { width: "8%", fontSize: 7.4, fontWeight: 700 },
+  cCor: { width: "18%" },
+  cStatus: { width: "15%" },
+  cCliente: { width: "28%", fontSize: 7, color: C.text },
+  cPot: { width: "16%", fontSize: 7.2, textAlign: "right" },
+  cPass: { width: "15%", fontSize: 7, textAlign: "right", color: C.muted },
   colorTag: {
     borderRadius: 4,
     paddingVertical: 1.6,
@@ -347,6 +348,19 @@ function RemapeamentoDocument({
             </View>
           </View>
 
+          {/* Alimentação */}
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>Alimentação da CTO</Text>
+            <View style={s.grid}>
+              <Info label="CABO" value={d.alimentacao?.cabo ?? ""} />
+              <Info label="TUBO" value={d.alimentacao?.tubo ?? ""} />
+              <Info label="FIBRA" value={d.alimentacao?.fibra ?? ""} />
+              <Info label="COR DA FIBRA" value={d.alimentacao?.cor_fibra ?? ""} />
+              <Info label="ORIGEM" value={d.alimentacao?.origem ?? ""} wide />
+              <Info label="OBSERVAÇÃO" value={d.alimentacao?.observacao ?? ""} wide />
+            </View>
+          </View>
+
           {/* Portas */}
           <View style={s.panel}>
             <Text style={s.panelTitle}>Mapeamento de portas (TIA-598-C)</Text>
@@ -356,6 +370,7 @@ function RemapeamentoDocument({
               <Text style={[s.th, s.cStatus]}>STATUS</Text>
               <Text style={[s.th, s.cCliente]}>CLIENTE / ID</Text>
               <Text style={[s.th, s.cPot]}>POTÊNCIA</Text>
+              <Text style={[s.th, s.cPass]}>PASSANTE</Text>
             </View>
             {(d.portas ?? []).map((p) => {
               const color = fiberColorBySlug(p.cor);
@@ -375,10 +390,51 @@ function RemapeamentoDocument({
                     {[p.cliente, p.cliente_id].filter(Boolean).join(" · ") || "—"}
                   </Text>
                   <Text style={s.cPot}>{p.potencia_dbm ? `${p.potencia_dbm} dBm` : "—"}</Text>
+                  <Text style={s.cPass}>
+                    {p.passante_trocado === "sim"
+                      ? "Trocado"
+                      : p.passante_trocado === "nao"
+                        ? "Não trocado"
+                        : "—"}
+                  </Text>
                 </View>
               );
             })}
           </View>
+
+          {/* Fusões */}
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>Fusões realizadas</Text>
+            {(d.fusao?.itens ?? []).length > 0 ? (
+              <>
+                <View style={s.tableHead}>
+                  <Text style={[s.th, { width: "25%" }]}>FIBRA</Text>
+                  <Text style={[s.th, { width: "39%" }]}>MOTIVO</Text>
+                  <Text style={[s.th, { width: "18%", textAlign: "right" }]}>ANTES (dBm)</Text>
+                  <Text style={[s.th, { width: "18%", textAlign: "right" }]}>DEPOIS (dBm)</Text>
+                </View>
+                {(d.fusao?.itens ?? []).map((f, i) => (
+                  <View key={`${f.fibra}-${i}`} style={s.tr}>
+                    <Text style={{ width: "25%", fontSize: 7.2 }}>{f.fibra || "—"}</Text>
+                    <Text style={{ width: "39%", fontSize: 7.2 }}>{f.motivo || "—"}</Text>
+                    <Text style={{ width: "18%", fontSize: 7.2, textAlign: "right" }}>
+                      {f.antes_dbm || "—"}
+                    </Text>
+                    <Text style={{ width: "18%", fontSize: 7.2, textAlign: "right" }}>
+                      {f.depois_dbm || "—"}
+                    </Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <Text style={{ color: C.muted, fontSize: 7.4 }}>
+                {d.fusao?.necessaria === "nao"
+                  ? "Nenhuma fusão necessária."
+                  : "Nenhuma fusão registrada."}
+              </Text>
+            )}
+          </View>
+
 
           {/* Evidências fotográficas */}
           <View style={s.panel} wrap={false}>

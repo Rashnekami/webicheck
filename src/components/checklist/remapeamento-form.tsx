@@ -205,6 +205,8 @@ export function RemapeamentoForm({
       };
     });
     toast.success("Localização da CTO confirmada.");
+    // Gera automaticamente a evidência cartográfica usada no PDF/imagem.
+    autoSnapshotRef.current = `${lat.toFixed(6)},${lng.toFixed(6)}`;
   };
   // Posição oficial do ativo: apenas confirmação manual (nunca o GPS).
   const ativoPos =
@@ -225,6 +227,20 @@ export function RemapeamentoForm({
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "Falha ao gerar imagem do mapa."),
   });
+
+  const autoSnapshotRef = useRef<string | null>(null);
+  const mutateSnapshot = snapshotMutation.mutate;
+  useEffect(() => {
+    const pending = autoSnapshotRef.current;
+    if (!pending || readOnly) return;
+    // Aguarda o autosave persistir a coordenada antes de pedir o snapshot no servidor.
+    const timer = setTimeout(() => {
+      autoSnapshotRef.current = null;
+      mutateSnapshot();
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [ativoPos?.lat, ativoPos?.lng, readOnly, mutateSnapshot]);
+
 
 
   // Fusões

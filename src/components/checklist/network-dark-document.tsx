@@ -399,7 +399,27 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                   )} m`}
               {" · Fonte cartográfica: ArcGIS / Esri"}
             </div>
+            {isRemap ? (
+              <div style={{ color: C.muted, fontSize: 10.5, marginTop: 4, lineHeight: 1.5 }}>
+                {remap.localizacao?.gps_original
+                  ? `GPS do técnico: ${remap.localizacao.gps_original.lat.toFixed(6)}, ${remap.localizacao.gps_original.lng.toFixed(6)} · ±${remap.localizacao.gps_original.accuracy_m ?? 0} m`
+                  : "GPS do técnico não capturado"}
+                {remap.localizacao?.distancia_m != null
+                  ? ` · Distância técnico → ativo: ${remap.localizacao.distancia_m} m`
+                  : ""}
+                {remap.localizacao?.confirmada_em
+                  ? ` · Confirmado em ${new Date(remap.localizacao.confirmada_em).toLocaleString("pt-BR")}`
+                  : ""}
+                {remap.localizacao?.meta
+                  ? ` · ${remap.localizacao.meta.map_engine}/${remap.localizacao.meta.map_provider} · ${remap.localizacao.meta.basemap_style} · zoom ${remap.localizacao.meta.zoom}`
+                  : ""}
+                {remap.localizacao?.snapshot
+                  ? ` · SHA-256 ${remap.localizacao.snapshot.sha256.slice(0, 16)}…`
+                  : ""}
+              </div>
+            ) : null}
           </Panel>
+
 
           {isRemap ? (
             <>
@@ -425,6 +445,10 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                       label: "Perda média",
                       value: stats?.perda_media_db != null ? `${stats.perda_media_db} dB` : "—",
                     },
+                    {
+                      label: "Ocupação",
+                      value: stats ? `${stats.ocupadas}/${stats.total}` : "—",
+                    },
                   ]}
                 />
               </Panel>
@@ -438,8 +462,10 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                       <th style={{ padding: "4px 2px" }}>STATUS</th>
                       <th style={{ padding: "4px 2px" }}>CLIENTE / ID</th>
                       <th style={{ padding: "4px 2px", textAlign: "right" }}>POTÊNCIA</th>
+                      <th style={{ padding: "4px 2px", textAlign: "right" }}>PASSANTE</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {(remap.portas ?? []).map((p) => {
                       const color = fiberColorBySlug(p.cor);
@@ -482,6 +508,13 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                           </td>
                           <td style={{ padding: "5px 2px", textAlign: "right" }}>
                             {p.potencia_dbm ? `${p.potencia_dbm} dBm` : "—"}
+                          </td>
+                          <td style={{ padding: "5px 2px", textAlign: "right", color: C.muted }}>
+                            {p.passante_trocado === "sim"
+                              ? "Trocado"
+                              : p.passante_trocado === "nao"
+                                ? "Não trocado"
+                                : "—"}
                           </td>
                         </tr>
                       );
