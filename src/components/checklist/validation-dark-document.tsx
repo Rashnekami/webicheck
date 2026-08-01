@@ -562,6 +562,9 @@ export const ValidationDarkDocument = forwardRef<HTMLDivElement, Props>(
               { label: "Serial", value: h.serial },
               { label: "CTO/Porta", value: h.cto_porta },
               { label: "Tipo", value: labelTipoManutencao(d.tipo_manutencao) },
+              ...(h.exchange_ticket_code
+                ? [{ label: "Ticket da troca", value: h.exchange_ticket_code as string }]
+                : []),
               { label: "Status", value: "VALIDADO", status: true },
             ]}
           />
@@ -739,6 +742,12 @@ export const ValidationDarkDocument = forwardRef<HTMLDivElement, Props>(
               <KV label="Interrompeu atendimento" value={yesNo(rf.interrompeu)} />
             </Grid2>
             <KV label="Motivo" value={rf.motivo} />
+            {(s.ont_queimada || s.ont_danificada_cliente) && trocaFeita ? (
+              <KV
+                label="Teste pós-troca solicitado"
+                value={rf.executar_diagnostico_pos_troca ? "Sim" : "Não"}
+              />
+            ) : null}
           </Panel>
 
           <Panel>

@@ -286,6 +286,12 @@ function IntervencaoDocument({
               {d.rota?.extensao_estimada_m ? (
                 <Text style={s.metaChip}>Extensão informada: {d.rota.extensao_estimada_m} m</Text>
               ) : null}
+              {d.rota?.gps_tecnico ? (
+                <Text style={s.metaChip}>
+                  GPS técnico: {d.rota.gps_tecnico.lat.toFixed(6)}, {d.rota.gps_tecnico.lng.toFixed(6)} · ±
+                  {d.rota.gps_tecnico.accuracy_m ?? 0} m
+                </Text>
+              ) : null}
               {d.rota?.snapshot?.sha256 ? (
                 <Text style={s.metaChip}>SHA-256: {d.rota.snapshot.sha256.slice(0, 24)}…</Text>
               ) : null}

@@ -396,7 +396,7 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                   : "Coordenada não confirmada"
                 : `${inter.rota?.pontos?.length ?? 0} ponto(s) · extensão aproximada ${routeLengthMeters(
                     inter.rota?.pontos ?? [],
-                  )} m`}
+                  )} m${inter.rota?.extensao_estimada_m ? ` · extensão informada pelo técnico ${inter.rota.extensao_estimada_m} m` : ""}`}
               {" · Fonte cartográfica: ArcGIS / Esri"}
             </div>
             {isRemap ? (
@@ -417,7 +417,19 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                   ? ` · SHA-256 ${remap.localizacao.snapshot.sha256.slice(0, 16)}…`
                   : ""}
               </div>
-            ) : null}
+            ) : (
+              <div style={{ color: C.muted, fontSize: 10.5, marginTop: 4, lineHeight: 1.5 }}>
+                {inter.rota?.gps_tecnico
+                  ? `GPS do técnico: ${inter.rota.gps_tecnico.lat.toFixed(6)}, ${inter.rota.gps_tecnico.lng.toFixed(6)} · ±${inter.rota.gps_tecnico.accuracy_m ?? 0} m`
+                  : "GPS do técnico não capturado"}
+                {inter.rota?.meta
+                  ? ` · ${inter.rota.meta.map_engine}/${inter.rota.meta.map_provider} · ${inter.rota.meta.basemap_style} · zoom ${inter.rota.meta.zoom}`
+                  : ""}
+                {inter.rota?.snapshot
+                  ? ` · SHA-256 ${inter.rota.snapshot.sha256.slice(0, 16)}…`
+                  : ""}
+              </div>
+            )}
           </Panel>
 
 

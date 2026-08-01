@@ -152,6 +152,11 @@ export const ensureChecklistSnapshot = createServerFn({ method: "POST" })
         serial_ont_retirada: chk.serial_ont_retirada,
         modelo_ont_instalada: chk.modelo_ont_instalada,
         serial_ont_instalada: chk.serial_ont_instalada,
+        // Faltava aqui: o PDF lê exchange_ticket_code direto da linha do
+        // checklist (row.exchange_ticket_code), mas o documento de imagem
+        // só enxerga o que está neste header — sem isso, o campo nunca
+        // chegava na imagem por mais que a UI tentasse exibi-lo.
+        exchange_ticket_code: chk.exchange_ticket_code,
       },
       dados: (chk.dados as unknown as { [k: string]: JsonValue }) ?? {},
       tecnico: {
