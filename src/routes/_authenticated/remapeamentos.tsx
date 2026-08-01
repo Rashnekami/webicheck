@@ -36,7 +36,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { computeSplitterStats } from "@/lib/remapeamento-fibers";
-import type { RemapeamentoData } from "@/lib/checklist-schema";
+import type { IntervencaoData, MapAtivoTipo, RemapeamentoData } from "@/lib/checklist-schema";
 import {
   BarChart,
   Bar,
@@ -94,8 +94,87 @@ async function listRemapeamentos(): Promise<RemapRow[]> {
   })) as RemapRow[];
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function useRemapeamentos(enabled: boolean) {
   return useQuery({ queryKey: ["remapeamentos"], queryFn: listRemapeamentos, enabled });
+}
+
+/** Ponto de CTO/CEO georreferenciado extraído de QUALQUER checklist que o
+ * confirma — não só remapeamento_cto. Intervenções de rede (rompimento,
+ * readequação, melhoria de sinal) também têm o técnico confirmando a
+ * posição da CTO/CEO em campo (`dados.rota.pontos`), e até agora o mapa
+ * de Remapeamentos ignorava essas confirmações inteiramente. */
+type NapPoint = {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  ativoTipo: MapAtivoTipo;
+  cidade: string | null;
+  tecnico_id: string;
+  tecnico_nome: string;
+  checklistId: string;
+  origemTipo: "rompimento" | "readequacao" | "melhoria_sinal";
+  finalizado_em: string | null;
+};
+
+async function listIntervencaoNapPoints(): Promise<NapPoint[]> {
+  const { data, error } = await supabase
+    .from("checklists")
+    .select("id,tecnico_id,cidade,finalizado_em,dados,tipo")
+    .in("tipo", ["rompimento", "readequacao", "melhoria_sinal"])
+    .eq("status", "finalizado")
+    .eq("is_current", true)
+    .limit(1000);
+  if (error) throw error;
+  const rows = (data ?? []) as any[];
+  const ids = [...new Set(rows.map((r) => r.tecnico_id))];
+  const { data: profiles } = ids.length
+    ? await supabase.from("profiles").select("id, full_name").in("id", ids)
+    : { data: [] as any[] };
+  const nameById = new Map<string, string>(
+    (profiles ?? []).map((p: any) => [p.id as string, ((p.full_name as string) || "").trim()]),
+  );
+
+  const points: NapPoint[] = [];
+  for (const row of rows) {
+    const dados = (row.dados ?? {}) as IntervencaoData;
+    const pontos = dados?.rota?.pontos ?? [];
+    for (const p of pontos) {
+      if (!p || typeof p.lat !== "number" || typeof p.lng !== "number") continue;
+      if (p.tipo !== "CTO" && p.tipo !== "CEO") continue;
+      points.push({
+        id: `${row.id}:${p.id}`,
+        lat: p.lat,
+        lng: p.lng,
+        label: dados?.contexto?.cto_codigo || p.descricao || p.tipo,
+        ativoTipo: p.tipo,
+        cidade: row.cidade,
+        tecnico_id: row.tecnico_id,
+        tecnico_nome: nameById.get(row.tecnico_id) || "Técnico não identificado",
+        checklistId: row.id,
+        origemTipo: row.tipo,
+        finalizado_em: row.finalizado_em,
+      });
+    }
+  }
+  return points;
+}
+
+function useIntervencaoNapPoints(enabled: boolean) {
+  return useQuery({
+    queryKey: ["remapeamentos-nap-intervencoes"],
+    queryFn: listIntervencaoNapPoints,
+    enabled,
+  });
 }
 
 function RemapeamentosPage() {
@@ -103,6 +182,7 @@ function RemapeamentosPage() {
   const canSeeAll = !!(user?.isAdmin || user?.isSupervisor || user?.isNoc || user?.isPlatformAdmin);
   const canSee = !!user;
   const query = useRemapeamentos(canSee);
+  const napQuery = useIntervencaoNapPoints(canSee);
 
   const [search, setSearch] = useState("");
   const [cityFilter, setCityFilter] = useState<string>("all");
@@ -140,6 +220,18 @@ function RemapeamentosPage() {
       return values.some((v) => v?.toLocaleString().toLocaleLowerCase("pt-BR").includes(needle));
     });
   }, [rows, search, cityFilter, tecFilter]);
+
+  const napPoints = napQuery.data ?? [];
+  const filteredNapPoints = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("pt-BR");
+    return napPoints.filter((p) => {
+      if (cityFilter !== "all" && p.cidade !== cityFilter) return false;
+      if (tecFilter !== "all" && p.tecnico_id !== tecFilter) return false;
+      if (!needle) return true;
+      const values = [p.label, p.cidade, p.tecnico_nome];
+      return values.some((v) => v?.toLocaleString().toLocaleLowerCase("pt-BR").includes(needle));
+    });
+  }, [napPoints, search, cityFilter, tecFilter]);
 
   if (isLoading) {
     return (
@@ -217,7 +309,7 @@ function RemapeamentosPage() {
         </TabsContent>
 
         <TabsContent value="mapa" className="pt-4">
-          <RemapMap rows={filtered} />
+          <RemapMap rows={filtered} napPoints={filteredNapPoints} />
         </TabsContent>
 
         <TabsContent value="indicadores" className="pt-4">
@@ -272,7 +364,17 @@ function RemapCard({ row }: { row: RemapRow }) {
   );
 }
 
-function RemapMap({ rows }: { rows: RemapRow[] }) {
+const INTERVENCAO_ORIGEM_LABEL: Record<NapPoint["origemTipo"], string> = {
+  rompimento: "Rompimento",
+  readequacao: "Readequação",
+  melhoria_sinal: "Melhoria de sinal",
+};
+
+type MapPoint =
+  | { kind: "remapeamento"; row: RemapRow; pos: { lat: number; lng: number } }
+  | { kind: "intervencao"; nap: NapPoint; pos: { lat: number; lng: number } };
+
+function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[] }) {
   const { key: apiKey, loading: keyLoading } = useArcgisBrowserKey();
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -280,7 +382,7 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
   const markersRef = useRef<any[]>([]);
   const [mode, setMode] = useState<BasemapMode>(DEFAULT_BASEMAP_MODE);
 
-  const points = useMemo(
+  const remapPoints = useMemo(
     () =>
       rows
         .map((r) => {
@@ -290,6 +392,18 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
         })
         .filter((p): p is { row: RemapRow; pos: { lat: number; lng: number } } => !!p.pos),
     [rows],
+  );
+
+  // Une as CTOs/NAPs confirmadas em remapeamento_cto com as confirmadas em
+  // checklists de intervenção (rompimento/readequação/melhoria de sinal) —
+  // antes o mapa só mostrava a primeira, deixando de fora toda confirmação
+  // de campo feita durante uma intervenção de rede.
+  const points: MapPoint[] = useMemo(
+    () => [
+      ...remapPoints.map((p): MapPoint => ({ kind: "remapeamento", row: p.row, pos: p.pos })),
+      ...napPoints.map((n): MapPoint => ({ kind: "intervencao", nap: n, pos: { lat: n.lat, lng: n.lng } })),
+    ],
+    [remapPoints, napPoints],
   );
 
   useEffect(() => {
@@ -336,18 +450,34 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
       markersRef.current = [];
       const bounds = new maplibre.LngLatBounds();
       for (const p of points) {
-        const stats = computeSplitterStats(p.row.dados);
         const el = document.createElement("div");
-        el.innerHTML = `<svg width="22" height="28" viewBox="0 0 24 32"><path d="M12 0C5.9 0 1 4.9 1 11c0 8 11 21 11 21s11-13 11-21C23 4.9 18.1 0 12 0z" fill="#e11d48" stroke="#fff" stroke-width="2"/><circle cx="12" cy="11" r="4" fill="#fff"/></svg>`;
-        const popup = new maplibre.Popup({ offset: 24 }).setHTML(
-          `<div style="font-family:system-ui;color:#0f172a;min-width:200px">
-            <div style="font-weight:700;color:#0369a1">${p.row.rmap_code || "RMAP"}</div>
-            <div style="font-size:12px">CTO ${p.row.dados?.identificacao?.cto_codigo || "—"}</div>
-            <div style="font-size:12px">${p.row.cidade || ""}</div>
+        const isRemap = p.kind === "remapeamento";
+        const pinColor = isRemap ? "#e11d48" : "#f59e0b";
+        el.innerHTML = `<svg width="22" height="28" viewBox="0 0 24 32"><path d="M12 0C5.9 0 1 4.9 1 11c0 8 11 21 11 21s11-13 11-21C23 4.9 18.1 0 12 0z" fill="${pinColor}" stroke="#fff" stroke-width="2"/><circle cx="12" cy="11" r="4" fill="#fff"/></svg>`;
+
+        let html: string;
+        let checklistId: string;
+        if (p.kind === "remapeamento") {
+          const stats = computeSplitterStats(p.row.dados);
+          checklistId = p.row.id;
+          html = `<div style="font-family:system-ui;color:#0f172a;min-width:200px">
+            <div style="font-weight:700;color:#0369a1">${escapeHtml(p.row.rmap_code || "RMAP")}</div>
+            <div style="font-size:12px">CTO ${escapeHtml(p.row.dados?.identificacao?.cto_codigo || "—")}</div>
+            <div style="font-size:12px">${escapeHtml(p.row.cidade || "")}</div>
             <div style="font-size:12px;margin-top:4px">${stats.ocupadas}/${stats.total} portas ocupadas</div>
-            <a href="/checklists/${p.row.id}" style="display:inline-block;margin-top:6px;color:#0369a1;font-weight:600;font-size:12px">Abrir remapeamento →</a>
-          </div>`,
-        );
+            <a href="/checklists/${checklistId}" style="display:inline-block;margin-top:6px;color:#0369a1;font-weight:600;font-size:12px">Abrir remapeamento →</a>
+          </div>`;
+        } else {
+          checklistId = p.nap.checklistId;
+          html = `<div style="font-family:system-ui;color:#0f172a;min-width:200px">
+            <div style="font-weight:700;color:#b45309">${escapeHtml(p.nap.ativoTipo)} ${escapeHtml(p.nap.label)}</div>
+            <div style="font-size:12px">Confirmada durante: ${escapeHtml(INTERVENCAO_ORIGEM_LABEL[p.nap.origemTipo])}</div>
+            <div style="font-size:12px">${escapeHtml(p.nap.cidade || "")} · ${escapeHtml(p.nap.tecnico_nome)}</div>
+            <a href="/checklists/${checklistId}" style="display:inline-block;margin-top:6px;color:#0369a1;font-weight:600;font-size:12px">Abrir checklist →</a>
+          </div>`;
+        }
+
+        const popup = new maplibre.Popup({ offset: 24 }).setHTML(html);
         const marker = new maplibre.Marker({ element: el, anchor: "bottom" })
           .setLngLat([p.pos.lng, p.pos.lat])
           .setPopup(popup)
@@ -393,8 +523,8 @@ function RemapMap({ rows }: { rows: RemapRow[] }) {
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
-        {points.length} de {rows.length} remapeamentos com localização confirmada exibidos no mapa ·{" "}
-        {MAP_ATTRIBUTION_NOTE}
+        {remapPoints.length} de {rows.length} remapeamentos + {napPoints.length} CTO/CEO confirmadas em
+        intervenções de rede exibidas no mapa · {MAP_ATTRIBUTION_NOTE}
       </p>
       <div ref={ref} className="h-[520px] w-full overflow-hidden rounded-xl border border-blue-500/40" />
     </div>
