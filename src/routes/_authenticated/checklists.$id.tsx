@@ -12,7 +12,14 @@ import {
   Save,
   Trash2,
   MonitorUp,
+  WifiOff,
 } from "lucide-react";
+import {
+  queueChecklistUpdate,
+  getPendingChecklistUpdate,
+  drainPendingChecklistUpdates,
+  looksLikeNetworkFailure,
+} from "@/lib/offline-checklist-queue";
 
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
@@ -153,6 +160,7 @@ function ChecklistDetail() {
   const [data, setData] = useState<AnyChecklistData | null>(null);
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [offlineQueued, setOfflineQueued] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,7 +182,7 @@ function ChecklistDetail() {
 
   useEffect(() => {
     if (!row) return;
-    setHeader({
+    const baseHeader: HeaderPatch = {
       os: row.os,
       cliente: row.cliente,
       cidade: row.cidade,
@@ -190,22 +198,75 @@ function ChecklistDetail() {
       serial_ont_retirada: row.serial_ont_retirada,
       modelo_ont_instalada: row.modelo_ont_instalada,
       serial_ont_instalada: row.serial_ont_instalada,
+    };
+    let cancelled = false;
+    // Se existir uma edição feita offline ainda não sincronizada para este
+    // checklist, ela é mais recente que o que acabou de vir do servidor —
+    // sem isso, reabrir a tela sem rede (ou antes do sync terminar) faria
+    // o técnico "perder" o que preencheu, mesmo já estando salvo localmente.
+    getPendingChecklistUpdate(row.id).then((pending) => {
+      if (cancelled) return;
+      if (pending) {
+        const { dados, ...headerPatch } = pending.patch as HeaderPatch & {
+          dados?: AnyChecklistData;
+        };
+        setHeader({ ...baseHeader, ...headerPatch });
+        setData((dados as AnyChecklistData | undefined) ?? row.dados);
+        setOfflineQueued(true);
+      } else {
+        setHeader(baseHeader);
+        setData(row.dados);
+        setOfflineQueued(false);
+      }
+      setDirty(false);
     });
-    setData(row.dados);
-    setDirty(false);
+    return () => {
+      cancelled = true;
+    };
   }, [row?.id, row?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: async () => {
-      await updateChecklist(id, { ...header, dados: data ?? undefined });
+      const patch = { ...header, dados: data ?? undefined };
+      try {
+        await updateChecklist(id, patch);
+        return { queuedOffline: false };
+      } catch (error) {
+        if (!looksLikeNetworkFailure(error)) throw error;
+        await queueChecklistUpdate(id, patch);
+        return { queuedOffline: true };
+      }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setDirty(false);
       setSavedAt(new Date());
-      qc.invalidateQueries({ queryKey: ["checklists"] });
+      setOfflineQueued(result.queuedOffline);
+      if (!result.queuedOffline) qc.invalidateQueries({ queryKey: ["checklists"] });
     },
     onError: () => toast.error("Falha ao salvar. Verifique sua conexão."),
   });
+
+  // Tenta sincronizar a edição pendente deste checklist assim que a rede
+  // volta (evento 'online') e uma vez ao abrir a tela, caso já volte online
+  // entre uma visita e outra.
+  useEffect(() => {
+    if (!row?.id) return;
+    async function trySync() {
+      const { synced } = await drainPendingChecklistUpdates(async (checklistId, patch) => {
+        await updateChecklist(checklistId, patch);
+      });
+      if (synced.includes(row!.id)) {
+        setOfflineQueued(false);
+        setSavedAt(new Date());
+        qc.invalidateQueries({ queryKey: ["checklists"] });
+        qc.invalidateQueries({ queryKey: ["checklist", row!.id] });
+        toast.success("Sincronizado — as alterações feitas offline foram salvas.");
+      }
+    }
+    trySync();
+    window.addEventListener("online", trySync);
+    return () => window.removeEventListener("online", trySync);
+  }, [row?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!dirty || readOnly) return;
@@ -219,6 +280,14 @@ function ChecklistDetail() {
 
   const finalize = useMutation({
     mutationFn: async () => {
+      // Finalizar dispara geração de snapshot/PDF no servidor — não dá pra
+      // colocar na fila offline como o autosave. Bloqueia cedo com uma
+      // mensagem clara em vez de deixar a chamada falhar sem explicação.
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        throw new Error(
+          "Sem conexão. Os dados já estão salvos localmente — finalize quando a rede voltar.",
+        );
+      }
       await updateChecklist(id, { ...header, dados: data ?? undefined });
       return finalizeChecklist(id);
     },
@@ -228,7 +297,8 @@ function ChecklistDetail() {
       qc.invalidateQueries({ queryKey: ["checklist", id] });
       qc.invalidateQueries({ queryKey: ["checklists"] });
     },
-    onError: () => toast.error("Não foi possível finalizar."),
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Não foi possível finalizar."),
   });
 
   const missing = useMemo(() => {
@@ -379,6 +449,10 @@ function ChecklistDetail() {
               </Badge>
             ) : dirty ? (
               <Badge className="bg-white/20 text-white">Alterações pendentes</Badge>
+            ) : offlineQueued ? (
+              <Badge className="bg-amber-500/25 text-amber-200">
+                <WifiOff className="mr-1 h-3.5 w-3.5" /> Salvo localmente — sincroniza quando a rede voltar
+              </Badge>
             ) : savedAt ? (
               <Badge className="bg-white/20 text-white">
                 <Save className="mr-1 h-3.5 w-3.5" /> Salvo
