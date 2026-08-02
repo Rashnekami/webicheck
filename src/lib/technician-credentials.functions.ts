@@ -238,17 +238,13 @@ export const autoGenerateTechnicianCredential = createServerFn({ method: "POST" 
     const providerId = platformAdmin && data.providerId ? data.providerId : adminProviderId;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: login, error: loginErr } = await supabaseAdmin.rpc(
-      "generate_next_technician_login" as never,
-      { _provider_id: providerId } as never,
-    );
-    if (loginErr || !login) throw new Error("Falha ao gerar login.");
+    const login = await nextTechnicianLogin(supabaseAdmin, providerId);
     const password = randomTempPassword();
 
     const result = await createTechnicianCredential({
       data: {
         providerId: data.providerId,
-        login: login as unknown as string,
+        login,
         password,
         fullName: data.fullName,
         matricula: data.matricula,
@@ -259,14 +255,65 @@ export const autoGenerateTechnicianCredential = createServerFn({ method: "POST" 
       },
     });
 
-    const { error: mcpErr } = await supabaseAdmin
-      .from("profiles")
-      .update({ must_change_password: true } as never)
-      .eq("id", result.userId);
-    if (mcpErr) throw new Error("Credencial criada, mas falha ao exigir troca de senha.");
+    await tryRequirePasswordChange(supabaseAdmin, result.userId!);
 
     return { ...result, password };
   });
+
+/** Gera o próximo login tecNN pro provedor. Tenta a função do banco
+ * primeiro (generate_next_technician_login — atômica, evita corrida entre
+ * dois admins criando técnico ao mesmo tempo); se a migration que a criou
+ * ainda não foi aplicada no Supabase (função inexistente), calcula do lado
+ * do cliente a partir dos logins já cadastrados. Sem isso, criar usuário
+ * ficava completamente bloqueado até a migration rodar — mesmo sendo uma
+ * ação sem nada a ver com o hardening de auth em si. */
+async function nextTechnicianLogin(
+  supabaseAdmin: typeof import("@/integrations/supabase/client.server").supabaseAdmin,
+  providerId: string,
+): Promise<string> {
+  const { data: rpcLogin, error: rpcErr } = await supabaseAdmin.rpc(
+    "generate_next_technician_login" as never,
+    { _provider_id: providerId } as never,
+  );
+  if (!rpcErr && rpcLogin) return rpcLogin as unknown as string;
+
+  const { data: existing, error: listErr } = await supabaseAdmin
+    .from("provider_login_accounts")
+    .select("login")
+    .eq("provider_id", providerId)
+    .ilike("login", "tec%");
+  if (listErr) throw new Error("Falha ao gerar login.");
+
+  let next = 1;
+  for (const row of existing ?? []) {
+    const match = /^tec(\d+)$/i.exec((row as { login: string }).login);
+    if (match) next = Math.max(next, parseInt(match[1], 10) + 1);
+  }
+  const taken = new Set(
+    (existing ?? []).map((r: { login: string }) => r.login.toLowerCase()),
+  );
+  let candidate = `tec${String(next).padStart(2, "0")}`;
+  while (taken.has(candidate)) {
+    next += 1;
+    candidate = `tec${String(next).padStart(2, "0")}`;
+  }
+  return candidate;
+}
+
+/** must_change_password só existe depois da migration de auth hardening.
+ * Marcar isso é desejável mas não pode bloquear a criação do usuário —
+ * sem a coluna, o técnico só não é forçado a trocar a senha temporária no
+ * 1º acesso (login continua funcionando normalmente, ver
+ * fetchMustChangePassword em _authenticated/route.tsx). */
+async function tryRequirePasswordChange(
+  supabaseAdmin: typeof import("@/integrations/supabase/client.server").supabaseAdmin,
+  userId: string,
+): Promise<void> {
+  await supabaseAdmin
+    .from("profiles")
+    .update({ must_change_password: true } as never)
+    .eq("id", userId);
+}
 
 // Igual a resetTechnicianPassword, mas a senha temporária é gerada pelo
 // sistema (não digitada pelo admin) e marca must_change_password=true.
@@ -289,11 +336,7 @@ export const autoResetTechnicianPassword = createServerFn({ method: "POST" })
     const password = randomTempPassword();
     await resetTechnicianPassword({ data: { accountId: data.accountId, newPassword: password } });
 
-    const { error: mcpErr } = await supabaseAdmin
-      .from("profiles")
-      .update({ must_change_password: true } as never)
-      .eq("id", acc.user_id);
-    if (mcpErr) throw new Error("Senha redefinida, mas falha ao exigir troca.");
+    await tryRequirePasswordChange(supabaseAdmin, acc.user_id);
 
     return { ok: true, password };
   });
