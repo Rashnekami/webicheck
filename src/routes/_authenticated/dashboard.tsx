@@ -21,13 +21,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  PieChart,
-  Pie,
   Cell,
   Legend,
   ComposedChart,
   Area,
   Line,
+  LabelList,
 } from "recharts";
 import { toast } from "sonner";
 
@@ -644,96 +643,32 @@ function Dashboard() {
                 title="Principais problemas"
                 subtitle="Sintomas mais frequentes nas validações"
               >
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={agg.sintomas} layout="vertical" margin={{ left: 20 }}>
-                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
-                    <XAxis type="number" allowDecimals={false} />
-                    <YAxis type="category" dataKey="name" width={130} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      cursor={{ fill: "rgba(0,132,255,.08)" }}
-                    />
-                    <Bar dataKey="value" fill={COLORS[0]} radius={[0, 9, 9, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <RankingBarChart data={agg.sintomas} color={COLORS[0]} />
               </ChartCard>
 
               <ChartCard
                 title="Modelos mais trocados"
                 subtitle="Apenas trocas efetivamente realizadas"
               >
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={agg.modelos}>
-                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      cursor={{ fill: "rgba(0,132,255,.08)" }}
-                    />
-                    <Bar dataKey="value" fill={COLORS[1]} radius={[9, 9, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <RankingBarChart data={agg.modelos} color={COLORS[1]} />
               </ChartCard>
 
               <ChartCard
                 title="Analistas que mais liberaram trocas"
                 subtitle="Autorizações positivas do NOC"
               >
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={agg.analistas}>
-                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      cursor={{ fill: "rgba(0,132,255,.08)" }}
-                    />
-                    <Bar dataKey="value" fill={COLORS[2]} radius={[9, 9, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <RankingBarChart data={agg.analistas} color={COLORS[2]} />
               </ChartCard>
 
               <ChartCard
                 title="Técnicos que mais trocaram"
                 subtitle="Trocas fisicamente realizadas"
               >
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={agg.tecnicos}>
-                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" />
-                    <XAxis dataKey="name" />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      cursor={{ fill: "rgba(0,132,255,.08)" }}
-                    />
-                    <Bar dataKey="value" fill={COLORS[3]} radius={[9, 9, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <RankingBarChart data={agg.tecnicos} color={COLORS[3]} />
               </ChartCard>
 
               <ChartCard title="Cidades com mais trocas" subtitle="Distribuição geográfica">
-                <ResponsiveContainer width="100%" height={320}>
-                  <PieChart>
-                    <Pie
-                      data={agg.cidades}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={62}
-                      outerRadius={108}
-                      paddingAngle={3}
-                      stroke="#07152c"
-                      strokeWidth={3}
-                      label
-                    >
-                      {agg.cidades.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={TOOLTIP_STYLE} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                <RankingBarChart data={agg.cidades} color={COLORS[0]} multiColor />
               </ChartCard>
 
               <Card className="overflow-hidden">
@@ -798,7 +733,12 @@ function StatCard({
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="text-2xl font-extrabold tracking-tight text-white">{value}</p>
+          <p
+            className="text-2xl font-extrabold tracking-tight text-white"
+            style={{ fontVariantNumeric: "tabular-nums", fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
+          >
+            {value}
+          </p>
           <p className="text-xs font-medium text-slate-400">{label}</p>
           {sub && <p className="mt-0.5 text-[11px] text-cyan-400">{sub}</p>}
         </div>
@@ -829,6 +769,68 @@ function ChartCard({
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
+  );
+}
+
+// Ranking horizontal — o formato "top N" clássico de painel Grafana/Zabbix
+// (nome legível por inteiro à esquerda, valor no fim da barra à direita).
+// Substitui os antigos gráficos de barra vertical (nomes de técnico/
+// analista compridos se sobrepunham nos rótulos do eixo X, um em cima do
+// outro — parecia "nome errado" mas era sobreposição) e a pizza de
+// cidades (números dos rótulos cortavam nas fatias pequenas). Largura do
+// eixo de nomes é calculada a partir do maior nome do próprio conjunto de
+// dados, então nunca trunca.
+function RankingBarChart({
+  data,
+  color,
+  multiColor,
+}: {
+  data: { name: string; value: number }[];
+  color: string;
+  multiColor?: boolean;
+}) {
+  if (data.length === 0) {
+    return (
+      <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
+        Sem dados para os filtros atuais.
+      </div>
+    );
+  }
+  const longest = Math.max(...data.map((d) => d.name.length));
+  const nameWidth = Math.min(220, Math.max(90, longest * 7 + 16));
+  const height = Math.max(220, data.length * 38 + 40);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={data}
+        layout="vertical"
+        margin={{ left: 8, right: 28, top: 4, bottom: 4 }}
+        barCategoryGap={10}
+      >
+        <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" horizontal={false} />
+        <XAxis type="number" allowDecimals={false} />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={nameWidth}
+          tick={{ fontSize: 12 }}
+          tickLine={false}
+        />
+        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(0,132,255,.08)" }} />
+        <Bar dataKey="value" fill={color} radius={[0, 6, 6, 0]} maxBarSize={26}>
+          {multiColor &&
+            data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          <LabelList
+            dataKey="value"
+            position="right"
+            fill="#e2e8f0"
+            fontSize={12}
+            fontWeight={700}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 

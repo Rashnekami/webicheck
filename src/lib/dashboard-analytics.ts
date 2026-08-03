@@ -25,8 +25,14 @@ export const SINTOMA_LABELS: Record<string, string> = {
 
 // ---------- Normalização ----------
 
+// Chave = nome sem acento/minúsculo como o técnico pode ter digitado
+// (inclui formas abreviadas, não só variação de acento — ex.: "Telemaco"
+// sozinho, sem "Borba", que stripDiacritics+lowercase não resolveria
+// sozinho porque é uma cidade DIFERENTE de "Telemaco Borba" enquanto
+// string, não uma variação de acentuação da mesma).
 const CITY_ACCENT_MAP: Record<string, string> = {
   "telemaco borba": "Telêmaco Borba",
+  "telemaco": "Telêmaco Borba",
   "imbau": "Imbaú",
   "tibagi": "Tibagi",
   "ortigueira": "Ortigueira",
@@ -34,6 +40,7 @@ const CITY_ACCENT_MAP: Record<string, string> = {
   "reserva": "Reserva",
   "curiuva": "Curiúva",
   "sao jeronimo da serra": "São Jerônimo da Serra",
+  "sao jeronimo": "São Jerônimo da Serra",
   "ventania": "Ventania",
 };
 
@@ -41,7 +48,7 @@ function stripDiacritics(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function toTitleCase(s: string): string {
+export function toTitleCase(s: string): string {
   const small = new Set(["de", "da", "do", "das", "dos", "e"]);
   return s
     .split(/\s+/)
@@ -101,9 +108,16 @@ export function normalizeBoolean(v: unknown): boolean | null {
   return null;
 }
 
+// O nome do analista NOC é texto livre digitado a cada checklist (não um
+// cadastro único como o do técnico) — sem normalizar maiúsculas/minúsculas,
+// "Maria Silva", "maria silva" e "MARIA SILVA" viravam 3 barras diferentes
+// no gráfico em vez de uma só. toTitleCase resolve isso do mesmo jeito que
+// já resolvia pra cidade.
 export function normalizePersonName(raw: string | null | undefined): string {
   if (!raw) return "";
-  return raw.replace(/\s+/g, " ").trim();
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  return toTitleCase(cleaned);
 }
 
 export function splitSymptoms(v: unknown): string[] {
