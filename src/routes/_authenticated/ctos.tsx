@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, MapPinned, Loader2, Upload, Download } from "lucide-react";
+import { ArrowLeft, MapPinned, Loader2, Download, Save } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { parseCtoWorkbook, exportCtoReportXlsx, type CtoExportRow } from "@/lib/cto-import";
 import { matchCtoRemapStatus } from "@/lib/cto-remap.functions";
+import { importCtoReferenceSnapshot } from "@/lib/cto-reference.functions";
 
 export const Route = createFileRoute("/_authenticated/ctos")({
   head: () => ({
@@ -71,6 +72,19 @@ function CtosPage() {
     setFileNames(files.map((f) => f.name));
     processMutation.mutate(files);
   }
+
+  const saveSnapshotMutation = useMutation({
+    mutationFn: async (cidade: string) => {
+      const pontos = rows
+        .filter((r) => r.cidade === cidade)
+        .map((r) => ({ nome: r.nome, lat: r.lat, lng: r.lng }));
+      return importCtoReferenceSnapshot({
+        data: { cidade, filename: fileNames.join(", "), pontos },
+      });
+    },
+    onSuccess: (_data, cidade) => toast.success(`Referência de "${cidade}" salva (snapshot histórico).`),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao salvar referência."),
+  });
 
   if (userLoading)
     return (
@@ -167,6 +181,33 @@ function CtosPage() {
                   <Bar dataKey="pendentes" name="Pendentes" stackId="a" fill="#ef4444" />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="webi-nav-card space-y-2 p-4">
+            <h2 className="text-lg font-semibold">Salvar como referência oficial (OZmap)</h2>
+            <p className="text-xs text-slate-400">
+              Grava a localização importada como snapshot histórico por cidade. Fica registrada em
+              preto no mapa do checklist, ao lado da localização que o técnico confirmar em campo
+              (em verde). Cada importação cria um novo snapshot — não apaga o anterior.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {chartData.map((c) => (
+                <Button
+                  key={c.cidade}
+                  size="sm"
+                  variant="outline"
+                  disabled={saveSnapshotMutation.isPending}
+                  onClick={() => saveSnapshotMutation.mutate(c.cidade)}
+                >
+                  {saveSnapshotMutation.isPending && saveSnapshotMutation.variables === c.cidade ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Salvar {c.cidade} ({c.total})
+                </Button>
+              ))}
             </div>
           </section>
 

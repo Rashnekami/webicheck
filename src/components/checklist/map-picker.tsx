@@ -28,6 +28,10 @@ type Props = {
   confirmed?: boolean;
   initialStyle?: string | null;
   ativoLabel?: string;
+  /** Localização "oficial" de referência (ex.: importada do OZmap), mostrada
+   * em preto no mapa — só pra comparação visual, nunca editável aqui. */
+  referencePoint?: Point | null;
+  referenceLabel?: string;
   onConfirm: (lat: number, lng: number, meta: MapConfirmMeta) => void;
 };
 
@@ -48,6 +52,8 @@ export function MapPicker({
   confirmed,
   initialStyle,
   ativoLabel = "CTO",
+  referencePoint,
+  referenceLabel = "OZmap",
   onConfirm,
 }: Props) {
   const { key: apiKey, loading: keyLoading } = useArcgisBrowserKey();
@@ -55,6 +61,7 @@ export function MapPicker({
   const mapRef = useRef<any>(null);
   const ativoMarkerRef = useRef<any>(null);
   const gpsMarkerRef = useRef<any>(null);
+  const referenceMarkerRef = useRef<any>(null);
   const [mode, setMode] = useState<BasemapMode>(
     initialStyle ? basemapModeForStyle(initialStyle) : DEFAULT_BASEMAP_MODE,
   );
@@ -104,6 +111,19 @@ export function MapPicker({
           </div>`;
           gpsMarkerRef.current = new maplibre.Marker({ element: gpsEl })
             .setLngLat([userLocation.lng, userLocation.lat])
+            .addTo(map);
+        }
+
+        // Marcador de referência (ex.: OZmap): ponto preto, não arrastável,
+        // só pra comparação visual com a posição confirmada pelo técnico.
+        if (referencePoint) {
+          const refEl = document.createElement("div");
+          refEl.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center">
+            <span style="margin-bottom:2px;font:800 10px/1 system-ui;color:#fff;background:#000;border:1px solid #fff;border-radius:4px;padding:2px 5px">${referenceLabel}</span>
+            <div style="width:14px;height:14px;border-radius:50%;background:#000;border:3px solid #fff;box-shadow:0 0 0 3px rgba(0,0,0,.4)"></div>
+          </div>`;
+          referenceMarkerRef.current = new maplibre.Marker({ element: refEl })
+            .setLngLat([referencePoint.lng, referencePoint.lat])
             .addTo(map);
         }
 

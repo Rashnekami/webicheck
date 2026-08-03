@@ -36,6 +36,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { computeSplitterStats } from "@/lib/remapeamento-fibers";
+import { listCtoCoverage } from "@/lib/cto-reference.functions";
 import type { IntervencaoData, MapAtivoTipo, RemapeamentoData } from "@/lib/checklist-schema";
 import {
   BarChart,
@@ -542,6 +543,50 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
   );
 }
 
+function CtoCoverage() {
+  const q = useQuery({
+    queryKey: ["cto-coverage"],
+    queryFn: () => listCtoCoverage(),
+    staleTime: 60_000,
+  });
+  const data = q.data ?? [];
+  if (!q.isLoading && data.length === 0) return null;
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h3 className="mb-1 text-sm font-semibold">Cobertura de remapeamento por cidade</h3>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Compara o total de CTOs cadastradas no OZmap (última planilha importada em /ctos) com o
+          que já foi remapeado no sistema.
+        </p>
+        {q.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <div className="space-y-2">
+            {data.map((c) => (
+              <div key={c.cidade} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium">{c.cidade}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {c.remapeadas}/{c.total} · {c.percentual}%
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-emerald-500"
+                    style={{ width: `${Math.min(c.percentual, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function RemapIndicators({ rows }: { rows: RemapRow[] }) {
   const now = Date.now();
   const day = 86_400_000;
@@ -583,6 +628,7 @@ function RemapIndicators({ rows }: { rows: RemapRow[] }) {
 
   return (
     <div className="space-y-4">
+      <CtoCoverage />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total" value={rows.length} />
         <Stat label="Hoje" value={hoje} />

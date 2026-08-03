@@ -34,6 +34,7 @@ import {
 import { WebiCitySelect } from "@/components/checklist/webi-city-select";
 import { useChecklistAutoFill } from "@/hooks/use-checklist-autofill";
 import { MapPicker, type MapConfirmMeta } from "@/components/checklist/map-picker";
+import { getCtoReferencePoint } from "@/lib/cto-reference.functions";
 import {
   FIBER_COLORS,
   computeSplitterStats,
@@ -208,6 +209,18 @@ export function RemapeamentoForm({
     // Gera automaticamente a evidência cartográfica usada no PDF/imagem.
     autoSnapshotRef.current = `${lat.toFixed(6)},${lng.toFixed(6)}`;
   };
+  // Localização "oficial" de referência, do último snapshot importado do
+  // OZmap para essa CTO+cidade — só pra comparar visualmente com o que o
+  // técnico confirma em campo. Não bloqueia nada, é sempre informativo.
+  const ctoCodigo = data.identificacao.cto_codigo.trim();
+  const referenceQuery = useQuery({
+    queryKey: ["cto-reference-point", header.cidade, ctoCodigo],
+    queryFn: () => getCtoReferencePoint({ data: { cidade: header.cidade ?? "", nome: ctoCodigo } }),
+    enabled: !!header.cidade && ctoCodigo.length >= 2,
+    staleTime: 60_000,
+  });
+  const referencePoint = referenceQuery.data ?? null;
+
   // Posição oficial do ativo: apenas confirmação manual (nunca o GPS).
   const ativoPos =
     data.localizacao.ativo?.confirmed && typeof data.localizacao.ativo.lat === "number"
@@ -366,6 +379,8 @@ export function RemapeamentoForm({
             confirmed={!!ativoPos}
             initialStyle={data.localizacao.meta?.basemap_style ?? null}
             ativoLabel="CTO"
+            referencePoint={referencePoint}
+            referenceLabel="OZmap"
             onConfirm={confirmMarker}
           />
         ) : (
@@ -373,6 +388,26 @@ export function RemapeamentoForm({
             Toque em <b>Capturar minha localização</b> para abrir o mapa em modo satélite e posicionar o poste da CTO.
           </div>
         )}
+
+        {referencePoint && ativoPos && (() => {
+          const distanciaRef = haversineMeters(referencePoint, ativoPos);
+          const fora = distanciaRef > 30;
+          return (
+            <div
+              className={
+                "rounded-lg border p-2 text-xs " +
+                (fora
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                  : "border-slate-600/40 bg-slate-800/30 text-slate-400")
+              }
+            >
+              {fora ? "⚠ " : ""}
+              Distância entre a posição confirmada e a localização registrada no OZmap:{" "}
+              <b>{Math.round(distanciaRef)} m</b>
+              {fora ? " — divergência grande, mas isso não impede finalizar o checklist." : "."}
+            </div>
+          );
+        })()}
 
         {ativoPos ? (
           <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
@@ -645,8 +680,18 @@ export function RemapeamentoForm({
         />
       </Section>
 
-      {/* 10 Finalização */}
-      <Section n={10} title="Finalização">
+      {/* 10 Sinal da fibra */}
+      <Section n={10} title="Foto do sinal da fibra (potência/OTDR)">
+        <RemapPhotos
+          checklistId={checklistId}
+          tecnicoId={tecnicoId}
+          slot="sinal_fibra"
+          readOnly={readOnly}
+        />
+      </Section>
+
+      {/* 11 Finalização */}
+      <Section n={11} title="Finalização">
         <div className="flex flex-wrap gap-2">
           {(["sim", "parcialmente"] as const).map((v) => (
             <Button
@@ -837,7 +882,7 @@ function RemapPhotos({
 }: {
   checklistId: string;
   tecnicoId: string;
-  slot: "antes" | "depois";
+  slot: "antes" | "depois" | "sinal_fibra";
   readOnly?: boolean;
 }) {
   const qc = useQueryClient();
@@ -883,7 +928,9 @@ function RemapPhotos({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["remap-fotos", checklistId] });
       qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] });
-      toast.success(slot === "antes" ? "Foto(s) ANTES anexada(s)." : "Foto(s) DEPOIS anexada(s).");
+      const label =
+        slot === "antes" ? "ANTES" : slot === "depois" ? "DEPOIS" : "de sinal da fibra";
+      toast.success(`Foto(s) ${label} anexada(s).`);
     },
     onError: () => toast.error("Falha no upload."),
   });

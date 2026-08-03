@@ -560,6 +560,7 @@ export interface FotoRow {
     | "teste_wifi"
     | "antes"
     | "depois"
+    | "sinal_fibra"
     | "outro";
   storage_path: string;
   legenda: string | null;
@@ -577,6 +578,7 @@ export const FOTO_CATEGORIAS: {
   { value: "teste_wifi", label: "Teste Wi-Fi" },
   { value: "antes", label: "Antes da intervenção" },
   { value: "depois", label: "Depois da intervenção" },
+  { value: "sinal_fibra", label: "Sinal da fibra (potência/OTDR)" },
   { value: "outro", label: "Outro" },
 ];
 
@@ -587,11 +589,13 @@ export const FOTO_CATEGORIAS_REDE: {
 }[] = [
   { value: "antes", label: "Antes da intervenção" },
   { value: "depois", label: "Depois da intervenção" },
+  { value: "sinal_fibra", label: "Sinal da fibra (potência/OTDR)" },
   { value: "etiqueta", label: "Etiqueta / identificação" },
   { value: "outro", label: "Outro" },
 ];
 
 export function fotoCategoriaLabel(value: FotoRow["categoria"]): string {
+  if (value === "sinal_fibra") return "Sinal da fibra";
   return FOTO_CATEGORIAS.find((c) => c.value === value)?.label ?? value;
 }
 
@@ -605,10 +609,12 @@ export function fotoCategoriaSortWeight(categoria: FotoRow["categoria"]): number
       return 0;
     case "depois":
       return 1;
-    case "etiqueta":
+    case "sinal_fibra":
       return 2;
-    default:
+    case "etiqueta":
       return 3;
+    default:
+      return 4;
   }
 }
 
