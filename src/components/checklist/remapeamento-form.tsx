@@ -910,7 +910,7 @@ function RemapPhotos({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) up.mutate(f);
+              if (f) up.mutate([f]);
               e.currentTarget.value = "";
             }}
           />
@@ -918,10 +918,12 @@ function RemapPhotos({
             ref={galleryRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) up.mutate(f);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > MAX_FILES) toast.info(`Máximo de ${MAX_FILES} fotos por vez.`);
+              if (files.length) up.mutate(files);
               e.currentTarget.value = "";
             }}
           />
@@ -930,8 +932,9 @@ function RemapPhotos({
             Tirar foto
           </Button>
           <Button type="button" variant="outline" onClick={() => galleryRef.current?.click()} disabled={up.isPending}>
-            <Images className="mr-1.5 h-4 w-4" /> Galeria
+            <Images className="mr-1.5 h-4 w-4" /> Galeria (até {MAX_FILES})
           </Button>
+
         </div>
       )}
       {fotos.length === 0 ? (
