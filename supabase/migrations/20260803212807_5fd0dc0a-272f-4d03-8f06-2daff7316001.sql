@@ -1,0 +1,1 @@
+ALTER TYPE public.foto_categoria ADD VALUE IF NOT EXISTS 'sinal_fibra';

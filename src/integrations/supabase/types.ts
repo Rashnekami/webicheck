@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_logs: {
+        Row: {
+          created_at: string
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
+          id: string
+          ip: string | null
+          method: string
+          provider_id: string | null
+          route: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
+          id?: string
+          ip?: string | null
+          method: string
+          provider_id?: string | null
+          route: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
+          id?: string
+          ip?: string | null
+          method?: string
+          provider_id?: string | null
+          route?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_logs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_authorization_requests: {
         Row: {
           agent_version: string | null
@@ -647,6 +697,99 @@ export type Database = {
         }
         Relationships: []
       }
+      cto_reference_points: {
+        Row: {
+          cidade: string
+          id: string
+          lat: number | null
+          lng: number | null
+          nome: string
+          nome_normalizado: string
+          provider_id: string
+          snapshot_id: string
+        }
+        Insert: {
+          cidade: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          nome: string
+          nome_normalizado: string
+          provider_id: string
+          snapshot_id: string
+        }
+        Update: {
+          cidade?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          nome?: string
+          nome_normalizado?: string
+          provider_id?: string
+          snapshot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cto_reference_points_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_reference_points_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "cto_reference_latest"
+            referencedColumns: ["snapshot_id"]
+          },
+          {
+            foreignKeyName: "cto_reference_points_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "cto_reference_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cto_reference_snapshots: {
+        Row: {
+          cidade: string
+          created_at: string
+          filename: string | null
+          id: string
+          imported_by: string | null
+          provider_id: string
+          total_ctos: number
+        }
+        Insert: {
+          cidade: string
+          created_at?: string
+          filename?: string | null
+          id?: string
+          imported_by?: string | null
+          provider_id: string
+          total_ctos?: number
+        }
+        Update: {
+          cidade?: string
+          created_at?: string
+          filename?: string | null
+          id?: string
+          imported_by?: string | null
+          provider_id?: string
+          total_ctos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cto_reference_snapshots_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_counterproof_events: {
         Row: {
           actor_type: string
@@ -820,6 +963,56 @@ export type Database = {
         }
         Relationships: []
       }
+      login_attempts: {
+        Row: {
+          created_at: string
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
+          id: string
+          ip: string | null
+          login: string
+          provider_id: string | null
+          reason: string | null
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
+          id?: string
+          ip?: string | null
+          login: string
+          provider_id?: string | null
+          reason?: string | null
+          success: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
+          id?: string
+          ip?: string | null
+          login?: string
+          provider_id?: string | null
+          reason?: string | null
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "login_attempts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ont_exchange_ticket_counters: {
         Row: {
           last_value: number
@@ -935,6 +1128,7 @@ export type Database = {
           full_name: string
           id: string
           matricula: string | null
+          must_change_password: boolean
           phone: string | null
           platform_admin: boolean
           provider_id: string
@@ -951,6 +1145,7 @@ export type Database = {
           full_name?: string
           id: string
           matricula?: string | null
+          must_change_password?: boolean
           phone?: string | null
           platform_admin?: boolean
           provider_id: string
@@ -967,6 +1162,7 @@ export type Database = {
           full_name?: string
           id?: string
           matricula?: string | null
+          must_change_password?: boolean
           phone?: string | null
           platform_admin?: boolean
           provider_id?: string
@@ -978,6 +1174,32 @@ export type Database = {
             foreignKeyName: "profiles_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_checklist_counters: {
+        Row: {
+          last_number: number
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          last_number?: number
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          last_number?: number
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_checklist_counters_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
             referencedRelation: "providers"
             referencedColumns: ["id"]
           },
@@ -1074,9 +1296,11 @@ export type Database = {
           name: string
           pdf_template: string
           primary_color: string | null
+          public_code_prefix: string | null
           slug: string
           status: string
           updated_at: string
+          validation_code_prefix: string | null
         }
         Insert: {
           accent_color?: string | null
@@ -1086,9 +1310,11 @@ export type Database = {
           name: string
           pdf_template?: string
           primary_color?: string | null
+          public_code_prefix?: string | null
           slug: string
           status?: string
           updated_at?: string
+          validation_code_prefix?: string | null
         }
         Update: {
           accent_color?: string | null
@@ -1098,9 +1324,11 @@ export type Database = {
           name?: string
           pdf_template?: string
           primary_color?: string | null
+          public_code_prefix?: string | null
           slug?: string
           status?: string
           updated_at?: string
+          validation_code_prefix?: string | null
         }
         Relationships: []
       }
@@ -1275,7 +1503,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      cto_reference_latest: {
+        Row: {
+          cidade: string | null
+          created_at: string | null
+          provider_id: string | null
+          snapshot_id: string | null
+          total_ctos: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cto_reference_snapshots_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       consume_agent_authorization: {
@@ -1328,6 +1573,10 @@ export type Database = {
         Args: { _tipo: Database["public"]["Enums"]["checklist_tipo"] }
         Returns: Json
       }
+      generate_next_technician_login: {
+        Args: { _provider_id: string }
+        Returns: string
+      }
       has_city_exception: {
         Args: { _city: string; _os: string; _user_id: string }
         Returns: boolean
@@ -1368,6 +1617,7 @@ export type Database = {
       }
       norm_city: { Args: { _city: string }; Returns: string }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
+      purge_old_security_logs: { Args: never; Returns: undefined }
       review_checklist: {
         Args: { _comment?: string; _decision: string; _id: string }
         Returns: {
@@ -1414,6 +1664,7 @@ export type Database = {
         | "outro"
         | "antes"
         | "depois"
+        | "sinal_fibra"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1560,6 +1811,7 @@ export const Constants = {
         "outro",
         "antes",
         "depois",
+        "sinal_fibra",
       ],
     },
   },
