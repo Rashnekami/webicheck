@@ -14,6 +14,7 @@ import {
   Megaphone,
   Building2,
   PackageSearch,
+  MapPinned,
   CheckCircle2,
   FileClock,
   Wifi,
@@ -323,6 +324,14 @@ function Painel() {
                       icon={BarChart3}
                       title="Dashboard"
                       description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
+                    />
+                  )}
+                  {(user.isAdmin || user.isSupervisor || user.isPlatformAdmin) && (
+                    <HomeNavCard
+                      to="/ctos"
+                      icon={MapPinned}
+                      title="CTOs por cidade"
+                      description="Importe planilhas de CTOs e veja o status de remapeamento por cidade."
                     />
                   )}
                   {(user.isAdmin || user.isWarehouse) && (
