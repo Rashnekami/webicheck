@@ -381,6 +381,15 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
   const basemapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const [mode, setMode] = useState<BasemapMode>(DEFAULT_BASEMAP_MODE);
+  // O mapa é criado assim que a chave ArcGIS chega, o que quase sempre
+  // acontece ANTES dos remapeamentos terminarem de carregar (useQuery
+  // assíncrono). Sem este estado, o efeito que desenha os marcadores só
+  // reagia a mudanças em `points` — se `points` ainda estivesse vazio no
+  // instante exato em que o mapa terminava de ser instanciado, o efeito
+  // rodava com `map` nulo, saía sem fazer nada, e nunca era re-executado
+  // depois (o mapa ficava preso no centro padrão/fallback, sem marcador
+  // nenhum, mesmo a legenda dizendo "N de N exibidos no mapa").
+  const [mapReady, setMapReady] = useState(false);
 
   const remapPoints = useMemo(
     () =>
@@ -425,11 +434,13 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
       });
       mapRef.current = map;
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+      setMapReady(true);
     })();
     return () => {
       cancelled = true;
       mapRef.current?.remove?.();
       mapRef.current = null;
+      setMapReady(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiKey]);
@@ -441,7 +452,7 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady) return;
     let cancelled = false;
     (async () => {
       const maplibre = await import("maplibre-gl");
@@ -492,7 +503,7 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
     return () => {
       cancelled = true;
     };
-  }, [points]);
+  }, [points, mapReady]);
 
   if (!apiKey) {
     return (
