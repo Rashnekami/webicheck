@@ -428,10 +428,22 @@ function RemapeamentoDocument({
                 ))}
               </>
             ) : (
-              <Text style={{ color: C.muted, fontSize: 7.4 }}>
-                {d.fusao?.necessaria === "nao"
-                  ? "Nenhuma fusão necessária."
-                  : "Nenhuma fusão registrada."}
+              // Um técnico pode marcar "Sim, foi necessário" e não chegar a
+              // detalhar nenhuma fibra (o formulário permite isso). Tratar
+              // esse caso igual a "não necessária" faz o documento afirmar
+              // o oposto do que o técnico marcou — bug real reportado.
+              <Text
+                style={{
+                  color: d.fusao?.necessaria === "sim" ? C.amber : C.muted,
+                  fontSize: 7.4,
+                  fontWeight: d.fusao?.necessaria === "sim" ? 700 : 400,
+                }}
+              >
+                {d.fusao?.necessaria === "sim"
+                  ? "Fusão marcada como necessária pelo técnico, mas nenhuma fibra foi detalhada."
+                  : d.fusao?.necessaria === "nao"
+                    ? "Nenhuma fusão necessária."
+                    : "Fusão não informada."}
               </Text>
             )}
           </View>

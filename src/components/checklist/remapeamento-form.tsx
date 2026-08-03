@@ -845,22 +845,23 @@ function RemapPhotos({
     queryKey: ["remap-fotos", checklistId],
     queryFn: () => listFotos(checklistId),
   });
-  const fotos = (query.data ?? []).filter((f) =>
-    slot === "antes"
-      ? (f.legenda ?? "").startsWith("antes")
-      : (f.legenda ?? "").startsWith("depois"),
+  // Bug real encontrado: o upload gravava categoria fixa "outro" e tentava
+  // distinguir antes/depois só por uma legenda de texto livre
+  // ("antes-cto"/"depois-cto") que NENHUM outro lugar do sistema lia — nem
+  // o PDF, nem a imagem, nem o link público, que agrupam/rotulam por
+  // `categoria`. Resultado: essas fotos sempre caíam no grupo "Outro" em
+  // todo documento, nunca separadas em Antes/Depois de verdade. Corrigido
+  // pra gravar a categoria real ("antes"/"depois"). O filtro abaixo ainda
+  // aceita o padrão antigo de legenda pra não esconder fotos já enviadas
+  // antes deste fix.
+  const fotos = (query.data ?? []).filter(
+    (f) => f.categoria === slot || (f.legenda ?? "").startsWith(slot),
   );
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
   const up = useMutation({
-    mutationFn: async (file: File) => {
-      const created = await uploadFoto({ checklistId, tecnicoId, categoria: "outro", file });
-      // grava legenda semântica
-      const { supabase } = await import("@/integrations/supabase/client");
-      await supabase.from("checklist_fotos").update({ legenda: `${slot}-cto` }).eq("id", created.id);
-      return created;
-    },
+    mutationFn: (file: File) => uploadFoto({ checklistId, tecnicoId, categoria: slot, file }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["remap-fotos", checklistId] });
       qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] });

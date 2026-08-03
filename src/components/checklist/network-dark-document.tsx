@@ -573,11 +573,26 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
                     }))}
                   />
                 ) : (
-                  <Body>
-                    {remap.fusao?.necessaria === "nao"
-                      ? "Nenhuma fusão necessária."
-                      : "Nenhuma fusão registrada."}
-                  </Body>
+                  // Um técnico pode marcar "Sim, foi necessário" sem chegar
+                  // a detalhar nenhuma fibra (o formulário permite isso).
+                  // Tratar esse caso igual a "não necessária" faz o
+                  // documento afirmar o oposto do que foi marcado — bug
+                  // real reportado (link público dizia "não" quando o
+                  // checklist tinha "sim" marcado).
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      fontWeight: remap.fusao?.necessaria === "sim" ? 700 : 400,
+                      color: remap.fusao?.necessaria === "sim" ? C.amber : C.muted,
+                    }}
+                  >
+                    {remap.fusao?.necessaria === "sim"
+                      ? "Fusão marcada como necessária pelo técnico, mas nenhuma fibra foi detalhada."
+                      : remap.fusao?.necessaria === "nao"
+                        ? "Nenhuma fusão necessária."
+                        : "Fusão não informada."}
+                  </p>
                 )}
               </Panel>
 
