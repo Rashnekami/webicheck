@@ -123,7 +123,7 @@ function Header({ version }: { version?: number | null }) {
         VALIDAÇÃO DE <span style={{ color: C.cyan }}>ONT</span>
       </div>
       <div style={{ color: C.muted, fontSize: 13, marginTop: 5 }}>
-        Checklist técnico oficial · uso interno Webifibra
+        Checklist técnico oficial · uso interno
         {version && version > 1 ? ` · versão ${version}` : ""}
       </div>
     </div>
@@ -421,7 +421,10 @@ function SignatureCard({
   );
 }
 
-function Footer({ code }: { code: string }) {
+// Nome do provedor vem do snapshot (header.provider_name). Documento
+// antigo, gerado antes desse campo existir, é necessariamente da
+// Webifibra — daí o fallback preservar o rodapé exatamente como era.
+function Footer({ code, provedor }: { code: string; provedor?: string | null }) {
   return (
     <div
       style={{
@@ -434,7 +437,7 @@ function Footer({ code }: { code: string }) {
         fontSize: 9,
       }}
     >
-      <b style={{ color: C.text }}>Webifibra · Conectividade que aproxima</b>
+      <b style={{ color: C.text }}>{provedor || "Webifibra"}</b>
       <span>{code}</span>
     </div>
   );
@@ -833,7 +836,10 @@ export const ValidationDarkDocument = forwardRef<HTMLDivElement, Props>(
             </div>
           </div>
 
-          <Footer code={payload.checklist_code || payload.numero_publico || "—"} />
+          <Footer
+            code={payload.checklist_code || payload.numero_publico || "—"}
+            provedor={h.provider_name as string | undefined}
+          />
         </Frame>
       </div>
     );

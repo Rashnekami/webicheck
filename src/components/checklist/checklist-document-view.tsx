@@ -404,7 +404,7 @@ function CustomerCounterproofDocumentSection({
           justifyContent: "space-between",
         }}
       >
-        <span>Webifibra · Contra-Prova {counterproof.code}</span>
+        <span>Contra-Prova {counterproof.code}</span>
         <span>Checklist {counterproof.checklist_code}</span>
       </div>
     </div>

@@ -123,6 +123,18 @@ export const ensureChecklistSnapshot = createServerFn({ method: "POST" })
       .eq("id", chk.tecnico_id)
       .maybeSingle();
 
+    // Nome do provedor gravado NO snapshot (não consultado na hora de
+    // exibir): o documento é uma foto imutável do atendimento, então se o
+    // ISP mudar de nome depois, o documento já emitido continua mostrando
+    // o nome que valia na data — igual a uma nota fiscal.
+    const { data: prov } = chk.provider_id
+      ? await supabaseAdmin
+          .from("providers")
+          .select("name")
+          .eq("id", chk.provider_id)
+          .maybeSingle()
+      : { data: null };
+
     // Descobre próxima versão
     const { data: last } = await supabaseAdmin
       .from("checklist_document_snapshots")
@@ -157,6 +169,7 @@ export const ensureChecklistSnapshot = createServerFn({ method: "POST" })
         // só enxerga o que está neste header — sem isso, o campo nunca
         // chegava na imagem por mais que a UI tentasse exibi-lo.
         exchange_ticket_code: chk.exchange_ticket_code,
+        provider_name: ((prov as { name?: string } | null)?.name ?? "").trim() || null,
       },
       dados: (chk.dados as unknown as { [k: string]: JsonValue }) ?? {},
       tecnico: {
