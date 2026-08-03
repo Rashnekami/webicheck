@@ -19,6 +19,7 @@ import {
   MapPin,
   Zap,
   KeyRound,
+  Menu,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +39,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { InstallButton } from "@/components/pwa/install-button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { listAnnouncements } from "@/lib/provider-admin.functions";
 import { getChecklistCounts } from "@/lib/checklists";
 
@@ -280,98 +289,112 @@ function Painel() {
               <p className="text-xs font-semibold uppercase tracking-[.2em] text-cyan-400">
                 Central operacional
               </p>
-              <h2 className="mt-1 text-xl font-bold text-white">Acessos principais</h2>
+              <h2 className="mt-1 text-xl font-bold text-white">Fazer checklist</h2>
             </div>
+            {/* O resto (dashboard, remapeamentos, usuários etc.) era uma
+                grade de até 11 cards sempre visíveis — poluía a tela
+                inicial. Fica escondido num submenu; só a ação principal
+                (checklist) continua em destaque. */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Menu className="mr-1.5 h-4 w-4" /> Mais opções
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+                <SheetHeader>
+                  <SheetTitle>Mais opções</SheetTitle>
+                  <SheetDescription>Acessos administrativos e operacionais.</SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 grid gap-3">
+                  {user.isAdmin && (
+                    <HomeNavCard
+                      to="/dashboard"
+                      icon={BarChart3}
+                      title="Dashboard"
+                      description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
+                    />
+                  )}
+                  {(user.isAdmin || user.isWarehouse) && (
+                    <HomeNavCard
+                      to="/trocas-ont"
+                      icon={PackageSearch}
+                      title="Trocas de ONT"
+                      description="Consulte ticket, equipamento retirado, serial e motivo."
+                    />
+                  )}
+                  <HomeNavCard
+                    to="/remapeamentos"
+                    icon={MapPin}
+                    title="Remapeamentos"
+                    description="CTOs/NAPs remapeadas com código RMAP, mapa satélite e indicadores."
+                  />
+                  <HomeNavCard
+                    to="/intervencoes"
+                    icon={Zap}
+                    title="Intervenções de rede"
+                    description="Rompimentos, readequações e melhorias de sinal com rota, OTDR e indicadores."
+                  />
+                  <HomeNavCard
+                    to="/minha-conta"
+                    icon={KeyRound}
+                    title="Minha conta"
+                    description="Vincule sua conta Google para entrar sem digitar login e senha."
+                  />
+                  <HomeNavCard
+                    to="/informativos"
+                    icon={Megaphone}
+                    title="Informativos"
+                    description="Plantões e comunicados operacionais da equipe."
+                  />
+                  {user.isAdmin && (
+                    <HomeNavCard
+                      to="/provedor"
+                      icon={Building2}
+                      title="Provedor e dispositivos"
+                      description="Situação comercial e computadores autorizados."
+                    />
+                  )}
+                  {user.isAdmin && (
+                    <HomeNavCard
+                      to="/usuarios"
+                      icon={UsersRound}
+                      title="Usuários"
+                      description="Consulte cadastros, edite perfis e controle acessos."
+                    />
+                  )}
+                  {(user.isAdmin || user.isPlatformAdmin) && (
+                    <HomeNavCard
+                      to="/plataforma"
+                      icon={ShieldCheck}
+                      title={user.isPlatformAdmin ? "Plataforma" : "Credenciais do provedor"}
+                      description={
+                        user.isPlatformAdmin
+                          ? "Crie provedores, personalize logo/cores/template e gere logins internos."
+                          : "Crie logins e senhas para sua equipe."
+                      }
+                    />
+                  )}
+                  <HomeNavCard
+                    to="/integracoes"
+                    icon={PenLine}
+                    title="Integrações"
+                    description="Chaves para o Webi Diagnostic enviar documentos ao checklist."
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <HomeNavCard
-              to="/checklists"
-              icon={ClipboardList}
-              title={user.isAdmin ? "Todos os checklists" : "Meus checklists"}
-              description={
-                user.isAdmin
-                  ? "Fiscalize atendimentos, filtre por técnico e cidade e baixe documentos."
-                  : "Registre novos atendimentos ou continue rascunhos em andamento."
-              }
-            />
-            {user.isAdmin && (
-              <HomeNavCard
-                to="/dashboard"
-                icon={BarChart3}
-                title="Dashboard"
-                description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
-              />
-            )}
-            {(user.isAdmin || user.isWarehouse) && (
-              <HomeNavCard
-                to="/trocas-ont"
-                icon={PackageSearch}
-                title="Trocas de ONT"
-                description="Consulte ticket, equipamento retirado, serial e motivo."
-              />
-            )}
-            <HomeNavCard
-              to="/remapeamentos"
-              icon={MapPin}
-              title="Remapeamentos"
-              description="CTOs/NAPs remapeadas com código RMAP, mapa satélite e indicadores."
-            />
-
-            <HomeNavCard
-              to="/intervencoes"
-              icon={Zap}
-              title="Intervenções de rede"
-              description="Rompimentos, readequações e melhorias de sinal com rota, OTDR e indicadores."
-            />
-
-
-            <HomeNavCard
-              to="/minha-conta"
-              icon={KeyRound}
-              title="Minha conta"
-              description="Vincule sua conta Google para entrar sem digitar login e senha."
-            />
-            <HomeNavCard
-              to="/informativos"
-              icon={Megaphone}
-              title="Informativos"
-              description="Plantões e comunicados operacionais da equipe."
-            />
-            {user.isAdmin && (
-              <HomeNavCard
-                to="/provedor"
-                icon={Building2}
-                title="Provedor e dispositivos"
-                description="Situação comercial e computadores autorizados."
-              />
-            )}
-            {user.isAdmin && (
-              <HomeNavCard
-                to="/usuarios"
-                icon={UsersRound}
-                title="Usuários"
-                description="Consulte cadastros, edite perfis e controle acessos."
-              />
-            )}
-            {(user.isAdmin || user.isPlatformAdmin) && (
-              <HomeNavCard
-                to="/plataforma"
-                icon={ShieldCheck}
-                title={user.isPlatformAdmin ? "Plataforma" : "Credenciais do provedor"}
-                description={
-                  user.isPlatformAdmin
-                    ? "Crie provedores, personalize logo/cores/template e gere logins internos."
-                    : "Crie logins e senhas para sua equipe."
-                }
-              />
-            )}
-            <HomeNavCard
-              to="/integracoes"
-              icon={PenLine}
-              title="Integrações"
-              description="Chaves para o Webi Diagnostic enviar documentos ao checklist."
-            />
-          </div>
+          <HomeNavCard
+            to="/checklists"
+            icon={ClipboardList}
+            title={user.isAdmin ? "Todos os checklists" : "Meus checklists"}
+            description={
+              user.isAdmin
+                ? "Fiscalize atendimentos, filtre por técnico e cidade e baixe documentos."
+                : "Registre novos atendimentos ou continue rascunhos em andamento."
+            }
+          />
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">

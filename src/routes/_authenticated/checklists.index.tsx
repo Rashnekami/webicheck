@@ -11,6 +11,8 @@ import {
   Wrench,
   BarChart3,
   UserRound,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -20,7 +22,7 @@ import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import {
@@ -105,6 +107,17 @@ function ChecklistsList() {
       .some((v) => (v as string).toLowerCase().includes(needle));
   });
 
+  // Lista pode ter centenas/milhares de checklists — sem paginação a tela
+  // renderizava tudo de uma vez. 10 por página, reseta ao trocar busca/aba.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [q, tab]);
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="webi-page min-h-screen">
       <header className="brand-gradient text-white">
@@ -185,7 +198,7 @@ function ChecklistsList() {
               </Card>
             ) : (
               <ul className="space-y-2">
-                {items.map((c) => (
+                {pageItems.map((c) => (
                   <li key={c.id}>
                     <Card className="webi-nav-card">
                       <CardContent className="flex items-start justify-between gap-3 p-4">
@@ -288,6 +301,31 @@ function ChecklistsList() {
                   </li>
                 ))}
               </ul>
+            )}
+            {items.length > PAGE_SIZE && (
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Página {currentPage} de {pageCount} · {items.length} checklist(s)
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= pageCount}
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  >
+                    Próxima <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             )}
           </TabsContent>
         </Tabs>
