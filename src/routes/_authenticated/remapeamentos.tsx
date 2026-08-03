@@ -550,7 +550,6 @@ function CtoCoverage() {
     staleTime: 60_000,
   });
   const data = q.data ?? [];
-  if (!q.isLoading && data.length === 0) return null;
 
   return (
     <Card>
@@ -562,6 +561,19 @@ function CtoCoverage() {
         </p>
         {q.isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : q.isError ? (
+          <p className="text-sm text-rose-400">
+            Falha ao carregar: {q.error instanceof Error ? q.error.message : "erro desconhecido"}.
+            Confirme se a migration de referência de CTO já foi aplicada.
+          </p>
+        ) : data.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhuma referência de CTO salva ainda. Importe a planilha em{" "}
+            <Link to="/ctos" className="underline">
+              /ctos
+            </Link>{" "}
+            e clique em "Salvar {"{cidade}"}" pra gerar o primeiro snapshot.
+          </p>
         ) : (
           <div className="space-y-2">
             {data.map((c) => (
