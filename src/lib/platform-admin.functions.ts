@@ -92,6 +92,12 @@ export const listAllProviders = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Prefixo do numero_publico: LETRAS puras, sem hífen — parseChecklistCode
+// distingue numero_publico de codigo_validacao pela forma (ver
+// src/lib/checklist-code.ts), então um prefixo com hífen ou dígito
+// quebraria essa distinção para todo checklist deste provedor.
+const CODE_PREFIX_RE = /^[A-Z]{2,15}$/;
+
 export const createProvider = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -102,6 +108,8 @@ export const createProvider = createServerFn({ method: "POST" })
       accent_color?: string | null;
       pdf_template?: "dark-neon" | "light-classic";
       logo_url?: string | null;
+      public_code_prefix?: string | null;
+      validation_code_prefix?: string | null;
     }) => {
       const name = data.name?.trim();
       const slug = data.slug?.trim().toLowerCase();
@@ -111,6 +119,12 @@ export const createProvider = createServerFn({ method: "POST" })
       const tpl = data.pdf_template ?? "dark-neon";
       if (!["dark-neon", "light-classic"].includes(tpl))
         throw new Error("Template de PDF inválido.");
+      const publicPrefix = data.public_code_prefix?.trim().toUpperCase() || null;
+      const validationPrefix = data.validation_code_prefix?.trim().toUpperCase() || null;
+      if (publicPrefix && !CODE_PREFIX_RE.test(publicPrefix))
+        throw new Error("Prefixo do código público deve ter só letras (2 a 15).");
+      if (validationPrefix && !CODE_PREFIX_RE.test(validationPrefix))
+        throw new Error("Prefixo do código de validação deve ter só letras (2 a 15).");
       return {
         name,
         slug,
@@ -118,6 +132,8 @@ export const createProvider = createServerFn({ method: "POST" })
         accent_color: data.accent_color?.trim() || null,
         pdf_template: tpl,
         logo_url: data.logo_url?.trim() || null,
+        public_code_prefix: publicPrefix,
+        validation_code_prefix: validationPrefix,
       };
     },
   )
@@ -134,6 +150,11 @@ export const createProvider = createServerFn({ method: "POST" })
         accent_color: data.accent_color,
         pdf_template: data.pdf_template,
         logo_url: data.logo_url,
+        // Sem prefixo explícito, a migration 20260802130000 já cobre isso
+        // no trigger de finalização (deriva do slug automaticamente) —
+        // aqui só gravamos quando o admin escolheu algo diferente.
+        public_code_prefix: data.public_code_prefix,
+        validation_code_prefix: data.validation_code_prefix,
       } as never)
       .select()
       .single();
@@ -151,7 +172,23 @@ export const updateProviderBranding = createServerFn({ method: "POST" })
       accent_color?: string | null;
       pdf_template?: "dark-neon" | "light-classic";
       logo_url?: string | null;
-    }) => data,
+      public_code_prefix?: string | null;
+      validation_code_prefix?: string | null;
+    }) => {
+      if (data.public_code_prefix !== undefined && data.public_code_prefix !== null) {
+        const v = data.public_code_prefix.trim().toUpperCase();
+        if (v && !CODE_PREFIX_RE.test(v))
+          throw new Error("Prefixo do código público deve ter só letras (2 a 15).");
+        data.public_code_prefix = v || null;
+      }
+      if (data.validation_code_prefix !== undefined && data.validation_code_prefix !== null) {
+        const v = data.validation_code_prefix.trim().toUpperCase();
+        if (v && !CODE_PREFIX_RE.test(v))
+          throw new Error("Prefixo do código de validação deve ter só letras (2 a 15).");
+        data.validation_code_prefix = v || null;
+      }
+      return data;
+    },
   )
   .handler(async ({ data, context }) => {
     await ensurePlatformAdmin(context.userId);
@@ -162,6 +199,11 @@ export const updateProviderBranding = createServerFn({ method: "POST" })
     if (data.accent_color !== undefined) patch.accent_color = data.accent_color;
     if (data.pdf_template !== undefined) patch.pdf_template = data.pdf_template;
     if (data.logo_url !== undefined) patch.logo_url = data.logo_url;
+    // Muda só o código dos PRÓXIMOS checklists finalizados — o já emitido
+    // guarda o número/código gravado na hora, nunca é recalculado.
+    if (data.public_code_prefix !== undefined) patch.public_code_prefix = data.public_code_prefix;
+    if (data.validation_code_prefix !== undefined)
+      patch.validation_code_prefix = data.validation_code_prefix;
     const { error } = await supabaseAdmin
       .from("providers")
       .update(patch as never)

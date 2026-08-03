@@ -120,3 +120,34 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- ---------------------------------------------------------------
+-- 4. Prefixo automático para provedor NOVO (criado depois desta migration)
+-- ---------------------------------------------------------------
+-- Os UPDATEs da seção 1 só cobrem os provedores que já existiam no
+-- momento em que a migration rodou. Sem este trigger, um provedor
+-- criado depois — pela tela /plataforma ou por qualquer outro caminho —
+-- nasceria com public_code_prefix NULL, e set_checklist_finalization()
+-- cairia no fallback 'WEBICHECK': o ISP novo emitiria documento com o
+-- nome de outro provedor. A tela pode continuar mandando o prefixo
+-- explícito (o admin escolhe); aqui só cobre quem não escolheu.
+CREATE OR REPLACE FUNCTION public.derive_provider_code_prefixes()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.public_code_prefix IS NULL THEN
+    NEW.public_code_prefix := upper(regexp_replace(NEW.slug, '[^a-zA-Z0-9]', '', 'g'));
+  END IF;
+  IF NEW.validation_code_prefix IS NULL THEN
+    NEW.validation_code_prefix := upper(left(regexp_replace(NEW.slug, '[^a-zA-Z0-9]', '', 'g'), 3));
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_derive_provider_code_prefixes ON public.providers;
+CREATE TRIGGER trg_derive_provider_code_prefixes
+BEFORE INSERT ON public.providers
+FOR EACH ROW EXECUTE FUNCTION public.derive_provider_code_prefixes();

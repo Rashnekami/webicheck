@@ -317,6 +317,8 @@ function NewProviderDialog({
   const [accent, setAccent] = useState("#22d3ee");
   const [tpl, setTpl] = useState<"dark-neon" | "light-classic">("dark-neon");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [publicPrefix, setPublicPrefix] = useState("");
+  const [validationPrefix, setValidationPrefix] = useState("");
 
   const m = useMutation({
     mutationFn: async () => {
@@ -338,6 +340,8 @@ function NewProviderDialog({
           accent_color: accent,
           pdf_template: tpl,
           logo_url: logoUrl,
+          public_code_prefix: publicPrefix.trim() || null,
+          validation_code_prefix: validationPrefix.trim() || null,
         },
       });
     },
@@ -346,6 +350,8 @@ function NewProviderDialog({
       setName("");
       setSlug("");
       setLogoFile(null);
+      setPublicPrefix("");
+      setValidationPrefix("");
       onOpenChange(false);
       onCreated();
     },
@@ -424,6 +430,42 @@ function NewProviderDialog({
               onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
             />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Prefixo do código público</Label>
+              <Input
+                value={publicPrefix}
+                onChange={(e) =>
+                  setPublicPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 15))
+                }
+                placeholder={slug ? slug.toUpperCase().replace(/[^A-Z]/g, "") : "ex.: FIBRASUL"}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Só letras. Em branco, deriva do slug automaticamente. Ex.:{" "}
+                <code>{(publicPrefix || slug.toUpperCase().replace(/[^A-Z]/g, "") || "PREFIXO") + "20260001"}</code>
+              </p>
+            </div>
+            <div>
+              <Label>Prefixo do código de validação</Label>
+              <Input
+                value={validationPrefix}
+                onChange={(e) =>
+                  setValidationPrefix(
+                    e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 15),
+                  )
+                }
+                placeholder={slug ? slug.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) : "ex.: FSL"}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aparece no QR Code de validação pública, ex.:{" "}
+                <code>
+                  {(validationPrefix ||
+                    slug.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) ||
+                    "PRE") + "-20260101-A1B2C3D4"}
+                </code>
+              </p>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -454,6 +496,8 @@ function BrandingDialog({
     pdf_template?: string | null;
     logo_url?: string | null;
     slug: string;
+    public_code_prefix?: string | null;
+    validation_code_prefix?: string | null;
   }>;
   onClose: () => void;
   onSaved: () => void;
@@ -465,6 +509,10 @@ function BrandingDialog({
     (provider?.pdf_template as "dark-neon" | "light-classic") || "dark-neon",
   );
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [publicPrefix, setPublicPrefix] = useState(provider?.public_code_prefix || "");
+  const [validationPrefix, setValidationPrefix] = useState(
+    provider?.validation_code_prefix || "",
+  );
 
   const m = useMutation({
     mutationFn: async () => {
@@ -486,12 +534,14 @@ function BrandingDialog({
           primary_color: primary,
           accent_color: accent,
           pdf_template: tpl,
+          public_code_prefix: publicPrefix.trim() || null,
+          validation_code_prefix: validationPrefix.trim() || null,
           ...(logoUrl !== undefined ? { logo_url: logoUrl } : {}),
         },
       });
     },
     onSuccess: () => {
-      toast.success("Personalização salva.");
+      toast.success("Personalização salva. Vale só para checklists finalizados a partir de agora.");
       onSaved();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -542,6 +592,34 @@ function BrandingDialog({
               <img src={provider.logo_url} alt="" className="mt-2 h-12 w-12 object-contain" />
             )}
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Prefixo do código público</Label>
+              <Input
+                value={publicPrefix}
+                onChange={(e) =>
+                  setPublicPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 15))
+                }
+                placeholder={provider?.slug.toUpperCase().replace(/[^A-Z]/g, "")}
+              />
+            </div>
+            <div>
+              <Label>Prefixo do código de validação</Label>
+              <Input
+                value={validationPrefix}
+                onChange={(e) =>
+                  setValidationPrefix(
+                    e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 15),
+                  )
+                }
+                placeholder={provider?.slug.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Muda só os checklists finalizados a partir de agora — o código já emitido não muda
+            (é registrado no momento da finalização, como uma nota fiscal).
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
