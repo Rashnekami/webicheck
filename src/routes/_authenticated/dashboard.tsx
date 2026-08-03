@@ -25,6 +25,9 @@ import {
   Pie,
   Cell,
   Legend,
+  ComposedChart,
+  Area,
+  Line,
 } from "recharts";
 import { toast } from "sonner";
 
@@ -54,6 +57,7 @@ import {
   aggregate,
   applyFilters,
   computePeriod,
+  formatMonthBR,
   toCanon,
   type DashboardFilters,
   type PeriodPreset,
@@ -134,10 +138,21 @@ function Dashboard() {
 
   // Canonicaliza uma única vez todos os registros finalizados.
   // Deduplica por case: cada atendimento conta apenas 1 vez (revisão atual).
+  //
+  // Este dashboard modela só validacao_ont/instalacao (sintomas, troca de
+  // ONT, autorização de NOC) — remapeamento_cto/rompimento/readequacao/
+  // melhoria_sinal têm formato de dados totalmente diferente (portas,
+  // splitter, rota, OTDR) e já têm indicadores próprios em /remapeamentos
+  // e /intervencoes. normalizeChecklistType() só distingue "instalacao" de
+  // "resto", então sem este filtro TODO checklist de rede entrava aqui
+  // classificado como "Validação de ONT" — sintomas sempre vazios e troca
+  // sempre "não informada", inflando artificialmente o aviso de dados
+  // faltando com atendimentos que não são de ONT.
   const canonAll = useMemo(() => {
     return (query.data ?? [])
       .filter((c) => c.status === "finalizado")
       .filter((c) => c.is_current !== false)
+      .filter((c) => c.tipo === "validacao_ont" || c.tipo === "instalacao")
       .map((c) => toCanon(c, nomePorId));
   }, [query.data, nomePorId]);
 
@@ -165,6 +180,25 @@ function Dashboard() {
 
   const filtered = useMemo(() => applyFilters(canonAll, filters), [canonAll, filters]);
   const agg = useMemo(() => aggregate(filtered), [filtered]);
+
+  // Série temporal (Grafana-style): sempre os últimos 12 meses, independente
+  // do preset de período escolhido acima. Um gráfico de tendência que só
+  // mostra o mesmo mês selecionado no filtro de período não serve pra ver
+  // tendência nenhuma — os outros filtros (cidade/técnico/tipo/analista/
+  // status) continuam valendo, só a janela de tempo é fixa e mais longa.
+  const trendFilters: DashboardFilters = useMemo(() => {
+    const end = new Date();
+    end.setDate(end.getDate() + 1);
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setMonth(start.getMonth() - 11);
+    start.setDate(1);
+    return { ...filters, startISO: start.toISOString(), endISO: end.toISOString() };
+  }, [filters]);
+  const trendAgg = useMemo(
+    () => aggregate(applyFilters(canonAll, trendFilters)),
+    [canonAll, trendFilters],
+  );
 
   // Opções únicas para os selects (baseadas em TODO o dataset canonizado)
   const cidadesOpts = useMemo(
@@ -218,6 +252,10 @@ function Dashboard() {
     const rows = (query.data ?? []).filter((c) => {
       if (c.status !== "finalizado") return false;
       if (c.is_current === false) return false;
+      // Mesmo filtro de escopo do dashboard (ver canonAll) — sem isso o CSV
+      // "detalhada" saía com linhas de remapeamento/intervenção nas colunas
+      // de ONT, todas vazias/erradas.
+      if (c.tipo !== "validacao_ont" && c.tipo !== "instalacao") return false;
       const t = c.finalizado_em ? new Date(c.finalizado_em).getTime() : 0;
       return t >= new Date(filters.startISO).getTime() && t < new Date(filters.endISO).getTime();
     });
@@ -509,6 +547,97 @@ function Dashboard() {
                 value={agg.cidadesComTroca.length}
               />
             </div>
+
+            <ChartCard
+              title="Evolução mensal"
+              subtitle="Últimos 12 meses · independe do período selecionado acima nos filtros"
+            >
+              {trendAgg.evolucaoMensal.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Sem checklists finalizados nos últimos 12 meses para os filtros atuais.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={trendAgg.evolucaoMensal} margin={{ left: -8, right: 8 }}>
+                    <defs>
+                      <linearGradient id="fillValidacoes" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={COLORS[0]} stopOpacity={0.35} />
+                        <stop offset="95%" stopColor={COLORS[0]} stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="fillTrocas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={COLORS[3]} stopOpacity={0.4} />
+                        <stop offset="95%" stopColor={COLORS[3]} stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="fillInstalacoes" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={COLORS[2]} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={COLORS[2]} stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" vertical={false} />
+                    <XAxis dataKey="monthKey" tickFormatter={formatMonthBR} fontSize={12} />
+                    <YAxis
+                      yAxisId="qtd"
+                      allowDecimals={false}
+                      fontSize={12}
+                      label={{ value: "Atendimentos", angle: -90, position: "insideLeft", fontSize: 11 }}
+                    />
+                    <YAxis
+                      yAxisId="pct"
+                      orientation="right"
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      fontSize={12}
+                    />
+                    <Tooltip
+                      contentStyle={TOOLTIP_STYLE}
+                      cursor={{ stroke: "rgba(0,190,255,.55)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                      labelFormatter={(v) => formatMonthBR(String(v))}
+                      formatter={(value: number, name: string) =>
+                        name === "Taxa de autorização" ? [`${value.toFixed(0)}%`, name] : [value, name]
+                      }
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Area
+                      yAxisId="qtd"
+                      type="monotone"
+                      dataKey="validacoes"
+                      name="Validações"
+                      stroke={COLORS[0]}
+                      fill="url(#fillValidacoes)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      yAxisId="qtd"
+                      type="monotone"
+                      dataKey="trocas"
+                      name="Trocas"
+                      stroke={COLORS[3]}
+                      fill="url(#fillTrocas)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      yAxisId="qtd"
+                      type="monotone"
+                      dataKey="instalacoes"
+                      name="Instalações"
+                      stroke={COLORS[2]}
+                      fill="url(#fillInstalacoes)"
+                      strokeWidth={2}
+                    />
+                    <Line
+                      yAxisId="pct"
+                      type="monotone"
+                      dataKey="taxaAutorizacao"
+                      name="Taxa de autorização"
+                      stroke={COLORS[4]}
+                      strokeWidth={2}
+                      strokeDasharray="5 3"
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <ChartCard
