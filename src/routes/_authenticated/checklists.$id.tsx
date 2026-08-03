@@ -528,6 +528,9 @@ function ChecklistDetail() {
               readOnly={readOnly}
               canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
               fotos={fotosQuery.data ?? []}
+              isLoading={fotosQuery.isLoading}
+              isError={fotosQuery.isError}
+              error={fotosQuery.error}
               categorias={FOTO_CATEGORIAS_REDE}
               titulo="Evidências fotográficas (antes e depois)"
             />
@@ -607,6 +610,9 @@ function ChecklistDetail() {
               readOnly={readOnly}
               canDelete={row.status === "rascunho" && row.tecnico_id === user?.id}
               fotos={fotosQuery.data ?? []}
+              isLoading={fotosQuery.isLoading}
+              isError={fotosQuery.isError}
+              error={fotosQuery.error}
             />
 
             {row.status === "rascunho" && row.tecnico_id === user?.id && (
@@ -784,6 +790,9 @@ function FotosSection({
   readOnly,
   canDelete,
   fotos,
+  isLoading,
+  isError,
+  error,
   categorias = FOTO_CATEGORIAS,
   titulo = "Fotos de evidência",
 }: {
@@ -792,6 +801,9 @@ function FotosSection({
   readOnly: boolean;
   canDelete: boolean;
   fotos: FotoRow[];
+  isLoading?: boolean;
+  isError?: boolean;
+  error?: unknown;
   categorias?: { value: FotoRow["categoria"]; label: string }[];
   titulo?: string;
 }) {
@@ -885,7 +897,19 @@ function FotosSection({
           </div>
         )}
 
-        {fotos.length === 0 ? (
+        {isLoading ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">Carregando fotos…</p>
+        ) : isError ? (
+          // Antes um erro de leitura (RLS, rede, o que for) virava
+          // silenciosamente "Nenhuma foto anexada." — indistinguível de
+          // realmente não ter foto nenhuma. Isso escondeu o bug relatado
+          // por semanas: parecia "sem foto" quando na verdade era falha
+          // ao buscar. Mostra o erro de verdade agora.
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
+            Não foi possível carregar as fotos.{" "}
+            {error instanceof Error ? error.message : "Erro desconhecido."}
+          </div>
+        ) : fotos.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma foto anexada.</p>
         ) : (
           <FotosGrouped fotos={fotos} canDelete={canDelete} onDelete={(f) => del.mutate(f)} />
@@ -951,7 +975,12 @@ function FotoTile({
   return (
     <li className="group relative overflow-hidden rounded-md border">
       {url ? (
-        <img src={url} alt={label} className="h-32 w-full bg-muted object-contain" />
+        // Abre a foto original em tamanho cheio numa aba nova — no
+        // celular dá pra segurar e "Salvar imagem"; no PC, clique
+        // direito e salvar. Sem isso só existia a miniatura de 128px.
+        <a href={url} target="_blank" rel="noopener noreferrer" title="Abrir foto original">
+          <img src={url} alt={label} className="h-32 w-full bg-muted object-contain" />
+        </a>
       ) : (
         <div className="flex h-32 w-full items-center justify-center bg-muted">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
