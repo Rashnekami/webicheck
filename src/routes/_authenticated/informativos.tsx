@@ -27,11 +27,14 @@ function InformativosPage() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [severity, setSeverity] = useState<"info" | "warning" | "critical">("info");
+  const [imageUrl, setImageUrl] = useState("");
   const create = useMutation({
-    mutationFn: () => saveAnnouncement({ data: { title, message, severity, active: true } }),
+    mutationFn: () =>
+      saveAnnouncement({ data: { title, message, severity, active: true, imageUrl: imageUrl || null } }),
     onSuccess: async () => {
       setTitle("");
       setMessage("");
+      setImageUrl("");
       toast.success("Informativo publicado.");
       await qc.invalidateQueries({ queryKey: ["announcements"] });
     },
@@ -82,6 +85,22 @@ function InformativosPage() {
                 onChange={(e) => setMessage(e.target.value)}
                 rows={4}
               />
+            </div>
+            <div>
+              <Label htmlFor="notice-image">Imagem / GIF animado (URL, opcional)</Label>
+              <Input
+                id="notice-image"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://.../aviso.gif"
+              />
+              {imageUrl && /^https?:\/\//i.test(imageUrl) && (
+                <img
+                  src={imageUrl}
+                  alt="Pré-visualização"
+                  className="mt-2 h-32 w-full rounded-lg border border-blue-400/20 object-contain bg-slate-950/40"
+                />
+              )}
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -136,6 +155,13 @@ function InformativosPage() {
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                   {notice.message}
                 </p>
+                {notice.image_url && (
+                  <img
+                    src={notice.image_url}
+                    alt=""
+                    className="max-h-48 rounded-lg border border-blue-400/20 object-contain"
+                  />
+                )}
                 <p className="text-xs text-muted-foreground">
                   {new Date(notice.created_at).toLocaleString("pt-BR")}
                 </p>

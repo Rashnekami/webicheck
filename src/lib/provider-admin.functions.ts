@@ -112,9 +112,12 @@ export const saveAnnouncement = createServerFn({ method: "POST" })
       message: string;
       severity: "info" | "warning" | "critical";
       active: boolean;
+      imageUrl?: string | null;
     }) => {
       if (data.title.trim().length < 3 || data.message.trim().length < 3)
         throw new Error("Preencha título e mensagem.");
+      if (data.imageUrl && !/^https?:\/\//i.test(data.imageUrl.trim()))
+        throw new Error("URL da imagem/gif inválida.");
       return data;
     },
   )
@@ -132,6 +135,7 @@ export const saveAnnouncement = createServerFn({ method: "POST" })
       message: data.message.trim(),
       severity: data.severity,
       active: data.active,
+      image_url: data.imageUrl?.trim() || null,
       created_by: context.userId,
     });
     if (error) throw new Error(error.message);

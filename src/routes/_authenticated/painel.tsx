@@ -69,24 +69,50 @@ function ActiveAnnouncements() {
         <Card
           key={notice.id}
           className={
-            notice.severity === "critical"
-              ? "webi-announcement border-rose-400/50 bg-rose-950/15"
+            "webi-announcement overflow-hidden shadow-lg " +
+            (notice.severity === "critical"
+              ? "border-2 border-rose-400 bg-gradient-to-r from-rose-950/60 via-rose-900/30 to-rose-950/60 shadow-rose-500/20"
               : notice.severity === "warning"
-                ? "webi-announcement border-amber-400/50 bg-amber-950/15"
-                : "webi-announcement border-cyan-400/40 bg-blue-950/35"
+                ? "border-2 border-amber-400 bg-gradient-to-r from-amber-950/60 via-amber-900/30 to-amber-950/60 shadow-amber-500/20"
+                : "border-2 border-cyan-400 bg-gradient-to-r from-cyan-950/60 via-blue-900/30 to-cyan-950/60 shadow-cyan-500/20")
           }
         >
-          <CardContent className="flex items-center gap-4 p-5 sm:p-6">
-            <div className="webi-icon h-12 w-12 shrink-0 rounded-full">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
+            <div
+              className={
+                "webi-icon h-12 w-12 shrink-0 rounded-full " +
+                (notice.severity === "critical"
+                  ? "animate-pulse bg-rose-500/25 text-rose-300"
+                  : notice.severity === "warning"
+                    ? "animate-pulse bg-amber-500/25 text-amber-300"
+                    : "bg-cyan-500/25 text-cyan-300")
+              }
+            >
               <Megaphone className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-cyan-400">
+              <p
+                className={
+                  "text-[11px] font-bold uppercase tracking-[.2em] " +
+                  (notice.severity === "critical"
+                    ? "text-rose-300"
+                    : notice.severity === "warning"
+                      ? "text-amber-300"
+                      : "text-cyan-300")
+                }
+              >
                 Informativo operacional
               </p>
               <p className="mt-1 text-lg font-semibold text-white">{notice.title}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{notice.message}</p>
             </div>
+            {notice.image_url && (
+              <img
+                src={notice.image_url}
+                alt=""
+                className="h-28 w-full shrink-0 rounded-lg border border-white/10 object-cover sm:w-40"
+              />
+            )}
             <ArrowRight className="hidden h-5 w-5 text-cyan-400 sm:block" />
           </CardContent>
         </Card>
@@ -308,7 +334,10 @@ function Painel() {
                 (checklist) continua em destaque. */}
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button
+                  size="sm"
+                  className="border-0 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30 hover:from-cyan-400 hover:to-blue-500"
+                >
                   <Menu className="mr-1.5 h-4 w-4" /> Mais opções
                 </Button>
               </SheetTrigger>
