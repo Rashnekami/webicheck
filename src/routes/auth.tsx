@@ -143,11 +143,12 @@ function AuthPage() {
         </section>
 
         <section className="w-full">
-          {/* Emblema acima do login nas duas versões. Altura contida
-              (h-28/h-40): é um brasão alto e detalhado, e no celular um
-              logo grande demais empurraria o formulário pra fora da
-              primeira dobra. */}
-          <CheckTecnicoLogo className="mx-auto mb-5 h-28 drop-shadow-[0_8px_28px_rgba(12,120,220,0.35)] sm:h-32 lg:mb-6 lg:h-40" />
+          {/* Emblema acima do login nas duas versões. O brasão tem o nome
+              escrito dentro da arte, então altura pequena deixava tudo
+              ilegível — daqui pra baixo o texto do logo some. A fonte
+              tem 512px de altura, então até 256px continua com folga de
+              2x para telas retina. */}
+          <CheckTecnicoLogo className="mx-auto mb-5 h-52 drop-shadow-[0_10px_34px_rgba(12,120,220,0.4)] sm:h-60 lg:mb-6 lg:h-64" />
 
           <div className="auth-card p-6 sm:p-7">
             <p className="text-center text-sm text-slate-400">
