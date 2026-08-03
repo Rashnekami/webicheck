@@ -812,11 +812,16 @@ function FotosSection({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILES = 6;
   const up = useMutation({
-    mutationFn: async (file: File) => uploadFoto({ checklistId, tecnicoId, categoria: cat, file }),
+    mutationFn: async (files: File[]) => {
+      for (const file of files.slice(0, MAX_FILES)) {
+        await uploadFoto({ checklistId, tecnicoId, categoria: cat, file });
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] });
-      toast.success("Foto anexada.");
+      toast.success("Foto(s) anexada(s).");
     },
     onError: () => toast.error("Falha no upload."),
   });
@@ -826,10 +831,13 @@ function FotosSection({
     onSuccess: () => qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] }),
   });
 
-  function handleSelectedFile(file: File | undefined, input: HTMLInputElement) {
-    if (file) up.mutate(file);
+  function handleSelectedFiles(list: FileList | null, input: HTMLInputElement) {
+    const files = Array.from(list ?? []);
+    if (files.length > MAX_FILES) toast.info(`Máximo de ${MAX_FILES} fotos por vez.`);
+    if (files.length) up.mutate(files);
     input.value = "";
   }
+
 
   return (
     <Card>
@@ -864,14 +872,15 @@ function FotosSection({
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={(e) => handleSelectedFile(e.target.files?.[0], e.currentTarget)}
+              onChange={(e) => handleSelectedFiles(e.target.files, e.currentTarget)}
             />
             <input
               ref={galleryInputRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
-              onChange={(e) => handleSelectedFile(e.target.files?.[0], e.currentTarget)}
+              onChange={(e) => handleSelectedFiles(e.target.files, e.currentTarget)}
             />
             <Button
               type="button"
