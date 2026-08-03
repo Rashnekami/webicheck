@@ -450,7 +450,7 @@ function RemapeamentoDocument({
 
 
           {/* Evidências fotográficas */}
-          <View style={s.panel} wrap={false}>
+          <View style={s.panel}>
             <Text style={s.panelTitle}>Evidências fotográficas (antes e depois)</Text>
             {fotos.length === 0 ? (
               <Text style={s.mapMissing}>
@@ -461,8 +461,14 @@ function RemapeamentoDocument({
               // Agrupado por categoria (antes/depois sempre juntos e nessa
               // ordem — fotoCategoriaSortWeight) em vez de uma grade só na
               // ordem de upload, que misturava antes/depois/etiqueta.
+              // Importante: só a CÉLULA de cada foto (wrap=false abaixo) é
+              // inquebrável — o painel e cada grupo de categoria podem
+              // quebrar de página normalmente. Antes o painel inteiro tinha
+              // wrap=false, e com muitas fotos (3+ categorias) o bloco não
+              // cabia numa página só e o react-pdf renderizava tudo
+              // sobreposto/cortado ("desconexo").
               groupFotosByCategoria(fotos).map(([categoria, group]) => (
-                <View key={categoria} wrap={false} style={{ marginBottom: 6 }}>
+                <View key={categoria} style={{ marginBottom: 6 }}>
                   <Text
                     style={[
                       s.photoTag,
@@ -472,7 +478,9 @@ function RemapeamentoDocument({
                             ? "#8a3b12"
                             : categoria === "depois"
                               ? "#1b7f3b"
-                              : "#0c45a5",
+                              : categoria === "sinal_fibra"
+                                ? "#7c1ea3"
+                                : "#0c45a5",
                       },
                     ]}
                   >
@@ -480,7 +488,7 @@ function RemapeamentoDocument({
                   </Text>
                   <View style={s.photoGrid}>
                     {group.map((f) => (
-                      <View key={f.id} style={s.photoCell}>
+                      <View key={f.id} style={s.photoCell} wrap={false}>
                         <View style={s.photoInner}>
                           <Image src={f.uri} style={s.photoImage} />
                           {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}

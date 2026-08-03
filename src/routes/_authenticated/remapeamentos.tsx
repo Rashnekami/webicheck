@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
+import { deleteChecklistCascade } from "@/lib/platform-admin.functions";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   BASEMAP_OPTIONS,
@@ -304,7 +307,13 @@ function RemapeamentosPage() {
             <p className="py-10 text-center text-sm text-muted-foreground">Nenhum remapeamento encontrado.</p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {filtered.map((r) => <RemapCard key={r.id} row={r} />)}
+              {filtered.map((r) => (
+                <RemapCard
+                  key={r.id}
+                  row={r}
+                  canDelete={!!(user?.isAdmin || user?.isPlatformAdmin)}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
@@ -321,10 +330,19 @@ function RemapeamentosPage() {
   );
 }
 
-function RemapCard({ row }: { row: RemapRow }) {
+function RemapCard({ row, canDelete }: { row: RemapRow; canDelete?: boolean }) {
   const stats = computeSplitterStats(row.dados);
   const cto = row.dados?.identificacao?.cto_codigo || "—";
   const setor = row.dados?.identificacao?.setor || "";
+  const qc = useQueryClient();
+  const remove = useMutation({
+    mutationFn: () => deleteChecklistCascade({ data: { checklistId: row.id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["remapeamentos"] });
+      toast.success("Remapeamento apagado.");
+    },
+    onError: (e: Error) => toast.error(e.message || "Não foi possível apagar."),
+  });
   return (
     <Card className="webi-nav-card">
       <CardContent className="space-y-3 p-4">
@@ -355,10 +373,28 @@ function RemapCard({ row }: { row: RemapRow }) {
         <p className="text-xs text-muted-foreground">
           Finalizado em {row.finalizado_em ? new Date(row.finalizado_em).toLocaleString("pt-BR") : "—"}
         </p>
-        <div>
+        <div className="flex items-center gap-2">
           <Button asChild size="sm" variant="outline">
             <Link to="/checklists/$id" params={{ id: row.id }}>Abrir remapeamento</Link>
           </Button>
+          {canDelete && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (
+                  confirm(
+                    `Apagar remapeamento ${row.rmap_code || row.id}? Esta ação é permanente e remove fotos, snapshots e contra-provas vinculadas.`,
+                  )
+                )
+                  remove.mutate();
+              }}
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" /> Apagar
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -425,7 +425,7 @@ function IntervencaoDocument({
             </View>
           ) : null}
 
-          <View style={s.panel} wrap={false}>
+          <View style={s.panel}>
             <Text style={s.panelTitle}>Evidências fotográficas (antes e depois)</Text>
             {fotos.length === 0 ? (
               <Text style={s.body}>
@@ -433,9 +433,12 @@ function IntervencaoDocument({
               </Text>
             ) : (
               // Agrupado por categoria (antes/depois sempre juntos e nessa
-              // ordem) em vez de uma grade só na ordem de upload.
+              // ordem) em vez de uma grade só na ordem de upload. Só a
+              // célula de cada foto é inquebrável — o painel/grupo podem
+              // quebrar de página (senão, com muitas fotos, o bloco não
+              // cabe numa página e o react-pdf renderiza tudo desconexo).
               groupFotosByCategoria(fotos).map(([categoria, group]) => (
-                <View key={categoria} wrap={false} style={{ marginBottom: 6 }}>
+                <View key={categoria} style={{ marginBottom: 6 }}>
                   <Text
                     style={[
                       s.photoTag,
@@ -445,7 +448,9 @@ function IntervencaoDocument({
                             ? "#8a3b12"
                             : categoria === "depois"
                               ? "#1b7f3b"
-                              : "#0c45a5",
+                              : categoria === "sinal_fibra"
+                                ? "#7c1ea3"
+                                : "#0c45a5",
                       },
                     ]}
                   >
@@ -453,7 +458,7 @@ function IntervencaoDocument({
                   </Text>
                   <View style={s.photoGrid}>
                     {group.map((f) => (
-                      <View key={f.id} style={s.photoCell}>
+                      <View key={f.id} style={s.photoCell} wrap={false}>
                         <View style={s.photoInner}>
                           <Image src={f.uri} style={s.photoImage} />
                           {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}

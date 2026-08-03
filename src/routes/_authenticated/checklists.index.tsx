@@ -40,6 +40,23 @@ import {
 } from "@/lib/checklist-schema";
 import { formatChecklistCode } from "@/lib/checklist-code";
 
+// Checklists de rede (remapeamento/intervenção) não têm "cliente" — o
+// equivalente lá é o código da CTO/CEO (identificacao.cto_codigo), que é
+// o mesmo campo usado pra cruzar com a planilha de caixas em /ctos e
+// contabilizar o remapeamento. Sem isso a lista mostrava "Sem cliente"
+// pra praticamente todo remapeamento/intervenção, que nunca tem cliente.
+function ctoCodeFromDados(dados: unknown): string | undefined {
+  const d = dados as { identificacao?: { cto_codigo?: string }; contexto?: { cto_codigo?: string } } | null;
+  return d?.identificacao?.cto_codigo || d?.contexto?.cto_codigo || undefined;
+}
+
+function displayClienteOuCto(c: { cliente?: string | null; dados?: unknown }): string {
+  if (c.cliente) return c.cliente;
+  const cto = ctoCodeFromDados(c.dados);
+  if (cto) return `CTO/CEO ${cto}`;
+  return "Sem cliente";
+}
+
 export const Route = createFileRoute("/_authenticated/checklists/")({
   head: () => ({
     meta: [{ title: "Checklists — CheckTecnico" }, { name: "robots", content: "noindex" }],
@@ -102,6 +119,7 @@ function ChecklistsList() {
       c.codigo_validacao,
       c.numero_publico,
       c.exchange_ticket_code,
+      ctoCodeFromDados(c.dados),
     ]
       .filter(Boolean)
       .some((v) => (v as string).toLowerCase().includes(needle));
@@ -208,7 +226,7 @@ function ChecklistsList() {
                             Técnico: {c.tecnico_nome}
                           </p>
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold">{c.cliente || "Sem cliente"}</span>
+                            <span className="font-semibold">{displayClienteOuCto(c)}</span>
                             <Badge
                               variant="outline"
                               className={
