@@ -854,21 +854,40 @@ function RemapPhotos({
   // pra gravar a categoria real ("antes"/"depois"). O filtro abaixo ainda
   // aceita o padrão antigo de legenda pra não esconder fotos já enviadas
   // antes deste fix.
-  const fotos = (query.data ?? []).filter(
-    (f) => f.categoria === slot || (f.legenda ?? "").startsWith(slot),
-  );
+  const all = query.data ?? [];
+  const slotFotos = all.filter((f) => f.categoria === slot || (f.legenda ?? "").startsWith(slot));
+  // Retroativo: checklists antigos gravavam tudo como "outro" sem legenda, o que
+  // deixava as fotos invisíveis aqui (apareciam só no PDF/imagem). Elas são
+  // exibidas no bloco ANTES para que o técnico continue enxergando as evidências.
+  const legacy =
+    slot === "antes"
+      ? all.filter(
+          (f) =>
+            f.categoria !== "antes" &&
+            f.categoria !== "depois" &&
+            !(f.legenda ?? "").startsWith("antes") &&
+            !(f.legenda ?? "").startsWith("depois"),
+        )
+      : [];
+  const fotos = [...slotFotos, ...legacy];
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILES = 6;
   const up = useMutation({
-    mutationFn: (file: File) => uploadFoto({ checklistId, tecnicoId, categoria: slot, file }),
+    mutationFn: async (files: File[]) => {
+      for (const file of files.slice(0, MAX_FILES)) {
+        await uploadFoto({ checklistId, tecnicoId, categoria: slot, file });
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["remap-fotos", checklistId] });
       qc.invalidateQueries({ queryKey: ["checklist-fotos", checklistId] });
-      toast.success(slot === "antes" ? "Foto ANTES anexada." : "Foto DEPOIS anexada.");
+      toast.success(slot === "antes" ? "Foto(s) ANTES anexada(s)." : "Foto(s) DEPOIS anexada(s).");
     },
     onError: () => toast.error("Falha no upload."),
   });
+
 
   const del = useMutation({
     mutationFn: async (id: string) => {
@@ -891,7 +910,7 @@ function RemapPhotos({
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) up.mutate(f);
+              if (f) up.mutate([f]);
               e.currentTarget.value = "";
             }}
           />
@@ -899,10 +918,12 @@ function RemapPhotos({
             ref={galleryRef}
             type="file"
             accept="image/*"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) up.mutate(f);
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > MAX_FILES) toast.info(`Máximo de ${MAX_FILES} fotos por vez.`);
+              if (files.length) up.mutate(files);
               e.currentTarget.value = "";
             }}
           />
@@ -911,8 +932,9 @@ function RemapPhotos({
             Tirar foto
           </Button>
           <Button type="button" variant="outline" onClick={() => galleryRef.current?.click()} disabled={up.isPending}>
-            <Images className="mr-1.5 h-4 w-4" /> Galeria
+            <Images className="mr-1.5 h-4 w-4" /> Galeria (até {MAX_FILES})
           </Button>
+
         </div>
       )}
       {fotos.length === 0 ? (
