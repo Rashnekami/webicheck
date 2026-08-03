@@ -329,6 +329,15 @@ const RESERVED_SUBDOMAINS = new Set([
   "preview",
 ]);
 
+// UUID (36 caracteres, 5 grupos hex separados por hífen) passa sem problema
+// no regex de slug (letras minúsculas/números/hífen, até 40 caracteres) —
+// no domínio de preview da própria Lovable, o subdomínio é literalmente o
+// id do projeto (ex.: c8f9924b-9de1-43c0-93ff-96920deea995.lovableproject
+// .com), e sem essa checagem o campo "Provedor" aparecia pré-preenchido
+// com esse UUID em vez de cair no padrão "webifibra". Não afeta o domínio
+// real de produção (webifibra.checktecnico.life), só a prévia interna.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 function detectProviderSlugFromHost(): string {
   if (typeof window === "undefined") return "webifibra";
   const host = window.location.hostname;
@@ -336,7 +345,11 @@ function detectProviderSlugFromHost(): string {
   // Ex.: webifibra.checktecnico.life -> ["webifibra","checktecnico","life"]
   if (parts.length >= 3) {
     const first = parts[0].toLowerCase();
-    if (!RESERVED_SUBDOMAINS.has(first) && /^[a-z0-9-]{2,40}$/.test(first)) {
+    if (
+      !RESERVED_SUBDOMAINS.has(first) &&
+      !UUID_RE.test(first) &&
+      /^[a-z0-9-]{2,40}$/.test(first)
+    ) {
       return first;
     }
   }
