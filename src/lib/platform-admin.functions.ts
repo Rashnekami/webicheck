@@ -55,9 +55,27 @@ export const deleteChecklistCascade = createServerFn({ method: "POST" })
     if (clErr) throw new Error(clErr.message);
     if (!cl) throw new Error("Checklist não encontrado.");
 
+    // customer_counterproof_events não tem coluna checklist_id — só
+    // counterproof_id (FK ON DELETE RESTRICT). Apagar direto por
+    // checklist_id nessa tabela é um no-op silencioso ("does not exist"
+    // é ignorado abaixo), e depois apagar customer_counterproofs falha
+    // com violação de FK porque os eventos continuam existindo. Por isso
+    // os eventos são coletados e apagados via counterproof_id primeiro.
+    const { data: counterproofs } = await supabaseAdmin
+      .from("customer_counterproofs")
+      .select("id")
+      .eq("checklist_id", data.checklistId);
+    const counterproofIds = (counterproofs ?? []).map((c) => c.id);
+    if (counterproofIds.length > 0) {
+      const { error: evErr } = await supabaseAdmin
+        .from("customer_counterproof_events")
+        .delete()
+        .in("counterproof_id", counterproofIds);
+      if (evErr) throw new Error(`customer_counterproof_events: ${evErr.message}`);
+    }
+
     // Ordem: contra-provas -> tickets -> fotos -> snapshots -> reports -> logs -> checklists
     const tables: Array<{ table: string; col: string }> = [
-      { table: "customer_counterproof_events", col: "checklist_id" },
       { table: "customer_counterproofs", col: "checklist_id" },
       { table: "ont_exchange_tickets", col: "checklist_id" },
       { table: "checklist_fotos", col: "checklist_id" },
