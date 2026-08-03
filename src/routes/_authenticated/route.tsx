@@ -1,7 +1,5 @@
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { WebifibraLogo } from "@/components/webifibra-logo";
 
 // Consulta must_change_password separado do resto do perfil: essa coluna
 // só existe depois que a migration de auth hardening for aplicada no
@@ -19,6 +17,15 @@ async function fetchMustChangePassword(userId: string): Promise<boolean> {
 }
 
 // Managed gate — a autenticação depende do localStorage (sem SSR).
+//
+// Havia um AuthenticatedLayout aqui que, depois do beforeLoad já validar
+// tudo (usuário, perfil ativo, cadastro completo, troca de senha
+// pendente, provedor ativo), refazia as MESMAS 4 chamadas ao Supabase de
+// novo num useEffect só pra decidir se mostrava <Outlet /> ou um spinner
+// — dobrando a latência de toda navegação pra dentro da área autenticada
+// (8 chamadas sequenciais no total) sem nenhum ganho: o beforeLoad já
+// bloqueia a navegação inteira via throw redirect() se algo estiver
+// errado, então se o componente chegou a montar é porque já passou.
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
@@ -51,58 +58,5 @@ export const Route = createFileRoute("/_authenticated")({
     }
     return { user: data.user };
   },
-  component: AuthenticatedLayout,
+  component: () => <Outlet />,
 });
-
-function AuthenticatedLayout() {
-  const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data, error }) => {
-      if (error || !data.user) {
-        navigate({ to: "/auth", replace: true });
-        return;
-      }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("active, city, provider_id, platform_admin, cities_configured_at")
-        .eq("id", data.user.id)
-        .maybeSingle();
-      if (!profile?.active) {
-        await supabase.auth.signOut();
-        navigate({ to: "/auth", replace: true });
-        return;
-      }
-      if (!profile.provider_id || !profile.cities_configured_at) {
-        navigate({ to: "/completar-cadastro", replace: true });
-        return;
-      }
-      if (await fetchMustChangePassword(data.user.id)) {
-        navigate({ to: "/trocar-senha", replace: true });
-        return;
-      }
-      const { data: provider } = await supabase
-        .from("providers")
-        .select("status")
-        .eq("id", profile.provider_id)
-        .maybeSingle();
-      if (provider?.status !== "active" && !profile.platform_admin) {
-        await supabase.auth.signOut();
-        navigate({ to: "/auth", replace: true });
-        return;
-      }
-      setReady(true);
-    });
-  }, [navigate]);
-
-  if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <WebifibraLogo size={64} className="animate-pulse" />
-      </div>
-    );
-  }
-
-  return <Outlet />;
-}
