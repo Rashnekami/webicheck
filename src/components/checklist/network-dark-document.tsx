@@ -5,7 +5,7 @@ import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { SnapshotPayload } from "@/lib/public-checklist.functions";
 import type { ResolvedFoto } from "@/lib/checklist-photo-uris";
 import type { IntervencaoData, RemapeamentoData, TipoIntervencao } from "@/lib/checklist-schema";
-import { TIPO_LABEL } from "@/lib/checklist-schema";
+import { TIPO_LABEL, fotoCategoriaLabel, groupFotosByCategoria } from "@/lib/checklist-schema";
 import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fibers";
 import {
   CAUSA_OPCOES,
@@ -209,6 +209,11 @@ function InfoGrid({ items }: { items: { label: string; value: string }[] }) {
   );
 }
 
+// Antes exibia todas as fotos numa grade só flutuante, na ordem em que
+// foram enviadas — antes/depois/etiqueta apareciam intercaladas sem
+// separação nenhuma (só um selinho colorido por foto). Agrupa por
+// categoria com um cabeçalho por grupo, mesma ordem em toda parte
+// (fotoCategoriaSortWeight): antes sempre primeiro, depois em seguida.
 function PhotoGrid({ fotos }: { fotos: ResolvedFoto[] }) {
   if (fotos.length === 0) {
     return (
@@ -218,59 +223,58 @@ function PhotoGrid({ fotos }: { fotos: ResolvedFoto[] }) {
     );
   }
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", margin: -5 }}>
-      {fotos.map((f) => (
-        <div key={f.id} style={{ width: "50%", padding: 5, boxSizing: "border-box" }}>
+    <>
+      {groupFotosByCategoria(fotos).map(([categoria, group]) => (
+        <div key={categoria} style={{ marginBottom: 10 }}>
           <div
             style={{
-              border: `1px solid ${C.border}`,
-              borderRadius: 10,
-              background: "#041126",
-              padding: 6,
+              display: "inline-block",
+              borderRadius: 6,
+              padding: "2px 8px",
+              fontSize: 10,
+              fontWeight: 800,
+              color: "#fff",
+              marginBottom: 6,
+              background:
+                categoria === "antes" ? "#8a3b12" : categoria === "depois" ? "#1b7f3b" : "#0c45a5",
             }}
           >
-            <span
-              style={{
-                display: "inline-block",
-                borderRadius: 6,
-                padding: "2px 8px",
-                fontSize: 10,
-                fontWeight: 800,
-                color: "#fff",
-                background:
-                  f.categoria === "antes"
-                    ? "#8a3b12"
-                    : f.categoria === "depois"
-                      ? "#1b7f3b"
-                      : "#0c45a5",
-              }}
-            >
-              {f.categoria === "antes"
-                ? "ANTES"
-                : f.categoria === "depois"
-                  ? "DEPOIS"
-                  : f.label.toUpperCase()}
-            </span>
-            <img
-              src={f.uri}
-              alt={f.label}
-              crossOrigin="anonymous"
-              style={{
-                display: "block",
-                width: "100%",
-                height: 190,
-                objectFit: "cover",
-                borderRadius: 8,
-                marginTop: 6,
-              }}
-            />
-            {f.legenda ? (
-              <div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>{f.legenda}</div>
-            ) : null}
+            {fotoCategoriaLabel(categoria).toUpperCase()} (
+            {group.length})
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", margin: -5 }}>
+            {group.map((f) => (
+              <div key={f.id} style={{ width: "50%", padding: 5, boxSizing: "border-box" }}>
+                <div
+                  style={{
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 10,
+                    background: "#041126",
+                    padding: 6,
+                  }}
+                >
+                  <img
+                    src={f.uri}
+                    alt={f.label}
+                    crossOrigin="anonymous"
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      height: 190,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                    }}
+                  />
+                  {f.legenda ? (
+                    <div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>{f.legenda}</div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ))}
-    </div>
+    </>
   );
 }
 

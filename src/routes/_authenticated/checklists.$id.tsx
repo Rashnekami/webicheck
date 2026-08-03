@@ -60,6 +60,8 @@ import {
   FOTO_CATEGORIAS,
   FOTO_CATEGORIAS_REDE,
   TIPO_LABEL,
+  fotoCategoriaLabel,
+  groupFotosByCategoria,
   isIntervencao,
   type AnyChecklistData,
   type ChecklistData,
@@ -886,14 +888,41 @@ function FotosSection({
         {fotos.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">Nenhuma foto anexada.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {fotos.map((f) => (
-              <FotoTile key={f.id} foto={f} canDelete={canDelete} onDelete={() => del.mutate(f)} />
-            ))}
-          </ul>
+          <FotosGrouped fotos={fotos} canDelete={canDelete} onDelete={(f) => del.mutate(f)} />
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// Antes exibia todas as fotos numa grade só, na ordem de upload — antes,
+// depois e etiqueta apareciam misturadas sem nenhuma separação visual.
+// Agrupa por categoria (antes/depois sempre primeiro, ver
+// fotoCategoriaSortWeight) com um cabeçalho por grupo.
+function FotosGrouped({
+  fotos,
+  canDelete,
+  onDelete,
+}: {
+  fotos: FotoRow[];
+  canDelete: boolean;
+  onDelete: (foto: FotoRow) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {groupFotosByCategoria(fotos).map(([categoria, group]) => (
+        <div key={categoria}>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {fotoCategoriaLabel(categoria)} ({group.length})
+          </p>
+          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {group.map((f) => (
+              <FotoTile key={f.id} foto={f} canDelete={canDelete} onDelete={() => onDelete(f)} />
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 

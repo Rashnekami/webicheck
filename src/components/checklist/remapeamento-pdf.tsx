@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { ChecklistRow, FotoRow, RemapeamentoData } from "@/lib/checklist-schema";
+import { fotoCategoriaLabel, groupFotosByCategoria } from "@/lib/checklist-schema";
 import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fibers";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
 import { resolveFotoDataUris, type ResolvedFoto } from "@/lib/checklist-photo-uris";
@@ -445,35 +446,38 @@ function RemapeamentoDocument({
                 depois do remapeamento.
               </Text>
             ) : (
-              <View style={s.photoGrid}>
-                {fotos.map((f) => (
-                  <View key={f.id} style={s.photoCell}>
-                    <View style={s.photoInner}>
-                      <Text
-                        style={[
-                          s.photoTag,
-                          {
-                            backgroundColor:
-                              f.categoria === "antes"
-                                ? "#8a3b12"
-                                : f.categoria === "depois"
-                                  ? "#1b7f3b"
-                                  : "#0c45a5",
-                          },
-                        ]}
-                      >
-                        {f.categoria === "antes"
-                          ? "ANTES"
-                          : f.categoria === "depois"
-                            ? "DEPOIS"
-                            : f.label.toUpperCase()}
-                      </Text>
-                      <Image src={f.uri} style={s.photoImage} />
-                      {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
-                    </View>
+              // Agrupado por categoria (antes/depois sempre juntos e nessa
+              // ordem — fotoCategoriaSortWeight) em vez de uma grade só na
+              // ordem de upload, que misturava antes/depois/etiqueta.
+              groupFotosByCategoria(fotos).map(([categoria, group]) => (
+                <View key={categoria} wrap={false} style={{ marginBottom: 6 }}>
+                  <Text
+                    style={[
+                      s.photoTag,
+                      {
+                        backgroundColor:
+                          categoria === "antes"
+                            ? "#8a3b12"
+                            : categoria === "depois"
+                              ? "#1b7f3b"
+                              : "#0c45a5",
+                      },
+                    ]}
+                  >
+                    {fotoCategoriaLabel(categoria).toUpperCase()} ({group.length})
+                  </Text>
+                  <View style={s.photoGrid}>
+                    {group.map((f) => (
+                      <View key={f.id} style={s.photoCell}>
+                        <View style={s.photoInner}>
+                          <Image src={f.uri} style={s.photoImage} />
+                          {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                </View>
+              ))
             )}
           </View>
 

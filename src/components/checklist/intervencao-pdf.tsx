@@ -8,7 +8,7 @@ import type {
   IntervencaoData,
   TipoIntervencao,
 } from "@/lib/checklist-schema";
-import { TIPO_LABEL } from "@/lib/checklist-schema";
+import { TIPO_LABEL, fotoCategoriaLabel, groupFotosByCategoria } from "@/lib/checklist-schema";
 import {
   CAUSA_OPCOES,
   ESTADO_LABEL,
@@ -432,35 +432,37 @@ function IntervencaoDocument({
                 Nenhuma foto de evidência anexada a esta revisão.
               </Text>
             ) : (
-              <View style={s.photoGrid}>
-                {fotos.map((f) => (
-                  <View key={f.id} style={s.photoCell}>
-                    <View style={s.photoInner}>
-                      <Text
-                        style={[
-                          s.photoTag,
-                          {
-                            backgroundColor:
-                              f.categoria === "antes"
-                                ? "#8a3b12"
-                                : f.categoria === "depois"
-                                  ? "#1b7f3b"
-                                  : "#0c45a5",
-                          },
-                        ]}
-                      >
-                        {f.categoria === "antes"
-                          ? "ANTES"
-                          : f.categoria === "depois"
-                            ? "DEPOIS"
-                            : f.label.toUpperCase()}
-                      </Text>
-                      <Image src={f.uri} style={s.photoImage} />
-                      {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
-                    </View>
+              // Agrupado por categoria (antes/depois sempre juntos e nessa
+              // ordem) em vez de uma grade só na ordem de upload.
+              groupFotosByCategoria(fotos).map(([categoria, group]) => (
+                <View key={categoria} wrap={false} style={{ marginBottom: 6 }}>
+                  <Text
+                    style={[
+                      s.photoTag,
+                      {
+                        backgroundColor:
+                          categoria === "antes"
+                            ? "#8a3b12"
+                            : categoria === "depois"
+                              ? "#1b7f3b"
+                              : "#0c45a5",
+                      },
+                    ]}
+                  >
+                    {fotoCategoriaLabel(categoria).toUpperCase()} ({group.length})
+                  </Text>
+                  <View style={s.photoGrid}>
+                    {group.map((f) => (
+                      <View key={f.id} style={s.photoCell}>
+                        <View style={s.photoInner}>
+                          <Image src={f.uri} style={s.photoImage} />
+                          {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
+                        </View>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
+                </View>
+              ))
             )}
           </View>
 

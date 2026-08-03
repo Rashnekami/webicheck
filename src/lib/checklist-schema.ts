@@ -595,6 +595,47 @@ export function fotoCategoriaLabel(value: FotoRow["categoria"]): string {
   return FOTO_CATEGORIAS.find((c) => c.value === value)?.label ?? value;
 }
 
+/** "Antes" e "depois" sempre primeiro e sempre juntos por grupo — usado
+ * em toda tela/PDF/imagem que lista fotos, pra ordenação ser idêntica nos
+ * três lugares (antes as fotos apareciam na ordem de upload, misturando
+ * antes/depois/etiqueta de qualquer jeito — "junto, não separado"). */
+export function fotoCategoriaSortWeight(categoria: FotoRow["categoria"]): number {
+  switch (categoria) {
+    case "antes":
+      return 0;
+    case "depois":
+      return 1;
+    case "etiqueta":
+      return 2;
+    default:
+      return 3;
+  }
+}
+
+export function sortFotosByCategoria<T extends { categoria: FotoRow["categoria"] }>(
+  fotos: T[],
+): T[] {
+  return [...fotos].sort(
+    (a, b) => fotoCategoriaSortWeight(a.categoria) - fotoCategoriaSortWeight(b.categoria),
+  );
+}
+
+/** Agrupa por categoria, na mesma ordem em toda parte (ver
+ * fotoCategoriaSortWeight) — usado por toda tela/PDF/imagem que lista
+ * fotos de checklist de rede, pra antes/depois nunca aparecerem
+ * misturados de novo. */
+export function groupFotosByCategoria<T extends { categoria: FotoRow["categoria"] }>(
+  fotos: T[],
+): [FotoRow["categoria"], T[]][] {
+  const groups = new Map<FotoRow["categoria"], T[]>();
+  for (const f of sortFotosByCategoria(fotos)) {
+    const list = groups.get(f.categoria) ?? [];
+    list.push(f);
+    groups.set(f.categoria, list);
+  }
+  return [...groups.entries()];
+}
+
 export const TIPO_LABEL: Record<TipoChecklist, string> = {
   validacao_ont: "Validação de ONT",
   instalacao: "Instalação",
