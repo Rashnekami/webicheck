@@ -15,6 +15,13 @@ export const Route = createFileRoute("/api/public/auth/login-internal")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { extractClientIp, isLoginRateLimited, recordLoginAttempt } = await import(
+          "@/lib/security-log.server"
+        );
+        const ip = extractClientIp(request.headers);
+        const userAgent = request.headers.get("user-agent");
+        let providerIdForLog: string | null = null;
+        let loginForLog = "";
         try {
           const body = (await request.json()) as {
             provider_slug?: string;
@@ -24,8 +31,26 @@ export const Route = createFileRoute("/api/public/auth/login-internal")({
           const providerSlug = body.provider_slug?.trim().toLowerCase();
           const login = body.login?.trim().toLowerCase();
           const password = body.password;
+          loginForLog = login ?? "";
           if (!providerSlug || !login || !password) {
             return Response.json({ error: "Dados incompletos." }, { status: 400 });
+          }
+
+          // Bloqueio de força bruta: checa ANTES de tocar em senha/bcrypt.
+          const rl = await isLoginRateLimited(login, ip);
+          if (rl.blocked) {
+            await recordLoginAttempt({
+              providerId: null,
+              login,
+              ip,
+              success: false,
+              reason: "rate_limited",
+              userAgent,
+            });
+            return Response.json(
+              { error: "Muitas tentativas. Tente novamente em alguns minutos." },
+              { status: 429 },
+            );
           }
 
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -35,9 +60,29 @@ export const Route = createFileRoute("/api/public/auth/login-internal")({
             .select("id, status")
             .eq("slug", providerSlug)
             .maybeSingle();
-          if (!provider) return Response.json({ error: "Provedor não encontrado." }, { status: 404 });
-          if (provider.status !== "active")
+          if (!provider) {
+            await recordLoginAttempt({
+              providerId: null,
+              login,
+              ip,
+              success: false,
+              reason: "provider_not_found",
+              userAgent,
+            });
+            return Response.json({ error: "Provedor não encontrado." }, { status: 404 });
+          }
+          providerIdForLog = provider.id as string;
+          if (provider.status !== "active") {
+            await recordLoginAttempt({
+              providerId: providerIdForLog,
+              login,
+              ip,
+              success: false,
+              reason: "provider_suspended",
+              userAgent,
+            });
             return Response.json({ error: "Provedor suspenso." }, { status: 403 });
+          }
 
           const { data: account } = await supabaseAdmin
             .from("provider_login_accounts")
@@ -45,12 +90,31 @@ export const Route = createFileRoute("/api/public/auth/login-internal")({
             .eq("provider_id", provider.id)
             .ilike("login", login)
             .maybeSingle();
-          if (!account || !account.active)
+          if (!account || !account.active) {
+            await recordLoginAttempt({
+              providerId: providerIdForLog,
+              login,
+              ip,
+              success: false,
+              reason: "account_not_found",
+              userAgent,
+            });
             return Response.json({ error: "Login ou senha inválidos." }, { status: 401 });
+          }
 
           const bcrypt = await import("bcryptjs");
           const ok = await bcrypt.compare(password, account.password_hash as string);
-          if (!ok) return Response.json({ error: "Login ou senha inválidos." }, { status: 401 });
+          if (!ok) {
+            await recordLoginAttempt({
+              providerId: providerIdForLog,
+              login,
+              ip,
+              success: false,
+              reason: "wrong_password",
+              userAgent,
+            });
+            return Response.json({ error: "Login ou senha inválidos." }, { status: 401 });
+          }
 
           // Verifica se profile ativo
           const { data: profile } = await supabaseAdmin
@@ -58,8 +122,25 @@ export const Route = createFileRoute("/api/public/auth/login-internal")({
             .select("active")
             .eq("id", account.user_id)
             .maybeSingle();
-          if (!profile?.active)
+          if (!profile?.active) {
+            await recordLoginAttempt({
+              providerId: providerIdForLog,
+              login,
+              ip,
+              success: false,
+              reason: "profile_inactive",
+              userAgent,
+            });
             return Response.json({ error: "Acesso inativo." }, { status: 403 });
+          }
+
+          await recordLoginAttempt({
+            providerId: providerIdForLog,
+            login,
+            ip,
+            success: true,
+            userAgent,
+          });
 
           // Fazer sign-in server-side com o email sintético e a senha do usuário
           // (o hash em provider_login_accounts é fonte da verdade; o auth.users

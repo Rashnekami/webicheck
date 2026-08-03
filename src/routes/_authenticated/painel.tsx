@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   LogOut,
   ShieldCheck,
+  ShieldAlert,
   HardHat,
   ClipboardList,
   ArrowRight,
@@ -382,6 +383,14 @@ function Painel() {
                           ? "Crie provedores, personalize logo/cores/template e gere logins internos."
                           : "Crie logins e senhas para sua equipe."
                       }
+                    />
+                  )}
+                  {(user.isAdmin || user.isPlatformAdmin) && (
+                    <HomeNavCard
+                      to="/seguranca"
+                      icon={ShieldAlert}
+                      title="Segurança"
+                      description="Tentativas de login e acessos recentes, com IP e localização."
                     />
                   )}
                   <HomeNavCard

@@ -117,6 +117,25 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
       throw new Error("Unauthorized: Provider suspended");
     }
 
+    // Amostra de log de acesso (best-effort, não bloqueia a resposta).
+    try {
+      const { shouldSampleAccessLog, extractClientIp, recordAccessLog } = await import(
+        "@/lib/security-log.server"
+      );
+      if (shouldSampleAccessLog()) {
+        void recordAccessLog({
+          providerId: profile.provider_id ?? null,
+          userId: data.claims.sub,
+          route: request.url,
+          method: request.method,
+          ip: extractClientIp(request.headers),
+          userAgent: request.headers.get("user-agent"),
+        });
+      }
+    } catch {
+      // nunca deixa log de acesso quebrar a autenticação
+    }
+
     return next({
       context: {
         supabase,
