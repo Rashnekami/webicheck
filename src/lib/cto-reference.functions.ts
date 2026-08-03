@@ -117,10 +117,11 @@ export const listCtoCoverage = createServerFn({ method: "GET" })
     }
 
     return (latest ?? []).map((snap) => {
-      const remapedas = remapByCidade.get(snap.cidade)?.size ?? 0;
+      const cidadeSnap = snap.cidade ?? "";
+      const remapedas = remapByCidade.get(cidadeSnap)?.size ?? 0;
       const total = snap.total_ctos ?? 0;
       return {
-        cidade: snap.cidade,
+        cidade: cidadeSnap,
         total,
         remapeadas: Math.min(remapedas, total),
         percentual: total > 0 ? Math.round((Math.min(remapedas, total) / total) * 1000) / 10 : 0,
