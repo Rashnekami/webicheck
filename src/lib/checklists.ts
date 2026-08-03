@@ -160,6 +160,43 @@ export async function listChecklists(opts: {
   }));
 }
 
+/** Contagens pro dashboard (painel.tsx) — antes ele chamava listChecklists()
+ * inteiro (select("*"), sem limite) só pra contar 4 números, trazendo a
+ * tabela de checklists completa pro navegador toda vez que alguém abria a
+ * tela inicial, JSONB `dados` de cada linha incluso (fotos, portas, OTDR
+ * etc). Isso só piora com o tempo — cresce a cada checklist novo, pra
+ * sempre. COUNT no banco (head: true, sem baixar linha nenhuma) resolve
+ * de vez, independente de quantos checklists existirem.
+ */
+export async function getChecklistCounts(opts: {
+  scope: "mine" | "all";
+  userId: string;
+}): Promise<{ total: number; finalized: number; drafts: number; installations: number }> {
+  function base() {
+    let q = supabase
+      .from("checklists")
+      .select("id", { count: "exact", head: true })
+      .eq("is_current", true);
+    if (opts.scope === "mine") q = q.eq("tecnico_id", opts.userId);
+    return q;
+  }
+  const [totalRes, finalizedRes, draftsRes, installationsRes] = await Promise.all([
+    base(),
+    base().eq("status", "finalizado"),
+    base().eq("status", "rascunho"),
+    base().eq("tipo", "instalacao"),
+  ]);
+  for (const res of [totalRes, finalizedRes, draftsRes, installationsRes]) {
+    if (res.error) throw res.error;
+  }
+  return {
+    total: totalRes.count ?? 0,
+    finalized: finalizedRes.count ?? 0,
+    drafts: draftsRes.count ?? 0,
+    installations: installationsRes.count ?? 0,
+  };
+}
+
 export async function getChecklist(id: string): Promise<ChecklistRow> {
   const { data, error } = await supabase.from("checklists").select("*").eq("id", id).maybeSingle();
   if (error) throw error;

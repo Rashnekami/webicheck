@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { InstallButton } from "@/components/pwa/install-button";
 import { listAnnouncements } from "@/lib/provider-admin.functions";
-import { listChecklists } from "@/lib/checklists";
+import { getChecklistCounts } from "@/lib/checklists";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -146,10 +146,10 @@ function Painel() {
   const [sigOpen, setSigOpen] = useState(false);
   const [sigDraft, setSigDraft] = useState<string | null>(null);
   const [savingSig, setSavingSig] = useState(false);
-  const homeChecklists = useQuery({
-    queryKey: ["home-checklists", user?.id, user?.isAdmin],
+  const homeCounts = useQuery({
+    queryKey: ["home-checklist-counts", user?.id, user?.isAdmin],
     queryFn: () =>
-      listChecklists({
+      getChecklistCounts({
         scope: user?.isAdmin ? "all" : "mine",
         userId: user!.id,
       }),
@@ -207,12 +207,10 @@ function Painel() {
   }
 
   const firstName = user.full_name?.split(" ")[0] || "técnico";
-  const currentRows = (homeChecklists.data ?? []).filter(
-    (item) => (item as { is_current?: boolean }).is_current !== false,
-  );
-  const finalized = currentRows.filter((item) => item.status === "finalizado").length;
-  const drafts = currentRows.filter((item) => item.status === "rascunho").length;
-  const installations = currentRows.filter((item) => item.tipo === "instalacao").length;
+  const total = homeCounts.data?.total ?? 0;
+  const finalized = homeCounts.data?.finalized ?? 0;
+  const drafts = homeCounts.data?.drafts ?? 0;
+  const installations = homeCounts.data?.installations ?? 0;
 
   return (
     <div className="webi-page min-h-screen">
@@ -265,7 +263,7 @@ function Painel() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <HomeStat
               icon={ClipboardList}
-              value={currentRows.length}
+              value={total}
               label="Checklists registrados"
             />
             <HomeStat icon={CheckCircle2} value={finalized} label="Atendimentos finalizados" />
