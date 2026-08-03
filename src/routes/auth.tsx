@@ -7,23 +7,36 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { WebifibraLogo } from "@/components/webifibra-logo";
+import { CheckTecnicoMark, CheckTecnicoWordmark } from "@/components/checktecnico-brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Building2,
+  ClipboardCheck,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  MapPin,
+  QrCode,
+  Radio,
+  ShieldCheck,
+  UserRound,
+  Wifi,
+} from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Entrar — Webifibra" },
+      { title: "Entrar — CheckTecnico" },
       {
         name: "description",
-        content: "Acesse a plataforma de checklist técnico da Webifibra.",
+        content: "Acesse a plataforma de checklist técnico CheckTecnico.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -34,6 +47,24 @@ export const Route = createFileRoute("/auth")({
 const emailSchema = z.string().trim().email({ message: "Informe um e-mail válido" }).max(255);
 const forgotSchema = z.object({ email: emailSchema });
 
+/** Coluna de marketing do desktop — some por completo no celular. */
+const RECURSOS = [
+  { icon: ClipboardCheck, label: "Checklists\nInteligentes" },
+  { icon: MapPin, label: "Geolocalização\nem Tempo Real" },
+  { icon: Wifi, label: "Diagnósticos\nAvançados" },
+  { icon: QrCode, label: "Evidências\ncom QR Code" },
+  { icon: BarChart3, label: "Relatórios\ne Análises" },
+];
+
+/** Rodapé do celular: 3 selos curtos, no lugar dos 5 recursos do desktop
+ *  (tela pequena não comporta a coluna de marketing sem empurrar o
+ *  formulário pra fora da primeira dobra). */
+const SELOS = [
+  { icon: ShieldCheck, label: "100%\nConectada" },
+  { icon: Radio, label: "Operação\nem Tempo Real" },
+  { icon: Lock, label: "Dados\nProtegidos" },
+];
+
 function finishLogin() {
   const returnTo = sessionStorage.getItem("webicheck.return_to");
   sessionStorage.removeItem("webicheck.return_to");
@@ -43,7 +74,7 @@ function finishLogin() {
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [tab, setTab] = useState<"login" | "forgot">("login");
+  const [view, setView] = useState<"login" | "forgot">("login");
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -72,60 +103,108 @@ function AuthPage() {
 
   if (checking) {
     return (
-      <div className="brand-gradient flex min-h-screen items-center justify-center">
-        <WebifibraLogo size={72} className="animate-pulse" />
+      <div className="auth-stage flex min-h-dvh items-center justify-center">
+        <CheckTecnicoMark size={72} className="animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="brand-gradient flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center text-white">
-          <WebifibraLogo size={72} />
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Webifibra</h1>
-            <p className="text-sm opacity-90">Checklist Técnico de Campo</p>
+    <div className="auth-stage min-h-dvh">
+      {/* Duas colunas só a partir de lg. No celular a coluna de marketing
+          some inteira e sobra o card + 3 selos no rodapé: o técnico em
+          campo precisa do login à mão, não de texto de venda ocupando a
+          primeira dobra. */}
+      <div className="mx-auto grid min-h-dvh w-full max-w-7xl items-center gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[1.05fr_minmax(0,26rem)] lg:gap-14 lg:py-12">
+        {/* Coluna de marketing: exclusiva do desktop. */}
+        <section className="hidden lg:block">
+          <CheckTecnicoWordmark markSize={68} textClassName="text-5xl xl:text-6xl" />
+
+          <p className="mt-4 text-sm font-semibold uppercase tracking-[.18em] text-slate-300">
+            Sua operação. 100% <span className="text-sky-400">conectada</span>. 100% sob controle.
+          </p>
+          <p className="mt-4 max-w-lg text-base leading-relaxed text-slate-400">
+            A plataforma completa para provedores e equipes de campo executarem, analisarem e
+            comprovarem cada atendimento com{" "}
+            <span className="text-emerald-400">eficiência e inteligência</span>.
+          </p>
+
+          <ul className="mt-9 grid grid-cols-5 gap-4">
+            {RECURSOS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex flex-col items-start gap-2">
+                <span className="webi-icon h-11 w-11 rounded-xl">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="whitespace-pre-line text-xs leading-tight text-slate-400">
+                  {label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="w-full">
+          <div className="auth-card p-6 sm:p-7">
+            <div className="flex flex-col items-center text-center">
+              <CheckTecnicoMark size={54} />
+              <p className="mt-3 text-2xl font-bold tracking-tight text-white">
+                Check<span className="text-emerald-400">Tecnico</span>
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                {view === "login"
+                  ? "Acesse sua conta para continuar"
+                  : "Recupere o acesso pelo seu e-mail"}
+              </p>
+            </div>
+
+            <div className="mt-6">
+              {view === "login" ? (
+                <>
+                  <InternalLoginForm onForgot={() => setView("forgot")} />
+                  <div className="my-5 flex items-center gap-3">
+                    <span className="h-px flex-1 bg-white/10" />
+                    <span className="text-xs text-slate-500">ou</span>
+                    <span className="h-px flex-1 bg-white/10" />
+                  </div>
+                  <GoogleButton />
+                </>
+              ) : (
+                <ForgotForm onDone={() => setView("login")} />
+              )}
+            </div>
+
+            <p className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500">
+              <ShieldCheck className="h-3.5 w-3.5" /> Ambiente seguro e criptografado
+            </p>
           </div>
-        </div>
 
-        <Card className="shadow-xl">
-          <CardHeader className="pb-2">
-            <CardTitle>Acessar plataforma</CardTitle>
-            <CardDescription>Use o provedor, login e senha, ou entre com Google se sua conta já estiver vinculada.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="forgot">Recuperar acesso</TabsTrigger>
-              </TabsList>
+          <div className="mt-4">
+            <InstallButton
+              variant="secondary"
+              size="lg"
+              fullWidth
+              label="Instalar aplicativo"
+              className="border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+            />
+          </div>
 
-              <TabsContent value="login" className="pt-4">
-                <InternalLoginForm />
-                <GoogleButton className="mt-4" />
-              </TabsContent>
+          {/* Selos do celular — no desktop quem cumpre esse papel é a
+              coluna de marketing à esquerda. */}
+          <ul className="mt-7 grid grid-cols-3 gap-2 lg:hidden">
+            {SELOS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex flex-col items-center gap-2 text-center">
+                <Icon className="h-6 w-6 text-sky-400" />
+                <span className="whitespace-pre-line text-[11px] leading-tight text-slate-400">
+                  {label}
+                </span>
+              </li>
+            ))}
+          </ul>
 
-              <TabsContent value="forgot" className="pt-4">
-                <ForgotForm onDone={() => setTab("login")} />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <div className="mt-4">
-          <InstallButton
-            variant="secondary"
-            size="lg"
-            fullWidth
-            label="Instalar aplicativo"
-            className="bg-white/95 text-primary hover:bg-white"
-          />
-        </div>
-
-        <p className="mt-6 text-center text-xs text-white/80">
-          © {new Date().getFullYear()} Webifibra — uso interno
-        </p>
+          <p className="mt-6 text-center text-xs text-slate-500">
+            © {new Date().getFullYear()} CheckTecnico — uso interno
+          </p>
+        </section>
       </div>
     </div>
   );
@@ -150,29 +229,45 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="fg-email">E-mail cadastrado</Label>
+        <Label htmlFor="fg-email" className="auth-label">
+          E-mail cadastrado
+        </Label>
         <Input
           id="fg-email"
           type="email"
           autoComplete="email"
           inputMode="email"
+          className="auth-input"
+          placeholder="voce@provedor.com.br"
           {...form.register("email")}
         />
         {form.formState.errors.email && (
-          <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
+          <p className="text-xs text-rose-400">{form.formState.errors.email.message}</p>
         )}
       </div>
-      <Button type="submit" size="lg" className="w-full" disabled={form.formState.isSubmitting}>
+      <Button
+        type="submit"
+        size="lg"
+        className="auth-submit w-full"
+        disabled={form.formState.isSubmitting}
+      >
         {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Enviar instruções
       </Button>
+      <button
+        type="button"
+        onClick={onDone}
+        className="w-full text-center text-xs text-slate-400 underline-offset-4 hover:text-sky-400 hover:underline"
+      >
+        Voltar para o login
+      </button>
     </form>
   );
 }
 
-function GoogleButton({ className }: { className?: string }) {
+function GoogleButton() {
   const [loading, setLoading] = useState(false);
   async function onClick() {
     setLoading(true);
@@ -192,12 +287,10 @@ function GoogleButton({ className }: { className?: string }) {
   return (
     <Button
       type="button"
-      variant="outline"
       size="lg"
-      className={className}
+      className="w-full bg-white text-slate-900 hover:bg-slate-100"
       onClick={onClick}
       disabled={loading}
-      style={{ width: "100%" }}
     >
       {loading ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -221,7 +314,7 @@ function GoogleButton({ className }: { className?: string }) {
           />
         </svg>
       )}
-      Continuar com Google
+      Entrar com Google
     </Button>
   );
 }
@@ -250,11 +343,12 @@ function detectProviderSlugFromHost(): string {
   return "webifibra";
 }
 
-function InternalLoginForm() {
+function InternalLoginForm({ onForgot }: { onForgot: () => void }) {
   const navigate = useNavigate();
   const [providerSlug, setProviderSlug] = useState(() => detectProviderSlugFromHost());
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -315,40 +409,81 @@ function InternalLoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="int-provider">Provedor</Label>
-        <Input
-          id="int-provider"
-          value={providerSlug}
-          onChange={(e) => setProviderSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-          placeholder="webifibra"
-        />
+        <Label htmlFor="int-provider" className="auth-label">
+          Provedor
+        </Label>
+        <div className="relative">
+          <Building2 className="auth-field-icon" />
+          <Input
+            id="int-provider"
+            value={providerSlug}
+            onChange={(e) =>
+              setProviderSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+            }
+            placeholder="webifibra"
+            className="auth-input pl-10"
+          />
+        </div>
       </div>
+
       <div className="space-y-1.5">
-        <Label htmlFor="int-login">Login</Label>
-        <Input
-          id="int-login"
-          value={login}
-          onChange={(e) => setLogin(e.target.value)}
-          placeholder="T0112"
-          autoComplete="username"
-        />
+        <Label htmlFor="int-login" className="auth-label">
+          Login
+        </Label>
+        <div className="relative">
+          <UserRound className="auth-field-icon" />
+          <Input
+            id="int-login"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            placeholder="Seu login"
+            autoComplete="username"
+            className="auth-input pl-10"
+          />
+        </div>
       </div>
+
       <div className="space-y-1.5">
-        <Label htmlFor="int-password">Senha</Label>
-        <Input
-          id="int-password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-        />
+        <Label htmlFor="int-password" className="auth-label">
+          Senha
+        </Label>
+        <div className="relative">
+          <Lock className="auth-field-icon" />
+          <Input
+            id="int-password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Sua senha"
+            autoComplete="current-password"
+            className="auth-input px-10"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-colors hover:text-sky-400"
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
-      <Button type="submit" size="lg" className="w-full" disabled={loading}>
-        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+      <Button type="submit" size="lg" className="auth-submit w-full" disabled={loading}>
+        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Entrar
+        {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
       </Button>
+
+      <button
+        type="button"
+        onClick={onForgot}
+        className="w-full text-center text-xs text-slate-400 underline-offset-4 hover:text-sky-400 hover:underline"
+      >
+        Esqueceu a senha?
+      </button>
     </form>
   );
 }
