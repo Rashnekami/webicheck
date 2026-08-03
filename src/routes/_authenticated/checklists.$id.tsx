@@ -124,10 +124,20 @@ function ChecklistDetail() {
     queryKey: ["checklist", id],
     queryFn: () => getChecklist(id),
   });
+  // Bug real reportado por técnico: fotos de CTO (remapeamento_cto) e de
+  // rompimento/readequação/melhoria_sinal pareciam "não registrar" — o
+  // upload em si sempre funcionou (uploadFoto grava no storage e na
+  // tabela normalmente), mas esta query só era habilitada pra
+  // validacao_ont. Resultado: a foto salvava, mas a tela nunca buscava
+  // de volta pra mostrar (parecia sumir), E o PDF desses 4 tipos também
+  // lê fotosQuery.data — o documento final saía SEM as fotos, mesmo já
+  // existindo no banco. FotosSection é renderizado pra todo tipo de
+  // checklist de rede (ver <FotosSection> mais abaixo), então a query
+  // precisa estar habilitada pra todos eles, não só ONT.
   const fotosQuery = useQuery({
     queryKey: ["checklist-fotos", id],
     queryFn: () => listFotos(id),
-    enabled: query.data?.tipo === "validacao_ont",
+    enabled: !!query.data,
   });
   const ownerId = query.data?.tecnico_id;
   const ownerQuery = useQuery({
