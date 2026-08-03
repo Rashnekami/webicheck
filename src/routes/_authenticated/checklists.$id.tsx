@@ -82,6 +82,7 @@ import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-c
 import { CaseRevisionsPanel } from "@/components/checklist/case-revisions-panel";
 import { CustomerCounterproofCard } from "@/components/checklist/customer-counterproof-card";
 import { OntAiAnalysisCard } from "@/components/checklist/ont-ai-analysis-card";
+import { ImageLightbox, useImageLightbox } from "@/components/checklist/image-lightbox";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   ensureChecklistSnapshot,
@@ -980,16 +981,21 @@ function FotoTile({
   }, [foto.storage_path]);
 
   const label = FOTO_CATEGORIAS.find((c) => c.value === foto.categoria)?.label ?? "";
+  const lightbox = useImageLightbox();
 
   return (
     <li className="group relative overflow-hidden rounded-md border">
       {url ? (
-        // Abre a foto original em tamanho cheio numa aba nova — no
-        // celular dá pra segurar e "Salvar imagem"; no PC, clique
-        // direito e salvar. Sem isso só existia a miniatura de 128px.
-        <a href={url} target="_blank" rel="noopener noreferrer" title="Abrir foto original">
+        // Abre em tamanho original com zoom (roda/pinça) e botão de
+        // download — antes só dava pra abrir a miniatura numa aba nova.
+        <button
+          type="button"
+          onClick={() => lightbox.open(url, label, `foto-${foto.categoria}-${foto.id}.jpg`)}
+          title="Ampliar foto"
+          className="block w-full"
+        >
           <img src={url} alt={label} className="h-32 w-full bg-muted object-contain" />
-        </a>
+        </button>
       ) : (
         <div className="flex h-32 w-full items-center justify-center bg-muted">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -1008,6 +1014,7 @@ function FotoTile({
           <Trash2 className="h-3.5 w-3.5 text-destructive" />
         </button>
       )}
+      <ImageLightbox state={lightbox.state} onClose={lightbox.close} />
     </li>
   );
 }

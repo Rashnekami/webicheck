@@ -6,6 +6,7 @@ import type { SnapshotPayload } from "@/lib/public-checklist.functions";
 import type { ResolvedFoto } from "@/lib/checklist-photo-uris";
 import type { IntervencaoData, RemapeamentoData, TipoIntervencao } from "@/lib/checklist-schema";
 import { TIPO_LABEL, fotoCategoriaLabel, groupFotosByCategoria } from "@/lib/checklist-schema";
+import { ImageLightbox, useImageLightbox } from "@/components/checklist/image-lightbox";
 import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fibers";
 import {
   CAUSA_OPCOES,
@@ -215,6 +216,7 @@ function InfoGrid({ items }: { items: { label: string; value: string }[] }) {
 // categoria com um cabeçalho por grupo, mesma ordem em toda parte
 // (fotoCategoriaSortWeight): antes sempre primeiro, depois em seguida.
 function PhotoGrid({ fotos }: { fotos: ResolvedFoto[] }) {
+  const lightbox = useImageLightbox();
   if (fotos.length === 0) {
     return (
       <p style={{ color: C.amber, fontSize: 12, margin: 0 }}>
@@ -253,18 +255,25 @@ function PhotoGrid({ fotos }: { fotos: ResolvedFoto[] }) {
                     padding: 6,
                   }}
                 >
-                  <img
-                    src={f.uri}
-                    alt={f.label}
-                    crossOrigin="anonymous"
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      height: 190,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                    }}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => lightbox.open(f.uri, f.label, `foto-${categoria}-${f.id}.jpg`)}
+                    style={{ display: "block", width: "100%", padding: 0, border: 0, background: "none", cursor: "zoom-in" }}
+                    title="Ampliar foto"
+                  >
+                    <img
+                      src={f.uri}
+                      alt={f.label}
+                      crossOrigin="anonymous"
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        height: 190,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                      }}
+                    />
+                  </button>
                   {f.legenda ? (
                     <div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>{f.legenda}</div>
                   ) : null}
@@ -274,6 +283,7 @@ function PhotoGrid({ fotos }: { fotos: ResolvedFoto[] }) {
           </div>
         </div>
       ))}
+      <ImageLightbox state={lightbox.state} onClose={lightbox.close} />
     </>
   );
 }
