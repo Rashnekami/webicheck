@@ -160,7 +160,7 @@ export const getCtoReferencePoint = createServerFn({ method: "POST" })
     const { data: point } = await supabaseAdmin
       .from("cto_reference_points")
       .select("lat, lng")
-      .eq("snapshot_id", latestSnap.snapshot_id)
+      .eq("snapshot_id", latestSnap.snapshot_id ?? "")
       .eq("nome_normalizado", key)
       .maybeSingle();
 
