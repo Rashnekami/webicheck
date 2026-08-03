@@ -872,14 +872,15 @@ function FotosSection({
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={(e) => handleSelectedFile(e.target.files?.[0], e.currentTarget)}
+              onChange={(e) => handleSelectedFiles(e.target.files, e.currentTarget)}
             />
             <input
               ref={galleryInputRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
-              onChange={(e) => handleSelectedFile(e.target.files?.[0], e.currentTarget)}
+              onChange={(e) => handleSelectedFiles(e.target.files, e.currentTarget)}
             />
             <Button
               type="button"
