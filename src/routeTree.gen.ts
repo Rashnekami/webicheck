@@ -19,6 +19,7 @@ import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
 import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
+import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
 import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
@@ -28,6 +29,7 @@ import { Route as AuthenticatedIntervencoesRouteImport } from './routes/_authent
 import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
@@ -86,6 +88,11 @@ const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
   path: '/trocas-ont',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSegurancaRoute = AuthenticatedSegurancaRouteImport.update({
+  id: '/seguranca',
+  path: '/seguranca',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRemapeamentosRoute =
   AuthenticatedRemapeamentosRouteImport.update({
     id: '/remapeamentos',
@@ -133,6 +140,11 @@ const AuthenticatedInformativosRoute =
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCtosRoute = AuthenticatedCtosRouteImport.update({
+  id: '/ctos',
+  path: '/ctos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedChecklistsIndexRoute =
@@ -190,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/ctos': typeof AuthenticatedCtosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
@@ -199,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
+  '/seguranca': typeof AuthenticatedSegurancaRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -218,6 +232,7 @@ export interface FileRoutesByTo {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/ctos': typeof AuthenticatedCtosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
   '/integracoes': typeof AuthenticatedIntegracoesRoute
@@ -227,6 +242,7 @@ export interface FileRoutesByTo {
   '/plataforma': typeof AuthenticatedPlataformaRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
+  '/seguranca': typeof AuthenticatedSegurancaRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -248,6 +264,7 @@ export interface FileRoutesById {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/_authenticated/ctos': typeof AuthenticatedCtosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
   '/_authenticated/integracoes': typeof AuthenticatedIntegracoesRoute
@@ -257,6 +274,7 @@ export interface FileRoutesById {
   '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/remapeamentos': typeof AuthenticatedRemapeamentosRoute
+  '/_authenticated/seguranca': typeof AuthenticatedSegurancaRoute
   '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -278,6 +296,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/trocar-senha'
+    | '/ctos'
     | '/dashboard'
     | '/informativos'
     | '/integracoes'
@@ -287,6 +306,7 @@ export interface FileRouteTypes {
     | '/plataforma'
     | '/provedor'
     | '/remapeamentos'
+    | '/seguranca'
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
@@ -306,6 +326,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/trocar-senha'
+    | '/ctos'
     | '/dashboard'
     | '/informativos'
     | '/integracoes'
@@ -315,6 +336,7 @@ export interface FileRouteTypes {
     | '/plataforma'
     | '/provedor'
     | '/remapeamentos'
+    | '/seguranca'
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
@@ -335,6 +357,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/trocar-senha'
+    | '/_authenticated/ctos'
     | '/_authenticated/dashboard'
     | '/_authenticated/informativos'
     | '/_authenticated/integracoes'
@@ -344,6 +367,7 @@ export interface FileRouteTypes {
     | '/_authenticated/plataforma'
     | '/_authenticated/provedor'
     | '/_authenticated/remapeamentos'
+    | '/_authenticated/seguranca'
     | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
     | '/contra-prova/$token'
@@ -447,6 +471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/seguranca': {
+      id: '/_authenticated/seguranca'
+      path: '/seguranca'
+      fullPath: '/seguranca'
+      preLoaderRoute: typeof AuthenticatedSegurancaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/remapeamentos': {
       id: '/_authenticated/remapeamentos'
       path: '/remapeamentos'
@@ -510,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ctos': {
+      id: '/_authenticated/ctos'
+      path: '/ctos'
+      fullPath: '/ctos'
+      preLoaderRoute: typeof AuthenticatedCtosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/checklists/': {
       id: '/_authenticated/checklists/'
       path: '/checklists'
@@ -570,6 +608,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCtosRoute: typeof AuthenticatedCtosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
   AuthenticatedIntegracoesRoute: typeof AuthenticatedIntegracoesRoute
@@ -579,6 +618,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
   AuthenticatedRemapeamentosRoute: typeof AuthenticatedRemapeamentosRoute
+  AuthenticatedSegurancaRoute: typeof AuthenticatedSegurancaRoute
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
@@ -586,6 +626,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCtosRoute: AuthenticatedCtosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
   AuthenticatedIntegracoesRoute: AuthenticatedIntegracoesRoute,
@@ -595,6 +636,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
   AuthenticatedRemapeamentosRoute: AuthenticatedRemapeamentosRoute,
+  AuthenticatedSegurancaRoute: AuthenticatedSegurancaRoute,
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
@@ -628,3 +670,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
