@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 /**
  * Devolve exclusivamente a chave pública de aplicação web do ArcGIS
- * (credencial "WebiCheck - Mapas Base", restrita por referrer, apenas
+ * (credencial "CheckTecnico - Mapas Base", restrita por referrer, apenas
  * Basemap Styles).
  *
  * Nunca retorna ARCGIS_STATIC_MAPS_API_KEY nem qualquer outro secret do

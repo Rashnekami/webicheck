@@ -15,7 +15,7 @@ import { downloadCaseDossieFromBundle } from "@/components/checklist/dossie-pdf"
 
 export const Route = createFileRoute("/_authenticated/trocas-ont")({
   head: () => ({
-    meta: [{ title: "Trocas de ONT — WebiCheck" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Trocas de ONT — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: OntExchangesPage,
 });

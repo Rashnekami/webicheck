@@ -227,14 +227,14 @@ function IntervencaoDocument({
   return (
     <Document
       title={`${TIPO_LABEL[tipo]} ${row.intervention_code ?? ""}`}
-      author="Webifibra — WebiCheck"
+      author="CheckTecnico"
     >
       <Page size="A4" style={s.page}>
         <View style={s.frame}>
           <View style={s.header}>
             {logoUri ? <Image src={logoUri} style={s.logo} /> : null}
             <Text style={s.title}>
-              WEBI<Text style={s.titleAccent}>CHECK</Text>
+              Check<Text style={s.titleAccent}>Tecnico</Text>
             </Text>
             <Text style={s.subtitle}>
               {TIPO_LABEL[tipo]} · Laudo técnico de intervenção de rede
@@ -484,7 +484,7 @@ function IntervencaoDocument({
           ) : null}
 
           <View style={s.footer}>
-            <Text>WebiCheck · {TIPO_LABEL[tipo]}</Text>
+            <Text>CheckTecnico · {TIPO_LABEL[tipo]}</Text>
             <Text>Emitido em {new Date().toLocaleString("pt-BR")}</Text>
           </View>
         </View>

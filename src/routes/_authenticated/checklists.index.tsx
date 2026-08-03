@@ -42,7 +42,7 @@ import { formatChecklistCode } from "@/lib/checklist-code";
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
   head: () => ({
-    meta: [{ title: "Checklists — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Checklists — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: ChecklistsList,
 });

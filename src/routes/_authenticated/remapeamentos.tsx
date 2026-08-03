@@ -51,7 +51,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/remapeamentos")({
   head: () => ({
-    meta: [{ title: "Remapeamentos — WebiCheck" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Remapeamentos — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: RemapeamentosPage,
 });

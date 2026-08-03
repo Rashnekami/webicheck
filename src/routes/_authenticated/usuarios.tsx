@@ -35,7 +35,7 @@ import { CityExceptionManager } from "@/components/admin/city-exception-manager"
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
   head: () => ({
-    meta: [{ title: "Usuários — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Usuários — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: UsersPage,
 });

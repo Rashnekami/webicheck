@@ -86,15 +86,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
+          "Plataforma CheckTecnico para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
       },
-      { name: "author", content: "Webifibra" },
+      { name: "author", content: "CheckTecnico" },
       { name: "theme-color", content: "#1a53ff" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Webifibra" },
-      { name: "application-name", content: "Webifibra" },
+      { name: "apple-mobile-web-app-title", content: "CheckTecnico" },
+      { name: "application-name", content: "CheckTecnico" },
       {
         property: "og:title",
         content: "Checklist Técnico de Campo",
@@ -102,7 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
+          "Plataforma CheckTecnico para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -110,7 +110,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "twitter:description",
         content:
-          "Plataforma da Webifibra para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
+          "Plataforma CheckTecnico para técnicos registrarem instalações, manutenções e trocas de equipamentos em campo, com autorização do NOC, assinatura eletrônica e PDF permanente.",
       },
       {
         property: "og:image",

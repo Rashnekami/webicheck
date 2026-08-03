@@ -515,7 +515,7 @@ function RemapeamentoDocument({
           ) : null}
 
           <View style={s.footer}>
-            <Text>WebiCheck · Remapeamento de CTO/NAP</Text>
+            <Text>CheckTecnico · Remapeamento de CTO/NAP</Text>
             <Text>Emitido em {new Date().toLocaleString("pt-BR")}</Text>
           </View>
         </View>

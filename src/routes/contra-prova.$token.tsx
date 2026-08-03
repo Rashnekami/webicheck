@@ -16,7 +16,7 @@ import { WebifibraLogo } from "@/components/webifibra-logo";
 
 export const Route = createFileRoute("/contra-prova/$token")({
   component: CounterproofPage,
-  head: () => ({ meta: [{ title: "Contra-Prova do Cliente — Webifibra" }, { name: "robots", content: "noindex,nofollow" }] }),
+  head: () => ({ meta: [{ title: "Contra-Prova do Cliente — CheckTecnico" }, { name: "robots", content: "noindex,nofollow" }] }),
 });
 
 function fileDataUrl(file: File) {

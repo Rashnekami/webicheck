@@ -866,7 +866,7 @@ export const NetworkDarkDocument = forwardRef<HTMLDivElement, NetworkDocumentPro
               fontSize: 10,
             }}
           >
-            <span>WebiCheck · {TIPO_LABEL[tipo]}</span>
+            <span>CheckTecnico · {TIPO_LABEL[tipo]}</span>
             <span>Emitido em {new Date().toLocaleString("pt-BR")}</span>
           </div>
         </div>

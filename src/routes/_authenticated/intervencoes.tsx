@@ -63,7 +63,7 @@ import {
 export const Route = createFileRoute("/_authenticated/intervencoes")({
   head: () => ({
     meta: [
-      { title: "Intervenções de rede — WebiCheck" },
+      { title: "Intervenções de rede — CheckTecnico" },
       { name: "robots", content: "noindex" },
     ],
   }),

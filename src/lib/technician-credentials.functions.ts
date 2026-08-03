@@ -89,7 +89,12 @@ export const createTechnicianCredential = createServerFn({ method: "POST" })
       .single();
     if (provErr || !prov) throw new Error("Provedor não encontrado.");
 
-    const syntheticEmail = `${data.login}@${prov.slug}.webicheck.local`;
+    // Domínio interno (nunca recebe e-mail de verdade). Trocar de
+    // .webicheck.local para .checktecnico.local é seguro: o login lê o
+    // e-mail gravado em provider_login_accounts.supabase_email, não o
+    // reconstrói a partir do slug — então as contas antigas continuam
+    // entrando normalmente com o domínio antigo.
+    const syntheticEmail = `${data.login}@${prov.slug}.checktecnico.local`;
 
     // Já existe login duplicado no mesmo provedor?
     const { data: dup } = await supabaseAdmin

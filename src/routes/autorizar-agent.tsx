@@ -65,7 +65,7 @@ function AuthorizeAgentPage() {
           <CardHeader>
             <CardTitle>Autorizar Webi Diagnostic</CardTitle>
             <CardDescription>
-              Entre com sua conta WebiCheck para vincular este dispositivo.
+              Entre com sua conta CheckTecnico para vincular este dispositivo.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -79,7 +79,7 @@ function AuthorizeAgentPage() {
                 navigate({ to: "/auth" });
               }}
             >
-              <LogIn className="mr-2 h-4 w-4" /> Entrar no WebiCheck
+              <LogIn className="mr-2 h-4 w-4" /> Entrar no CheckTecnico
             </Button>
           </CardContent>
         </Card>

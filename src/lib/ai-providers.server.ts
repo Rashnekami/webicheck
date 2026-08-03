@@ -20,7 +20,7 @@ export function aiProviders(): AiProviderConfig[] {
       model: "google/gemini-2.5-flash",
       extraHeaders: {
         "HTTP-Referer": "https://checktecnico.life",
-        "X-Title": "WebiCheck",
+        "X-Title": "CheckTecnico",
       },
     },
     {

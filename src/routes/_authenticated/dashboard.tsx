@@ -62,7 +62,7 @@ import { generatePresentationZip, presentationZipFilename } from "@/services/pre
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
-    meta: [{ title: "Dashboard — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Dashboard — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: Dashboard,
 });

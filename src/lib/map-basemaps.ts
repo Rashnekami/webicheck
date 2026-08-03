@@ -1,4 +1,4 @@
-// Camada cartográfica do WebiCheck: MapLibre GL JS (motor) + ArcGIS Location
+// Camada cartográfica do CheckTecnico: MapLibre GL JS (motor) + ArcGIS Location
 // Platform (provedor). Nenhuma dependência Mapbox.
 //
 // A chave de aplicação web vem exclusivamente da configuração de ambiente do

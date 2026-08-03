@@ -21,7 +21,7 @@ export const Route = createFileRoute("/completar-cadastro")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Complete seu cadastro — Webifibra" },
+      { title: "Complete seu cadastro — CheckTecnico" },
       { name: "robots", content: "noindex" },
     ],
   }),

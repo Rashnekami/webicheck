@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { WebifibraLogo } from "@/components/webifibra-logo";
+import { CheckTecnicoMark } from "@/components/checktecnico-brand";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +52,7 @@ import { getChecklistCounts } from "@/lib/checklists";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
-    meta: [{ title: "Painel — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Painel — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: Painel,
 });
@@ -210,7 +210,7 @@ function Painel() {
   if (isLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <WebifibraLogo size={64} className="animate-pulse" />
+        <CheckTecnicoMark size={64} className="animate-pulse" />
       </div>
     );
   }
@@ -226,10 +226,19 @@ function Painel() {
       <header className="brand-gradient text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <WebifibraLogo size={44} className="rounded-xl" />
-            <div>
-              <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Webifibra</p>
-              <h1 className="text-lg font-semibold">Checklist Técnico</h1>
+            <CheckTecnicoMark size={44} />
+            <div className="min-w-0">
+              {/* Marca da plataforma com o nome do provedor ao lado: em
+                  instalação multi-ISP o técnico precisa ver de qual
+                  operação é a conta em que está logado. O nome vem do
+                  cadastro do provedor, não fica fixo no código. */}
+              <h1 className="truncate text-lg font-semibold">
+                Check<span className="text-emerald-400">Tecnico</span>
+                {user.provider_name ? (
+                  <span className="font-normal text-slate-300"> · {user.provider_name}</span>
+                ) : null}
+              </h1>
+              <p className="text-xs uppercase tracking-[.2em] text-cyan-400">Checklist Técnico</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

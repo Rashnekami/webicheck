@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/minha-conta")({
   head: () => ({
-    meta: [{ title: "Minha conta — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Minha conta — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: MinhaContaPage,
 });

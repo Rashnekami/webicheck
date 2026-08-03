@@ -33,7 +33,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/plataforma")({
   head: () => ({
-    meta: [{ title: "Plataforma — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Plataforma — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: PlatformPage,
 });
@@ -372,7 +372,7 @@ function NewProviderDialog({
               placeholder="webifibra"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Usado nos logins internos: <code>login@{slug || "slug"}.webicheck.local</code>
+              Usado nos logins internos: <code>login@{slug || "slug"}.checktecnico.local</code>
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">

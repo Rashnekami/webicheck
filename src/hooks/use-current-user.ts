@@ -14,6 +14,9 @@ export interface CurrentUser {
   active: boolean;
   assinatura: string | null;
   provider_id: string | null;
+  /** Nome comercial do provedor — exibido ao lado da marca CheckTecnico
+   *  para o técnico saber de qual ISP é a operação em que está logado. */
+  provider_name: string | null;
   supervisor_id: string | null;
   platform_admin: boolean;
   cities: string[];
@@ -48,6 +51,17 @@ export function useCurrentUser() {
           })
         | null;
       const platformAdmin = Boolean(p?.platform_admin);
+
+      let providerName: string | null = null;
+      if (p?.provider_id) {
+        const { data: prov } = await supabase
+          .from("providers")
+          .select("name")
+          .eq("id", p.provider_id)
+          .maybeSingle();
+        providerName = ((prov as { name?: string } | null)?.name ?? "").trim() || null;
+      }
+
       return {
         id: auth.user.id,
         email: p?.email ?? auth.user.email ?? "",
@@ -58,6 +72,7 @@ export function useCurrentUser() {
         active: p?.active ?? true,
         assinatura: p?.assinatura ?? null,
         provider_id: p?.provider_id ?? null,
+        provider_name: providerName,
         supervisor_id: p?.supervisor_id ?? null,
         platform_admin: platformAdmin,
         cities,

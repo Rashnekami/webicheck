@@ -25,7 +25,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/integracoes")({
   head: () => ({
-    meta: [{ title: "Integrações — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Integrações — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: IntegracoesPage,
 });

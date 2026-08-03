@@ -88,7 +88,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/checklists/$id")({
   head: () => ({
-    meta: [{ title: "Checklist — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Checklist — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: ChecklistDetail,
 });

@@ -23,7 +23,7 @@ import {
 export const Route = createFileRoute("/trocar-senha")({
   ssr: false,
   head: () => ({
-    meta: [{ title: "Trocar senha — Webifibra" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Trocar senha — CheckTecnico" }, { name: "robots", content: "noindex" }],
   }),
   component: TrocarSenhaPage,
 });

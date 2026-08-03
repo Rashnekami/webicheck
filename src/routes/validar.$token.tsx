@@ -22,7 +22,7 @@ import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-
 export const Route = createFileRoute("/validar/$token")({
   head: () => ({
     meta: [
-      { title: "Validação do checklist — Webifibra" },
+      { title: "Validação do checklist — CheckTecnico" },
       {
         name: "description",
         content: "Página pública de consulta e validação de checklist Webifibra.",
