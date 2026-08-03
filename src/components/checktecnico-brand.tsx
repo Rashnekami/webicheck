@@ -1,4 +1,44 @@
+import { useState } from "react";
+
 import { cn } from "@/lib/utils";
+
+/** Caminho do emblema oficial (técnico + escudo + "CHECK TÉCNICO").
+ *
+ * Fica em public/ e não no sistema de assets da Lovable de propósito:
+ * public/ é servido pelo Vite em qualquer ambiente (Lovable, Docker,
+ * dev local), então o logo não depende de um asset_id específico de
+ * projeto — é só trocar o arquivo pra trocar a marca.
+ */
+const LOGO_SRC = "/checktecnico-logo.png";
+
+/**
+ * Emblema oficial da marca. Enquanto o arquivo não existir em public/,
+ * cai automaticamente no símbolo vetorial abaixo em vez de mostrar
+ * ícone quebrado na tela de login — que é a primeira coisa que todo
+ * técnico vê.
+ */
+export function CheckTecnicoLogo({
+  className,
+  alt = "CheckTecnico — checklist para provedores e ISP",
+}: {
+  className?: string;
+  alt?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return <CheckTecnicoMark size={96} className={cn("mx-auto", className)} />;
+  }
+
+  return (
+    <img
+      src={LOGO_SRC}
+      alt={alt}
+      onError={() => setFailed(true)}
+      className={cn("w-auto object-contain", className)}
+    />
+  );
+}
 
 /**
  * Marca CheckTecnico em SVG inline (escudo + check + ondas de sinal).
@@ -64,22 +104,3 @@ export function CheckTecnicoMark({
   );
 }
 
-/** Logotipo horizontal: "Check" claro + "Tecnico" verde, como na arte. */
-export function CheckTecnicoWordmark({
-  markSize = 44,
-  className,
-  textClassName,
-}: {
-  markSize?: number;
-  className?: string;
-  textClassName?: string;
-}) {
-  return (
-    <div className={cn("flex items-center gap-2.5", className)}>
-      <CheckTecnicoMark size={markSize} />
-      <span className={cn("font-bold tracking-tight text-white", textClassName)}>
-        Check<span className="text-emerald-400">Tecnico</span>
-      </span>
-    </div>
-  );
-}

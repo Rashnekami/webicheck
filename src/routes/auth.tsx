@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { CheckTecnicoMark, CheckTecnicoWordmark } from "@/components/checktecnico-brand";
+import { CheckTecnicoLogo, CheckTecnicoMark } from "@/components/checktecnico-brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,11 +116,10 @@ function AuthPage() {
           campo precisa do login à mão, não de texto de venda ocupando a
           primeira dobra. */}
       <div className="mx-auto grid min-h-dvh w-full max-w-7xl items-center gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[1.05fr_minmax(0,26rem)] lg:gap-14 lg:py-12">
-        {/* Coluna de marketing: exclusiva do desktop. */}
+        {/* Coluna de marketing: exclusiva do desktop. Sem repetir a marca
+            aqui — o emblema já fica acima do card, à direita. */}
         <section className="hidden lg:block">
-          <CheckTecnicoWordmark markSize={68} textClassName="text-5xl xl:text-6xl" />
-
-          <p className="mt-4 text-sm font-semibold uppercase tracking-[.18em] text-slate-300">
+          <p className="text-sm font-semibold uppercase tracking-[.18em] text-slate-300">
             Sua operação. 100% <span className="text-sky-400">conectada</span>. 100% sob controle.
           </p>
           <p className="mt-4 max-w-lg text-base leading-relaxed text-slate-400">
@@ -144,20 +143,20 @@ function AuthPage() {
         </section>
 
         <section className="w-full">
-          <div className="auth-card p-6 sm:p-7">
-            <div className="flex flex-col items-center text-center">
-              <CheckTecnicoMark size={54} />
-              <p className="mt-3 text-2xl font-bold tracking-tight text-white">
-                Check<span className="text-emerald-400">Tecnico</span>
-              </p>
-              <p className="mt-1 text-sm text-slate-400">
-                {view === "login"
-                  ? "Acesse sua conta para continuar"
-                  : "Recupere o acesso pelo seu e-mail"}
-              </p>
-            </div>
+          {/* Emblema acima do login nas duas versões. Altura contida
+              (h-28/h-40): é um brasão alto e detalhado, e no celular um
+              logo grande demais empurraria o formulário pra fora da
+              primeira dobra. */}
+          <CheckTecnicoLogo className="mx-auto mb-5 h-28 drop-shadow-[0_8px_28px_rgba(12,120,220,0.35)] sm:h-32 lg:mb-6 lg:h-40" />
 
-            <div className="mt-6">
+          <div className="auth-card p-6 sm:p-7">
+            <p className="text-center text-sm text-slate-400">
+              {view === "login"
+                ? "Acesse sua conta para continuar"
+                : "Recupere o acesso pelo seu e-mail"}
+            </p>
+
+            <div className="mt-5">
               {view === "login" ? (
                 <>
                   <InternalLoginForm onForgot={() => setView("forgot")} />
