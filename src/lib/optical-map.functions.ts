@@ -2,8 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateFibersFromConstrucao, generateFibersUniform, colorForIndex, outputsForSplitterType } from "@/lib/optical-map";
 
-async function requireProviderWriter(userId: string): Promise<string> {
+// O módulo de mapa óptico usa tabelas (optical_*) cuja migration ainda não foi
+// aplicada, então os tipos gerados do banco ainda não as conhecem. Cliente
+// afrouxado apenas aqui, sem afetar o restante do projeto.
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type LooseDb = { from: (table: string) => any; rpc: (fn: string, args?: any) => any };
+async function adminDb(): Promise<LooseDb> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as LooseDb;
+}
+
+
+async function requireProviderWriter(userId: string): Promise<string> {
+  const supabaseAdmin = await adminDb();
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("provider_id")
@@ -20,7 +31,7 @@ async function requireProviderWriter(userId: string): Promise<string> {
 }
 
 async function requireProviderId(userId: string): Promise<string> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = await adminDb();
   const { data: profile } = await supabaseAdmin
     .from("profiles")
     .select("provider_id")
@@ -36,7 +47,7 @@ export const listOpticalCeos = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data, error } = await supabaseAdmin
       .from("optical_ceos")
       .select("*")
@@ -66,7 +77,7 @@ export const createOpticalCeo = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: row, error } = await supabaseAdmin
       .from("optical_ceos")
       .insert({ ...data, provider_id: providerId, created_by: context.userId })
@@ -81,7 +92,7 @@ export const getOpticalCeo = createServerFn({ method: "POST" })
   .inputValidator((data: { ceoId: string }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: row, error } = await supabaseAdmin
       .from("optical_ceos")
       .select("*")
@@ -120,7 +131,7 @@ export const createOpticalCable = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
 
     const { data: cable, error } = await supabaseAdmin
       .from("optical_cables")
@@ -172,7 +183,7 @@ export const listOpticalCables = createServerFn({ method: "POST" })
   .inputValidator((data: { ceoId: string }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: rows, error } = await supabaseAdmin
       .from("optical_cables")
       .select("*")
@@ -188,7 +199,7 @@ export const listOpticalFibers = createServerFn({ method: "POST" })
   .inputValidator((data: { cableId: string }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: rows, error } = await supabaseAdmin
       .from("optical_fibers")
       .select("*")
@@ -210,7 +221,7 @@ export const updateOpticalFiber = createServerFn({ method: "POST" })
   }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { fiberId, ...patch } = data;
     const { error } = await supabaseAdmin
       .from("optical_fibers")
@@ -248,7 +259,7 @@ export const createOpticalSplitter = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const numSaidas = outputsForSplitterType(data.tipo);
 
     const { data: splitter, error } = await supabaseAdmin
@@ -293,7 +304,7 @@ export const listOpticalSplitters = createServerFn({ method: "POST" })
   .inputValidator((data: { ceoId: string }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: rows, error } = await supabaseAdmin
       .from("optical_splitters")
       .select("*")
@@ -316,7 +327,7 @@ export const setSplitterFeedingFiber = createServerFn({ method: "POST" })
   }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { error } = await supabaseAdmin
       .from("optical_splitters")
       .update({
@@ -343,7 +354,7 @@ export const listOpticalSplitterOutputs = createServerFn({ method: "POST" })
   .inputValidator((data: { splitterId: string }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: rows, error } = await supabaseAdmin
       .from("optical_splitter_outputs")
       .select("*, optical_ctos(codigo, nome)")
@@ -372,7 +383,7 @@ export const setSplitterOutput = createServerFn({ method: "POST" })
   }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { error } = await supabaseAdmin
       .from("optical_splitter_outputs")
       .update({
@@ -407,7 +418,7 @@ export const listOpticalCtos = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data, error } = await supabaseAdmin
       .from("optical_ctos")
       .select("*")
@@ -435,7 +446,7 @@ export const createOpticalCto = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderWriter(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
     const { data: row, error } = await supabaseAdmin
       .from("optical_ctos")
       .insert({
@@ -466,7 +477,7 @@ export const traceCtoFeed = createServerFn({ method: "POST" })
   .inputValidator((data: { ctoId: string }) => data)
   .handler(async ({ data, context }) => {
     const providerId = await requireProviderId(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = await adminDb();
 
     const { data: output } = await supabaseAdmin
       .from("optical_splitter_outputs")

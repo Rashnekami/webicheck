@@ -107,13 +107,13 @@ function ActiveAnnouncements() {
               <p className="mt-1 text-lg font-semibold text-white">{notice.title}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{notice.message}</p>
             </div>
-            {notice.image_url && (
+            {(notice as { image_url?: string | null }).image_url ? (
               <img
-                src={notice.image_url}
+                src={(notice as { image_url?: string | null }).image_url ?? undefined}
                 alt=""
                 className="h-28 w-full shrink-0 rounded-lg border border-white/10 object-cover sm:w-40"
               />
-            )}
+            ) : null}
             <ArrowRight className="hidden h-5 w-5 text-cyan-400 sm:block" />
           </CardContent>
         </Card>

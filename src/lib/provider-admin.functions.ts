@@ -129,7 +129,9 @@ export const saveAnnouncement = createServerFn({ method: "POST" })
       .eq("id", context.userId)
       .single();
     if (!profile) throw new Error("Perfil não encontrado.");
-    const { error } = await context.supabase.from("announcements").insert({
+    // image_url ainda não está nos tipos gerados (migration pendente).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (context.supabase.from("announcements") as any).insert({
       provider_id: profile.provider_id,
       title: data.title.trim(),
       message: data.message.trim(),

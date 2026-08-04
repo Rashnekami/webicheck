@@ -155,13 +155,13 @@ function InformativosPage() {
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                   {notice.message}
                 </p>
-                {notice.image_url && (
+                {(notice as { image_url?: string | null }).image_url ? (
                   <img
-                    src={notice.image_url}
+                    src={(notice as { image_url?: string | null }).image_url ?? undefined}
                     alt=""
                     className="max-h-48 rounded-lg border border-blue-400/20 object-contain"
                   />
-                )}
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   {new Date(notice.created_at).toLocaleString("pt-BR")}
                 </p>

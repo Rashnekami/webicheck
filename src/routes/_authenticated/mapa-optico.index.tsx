@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -91,7 +92,7 @@ function MapaOpticoPage() {
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {ceos.map((ceo) => (
+          {ceos.map((ceo: Record<string, any>) => (
             <Link key={ceo.id} to="/mapa-optico/$ceoId" params={{ ceoId: ceo.id }}>
               <Card className="webi-nav-card h-full">
                 <CardContent className="space-y-1 p-4">
