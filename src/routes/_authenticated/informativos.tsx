@@ -155,9 +155,9 @@ function InformativosPage() {
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                   {notice.message}
                 </p>
-                {(notice as { image_url?: string | null }).image_url && (
+                {(notice as { image_url?: string | null }).image_url ?? undefined && (
                   <img
-                    src={(notice as { image_url?: string | null }).image_url}
+                    src={(notice as { image_url?: string | null }).image_url ?? undefined}
                     alt=""
                     className="max-h-48 rounded-lg border border-blue-400/20 object-contain"
                   />

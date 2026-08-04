@@ -107,9 +107,9 @@ function ActiveAnnouncements() {
               <p className="mt-1 text-lg font-semibold text-white">{notice.title}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{notice.message}</p>
             </div>
-            {(notice as { image_url?: string | null }).image_url && (
+            {(notice as { image_url?: string | null }).image_url ?? undefined && (
               <img
-                src={(notice as { image_url?: string | null }).image_url}
+                src={(notice as { image_url?: string | null }).image_url ?? undefined}
                 alt=""
                 className="h-28 w-full shrink-0 rounded-lg border border-white/10 object-cover sm:w-40"
               />
