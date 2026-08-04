@@ -339,6 +339,11 @@ function ChecklistDetail() {
       const ativoOk = d.localizacao.ativo?.confirmed || !!d.localizacao.confirmada;
       if (!ativoOk) errs.push("Confirmação manual da localização da CTO no mapa");
       if (!d.splitter.tipo) errs.push("Tipo do splitter");
+      // Fusão marcada como necessária sem nenhuma fibra detalhada não pode
+      // virar um documento que afirma "CTO remapeada integralmente".
+      if (d.fusao?.necessaria === "sim" && (d.fusao.itens ?? []).length === 0) {
+        errs.push("Detalhamento das fusões (fibra, motivo e potências)");
+      }
     } else if (isIntervencao(tipo)) {
       const d = data as IntervencaoData;
       if (!d.contexto.causa) errs.push("Causa da intervenção");
