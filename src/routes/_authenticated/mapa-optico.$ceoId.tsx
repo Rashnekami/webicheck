@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Cable, Split } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Cable, Split, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,6 +47,9 @@ import {
   classifyLoss,
   describeConnection,
 } from "@/lib/optical-map";
+import { fetchCeoFullData } from "@/lib/optical-map-data";
+import { OpticalTree } from "@/components/optical/optical-tree";
+import { generateOpticalMapPdf } from "@/components/optical/optical-map-pdf";
 
 export const Route = createFileRoute("/_authenticated/mapa-optico/$ceoId")({
   head: () => ({ meta: [{ title: "CEO — Mapa Óptico — CheckTecnico" }, { name: "robots", content: "noindex" }] }),
@@ -62,6 +65,19 @@ function CeoDetailPage() {
   const cablesQ = useQuery({ queryKey: ["optical-cables", ceoId], queryFn: () => listOpticalCables({ data: { ceoId } }) });
   const splittersQ = useQuery({ queryKey: ["optical-splitters", ceoId], queryFn: () => listOpticalSplitters({ data: { ceoId } }) });
   const ctosQ = useQuery({ queryKey: ["optical-ctos"], queryFn: () => listOpticalCtos() });
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function handlePdf() {
+    setPdfLoading(true);
+    try {
+      const full = await fetchCeoFullData(ceoId);
+      await generateOpticalMapPdf(full);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar PDF.");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   if (ceoQ.isLoading) {
     return (
@@ -86,16 +102,25 @@ function CeoDetailPage() {
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold text-white">{ceo.codigo}</h1>
-        <p className="text-sm text-muted-foreground">
-          {ceo.nome} · {[ceo.bairro, ceo.cidade].filter(Boolean).join(" · ")}
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-white">{ceo.codigo}</h1>
+            <p className="text-sm text-muted-foreground">
+              {ceo.nome} · {[ceo.bairro, ceo.cidade].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={pdfLoading} onClick={handlePdf}>
+            {pdfLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+            Baixar PDF
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="cabos">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="cabos">Cabos</TabsTrigger>
           <TabsTrigger value="splitters">Splitters</TabsTrigger>
+          <TabsTrigger value="arvore">Árvore</TabsTrigger>
           <TabsTrigger value="matriz">Matriz</TabsTrigger>
           <TabsTrigger value="resumo">Resumo</TabsTrigger>
         </TabsList>
@@ -112,6 +137,10 @@ function CeoDetailPage() {
             ctos={ctos}
             canWrite={canWrite}
           />
+        </TabsContent>
+
+        <TabsContent value="arvore" className="pt-4">
+          <ArvoreTab ceoId={ceoId} />
         </TabsContent>
 
         <TabsContent value="matriz" className="pt-4">
@@ -638,6 +667,14 @@ function OutputRow({
 }
 
 // ---------- Matriz ----------
+
+function ArvoreTab({ ceoId }: { ceoId: string }) {
+  const fullQ = useQuery({ queryKey: ["optical-full", ceoId], queryFn: () => fetchCeoFullData(ceoId) });
+  if (fullQ.isLoading) return <p className="py-8 text-center text-sm text-muted-foreground">Carregando…</p>;
+  if (fullQ.isError || !fullQ.data)
+    return <p className="py-8 text-center text-sm text-rose-400">Falha ao montar a árvore.</p>;
+  return <OpticalTree data={fullQ.data} />;
+}
 
 function MatrixTab({ splitters }: { splitters: any[] }) {
   return (
