@@ -161,7 +161,7 @@ function InformativosPage() {
                     alt=""
                     className="max-h-48 rounded-lg border border-blue-400/20 object-contain"
                   />
-                )}
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   {new Date(notice.created_at).toLocaleString("pt-BR")}
                 </p>
