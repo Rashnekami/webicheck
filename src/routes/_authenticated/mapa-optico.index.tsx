@@ -91,7 +91,7 @@ function MapaOpticoPage() {
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {ceos.map((ceo) => (
+          {ceos.map((ceo: { id: string; nome?: string; [k: string]: unknown }) => (
             <Link key={ceo.id} to="/mapa-optico/$ceoId" params={{ ceoId: ceo.id }}>
               <Card className="webi-nav-card h-full">
                 <CardContent className="space-y-1 p-4">

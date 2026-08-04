@@ -35,8 +35,6 @@ export interface RemapReport {
   ports: RemapPort[];
   portSummary: RemapPortSummary;
   portPages: RemapPort[][];
-  /** Só existe medição "antes/depois" quando alguma porta trouxer os dois valores. */
-  hasBeforeAfter: boolean;
 }
 
 const STATUS_LABEL: Record<RemapDocStatus, string> = {
@@ -155,7 +153,6 @@ export function buildRemapReport(d: RemapeamentoData): RemapReport {
     ports,
     portSummary: summarizePorts(ports),
     portPages: chunkPorts(ports),
-    hasBeforeAfter: ports.some((p) => !!p.potencia_antes_dbm && !!p.potencia_depois_dbm),
   };
 }
 
