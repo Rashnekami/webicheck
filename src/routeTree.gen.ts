@@ -30,7 +30,9 @@ import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenti
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
+import { Route as AuthenticatedMapaOpticoIndexRouteImport } from './routes/_authenticated/mapa-optico.index'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
+import { Route as AuthenticatedMapaOpticoCeoIdRouteImport } from './routes/_authenticated/mapa-optico.$ceoId'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
 import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
@@ -147,10 +149,22 @@ const AuthenticatedCtosRoute = AuthenticatedCtosRouteImport.update({
   path: '/ctos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMapaOpticoIndexRoute =
+  AuthenticatedMapaOpticoIndexRouteImport.update({
+    id: '/mapa-optico/',
+    path: '/mapa-optico/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedChecklistsIndexRoute =
   AuthenticatedChecklistsIndexRouteImport.update({
     id: '/checklists/',
     path: '/checklists/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMapaOpticoCeoIdRoute =
+  AuthenticatedMapaOpticoCeoIdRouteImport.update({
+    id: '/mapa-optico/$ceoId',
+    path: '/mapa-optico/$ceoId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedChecklistsIdRoute =
@@ -218,7 +232,9 @@ export interface FileRoutesByFullPath {
   '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
+  '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/mapa-optico/': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
@@ -248,7 +264,9 @@ export interface FileRoutesByTo {
   '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
+  '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
+  '/mapa-optico': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
@@ -280,7 +298,9 @@ export interface FileRoutesById {
   '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
+  '/_authenticated/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
+  '/_authenticated/mapa-optico/': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
   '/api/public/webi-diagnostic/device-start': typeof ApiPublicWebiDiagnosticDeviceStartRoute
   '/api/public/webi-diagnostic/device-token': typeof ApiPublicWebiDiagnosticDeviceTokenRoute
@@ -312,7 +332,9 @@ export interface FileRouteTypes {
     | '/contra-prova/$token'
     | '/validar/$token'
     | '/checklists/$id'
+    | '/mapa-optico/$ceoId'
     | '/checklists/'
+    | '/mapa-optico/'
     | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
@@ -342,7 +364,9 @@ export interface FileRouteTypes {
     | '/contra-prova/$token'
     | '/validar/$token'
     | '/checklists/$id'
+    | '/mapa-optico/$ceoId'
     | '/checklists'
+    | '/mapa-optico'
     | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
@@ -373,7 +397,9 @@ export interface FileRouteTypes {
     | '/contra-prova/$token'
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
+    | '/_authenticated/mapa-optico/$ceoId'
     | '/_authenticated/checklists/'
+    | '/_authenticated/mapa-optico/'
     | '/api/public/auth/login-internal'
     | '/api/public/webi-diagnostic/device-start'
     | '/api/public/webi-diagnostic/device-token'
@@ -548,11 +574,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCtosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/mapa-optico/': {
+      id: '/_authenticated/mapa-optico/'
+      path: '/mapa-optico'
+      fullPath: '/mapa-optico/'
+      preLoaderRoute: typeof AuthenticatedMapaOpticoIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/checklists/': {
       id: '/_authenticated/checklists/'
       path: '/checklists'
       fullPath: '/checklists/'
       preLoaderRoute: typeof AuthenticatedChecklistsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mapa-optico/$ceoId': {
+      id: '/_authenticated/mapa-optico/$ceoId'
+      path: '/mapa-optico/$ceoId'
+      fullPath: '/mapa-optico/$ceoId'
+      preLoaderRoute: typeof AuthenticatedMapaOpticoCeoIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/checklists/$id': {
@@ -622,7 +662,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
+  AuthenticatedMapaOpticoCeoIdRoute: typeof AuthenticatedMapaOpticoCeoIdRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
+  AuthenticatedMapaOpticoIndexRoute: typeof AuthenticatedMapaOpticoIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -640,7 +682,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
+  AuthenticatedMapaOpticoCeoIdRoute: AuthenticatedMapaOpticoCeoIdRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
+  AuthenticatedMapaOpticoIndexRoute: AuthenticatedMapaOpticoIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -670,3 +714,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
