@@ -14,6 +14,7 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/public/auth/login-internal")({
   server: {
     handlers: {
+      GET: async () => Response.json({ error: "method_not_allowed" }, { status: 405 }),
       POST: async ({ request }) => {
         const { extractClientIp, isLoginRateLimited, recordLoginAttempt } = await import(
           "@/lib/security-log.server"
