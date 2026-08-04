@@ -15,6 +15,7 @@ import {
   Building2,
   PackageSearch,
   MapPinned,
+  Cable,
   CheckCircle2,
   FileClock,
   Wifi,
@@ -353,6 +354,14 @@ function Painel() {
                       icon={BarChart3}
                       title="Dashboard"
                       description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
+                    />
+                  )}
+                  {(user.isAdmin || user.isSupervisor || user.isPlatformAdmin) && (
+                    <HomeNavCard
+                      to="/mapa-optico"
+                      icon={Cable}
+                      title="Mapa Óptico Inteligente (teste)"
+                      description="CEO, splitters, cabos e CTOs em rota rastreável — módulo experimental."
                     />
                   )}
                   {(user.isAdmin || user.isSupervisor || user.isPlatformAdmin) && (
