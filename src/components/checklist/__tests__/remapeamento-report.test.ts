@@ -12,6 +12,7 @@ function fixture() {
     lng: -50.01,
     confirmed: true,
     confirmed_at: "2026-08-03T18:00:00Z",
+    confirmed_by: null,
   };
   d.localizacao.distancia_m = 15;
   d.splitter = { tipo: "1x16", tipo_outro: "", potencia_entrada_dbm: "-18.20" };
