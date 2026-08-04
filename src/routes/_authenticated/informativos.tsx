@@ -155,7 +155,7 @@ function InformativosPage() {
                 <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                   {notice.message}
                 </p>
-                {(notice as { image_url?: string | null }).image_url ?? undefined && (
+                {(notice as { image_url?: string | null }).image_url ? (
                   <img
                     src={(notice as { image_url?: string | null }).image_url ?? undefined}
                     alt=""
