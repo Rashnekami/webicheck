@@ -1,224 +1,709 @@
-import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { Document, Image, Link, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 
 import logoAsset from "@/assets/webifibra-logo.jpeg.asset.json";
 import type { ChecklistRow, FotoRow, RemapeamentoData } from "@/lib/checklist-schema";
-import { fotoCategoriaLabel, groupFotosByCategoria } from "@/lib/checklist-schema";
-import { computeSplitterStats, fiberColorBySlug } from "@/lib/remapeamento-fibers";
+import { fiberColorBySlug } from "@/lib/remapeamento-fibers";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
 import { resolveFotoDataUris, type ResolvedFoto } from "@/lib/checklist-photo-uris";
+import { optimizeImageDataUri, optimizeImageDataUris } from "@/lib/pdf-image-optimize";
+import {
+  buildRemapReport,
+  evidenceCaption,
+  remapDocumentCode,
+  type RemapReport,
+} from "@/lib/remapeamento-report";
+
+/* ---------------------------------------------------------------- tokens */
 
 const C = {
-  page: "#020817",
-  panel: "#06152d",
-  cyan: "#19d8ff",
-  green: "#45e35f",
-  amber: "#ffb020",
-  red: "#ff5268",
-  border: "#1769db",
-  text: "#f8fbff",
-  muted: "#a9bad1",
+  navy: "#0b2545",
+  navySoft: "#13355f",
+  blue: "#1667c9",
+  cyan: "#0e9fc4",
+  ink: "#0f172a",
+  muted: "#5b6b82",
+  line: "#cfe0f5",
+  card: "#f5f8fc",
+  white: "#ffffff",
+  green: "#1f8a4c",
+  amber: "#b7791f",
+  red: "#c02436",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  concluido: C.green,
+  pendencia: C.red,
+  incompleto: C.amber,
 };
 
 const s = StyleSheet.create({
   page: {
-    paddingTop: 18,
-    paddingBottom: 20,
-    paddingHorizontal: 18,
-    backgroundColor: C.page,
-    color: C.text,
+    paddingTop: 62,
+    paddingBottom: 40,
+    paddingHorizontal: 26,
+    backgroundColor: C.white,
+    color: C.ink,
     fontFamily: "Helvetica",
-    fontSize: 8.4,
+    fontSize: 9,
+    lineHeight: 1.3,
   },
-  frame: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 14,
-    padding: 14,
-    backgroundColor: "#031027",
+  headerBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 48,
+    backgroundColor: C.navy,
+    paddingHorizontal: 26,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  header: { alignItems: "center", marginBottom: 8 },
-  logo: { width: 68, height: 48, objectFit: "cover", borderRadius: 10 },
-  title: { marginTop: 5, fontSize: 19, fontWeight: 700 },
-  titleAccent: { color: C.cyan },
-  subtitle: { marginTop: 2, color: C.muted, fontSize: 9 },
-  grid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -2.5, marginBottom: 5 },
-  infoCard: { width: "25%", paddingHorizontal: 2.5, paddingBottom: 5 },
-  infoWide: { width: "50%" },
-  infoInner: {
-    minHeight: 34,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 7,
-    padding: 5,
-    backgroundColor: C.panel,
+  headerLeft: { flexDirection: "row", alignItems: "center" },
+  logo: { width: 32, height: 32, objectFit: "cover", borderRadius: 5, marginRight: 8 },
+  headerTitle: { color: C.white, fontSize: 12, fontWeight: 700 },
+  headerSub: { color: "#a9c6ea", fontSize: 7.5, marginTop: 1 },
+  headerCode: { color: "#7fe3ff", fontSize: 10, fontFamily: "Courier-Bold", textAlign: "right" },
+  headerMeta: { color: "#a9c6ea", fontSize: 7, textAlign: "right", marginTop: 1 },
+
+  footerBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    backgroundColor: C.navy,
+    paddingHorizontal: 26,
+    justifyContent: "center",
   },
-  infoLabel: { color: C.muted, fontSize: 6.3, marginBottom: 2 },
-  infoValue: { fontSize: 7.6, fontWeight: 700 },
-  panel: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 9,
-    padding: 7,
-    backgroundColor: C.panel,
-    marginTop: 5,
+  footerText: { color: "#b7d2f0", fontSize: 7 },
+
+  sectionTitle: {
+    fontSize: 10.5,
+    fontWeight: 700,
+    color: C.navy,
+    marginTop: 10,
+    marginBottom: 5,
+    borderBottomWidth: 1.2,
+    borderBottomColor: C.cyan,
+    paddingBottom: 2.5,
   },
-  panelTitle: { fontSize: 10.5, fontWeight: 700, marginBottom: 6, color: C.text },
+  row: { flexDirection: "row" },
+  grid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 },
+  cell25: { width: "25%", paddingHorizontal: 3, paddingBottom: 6 },
+  cell33: { width: "33.33%", paddingHorizontal: 3, paddingBottom: 6 },
+  cell50: { width: "50%", paddingHorizontal: 3, paddingBottom: 6 },
+  field: {
+    borderWidth: 0.8,
+    borderColor: C.line,
+    borderRadius: 4,
+    backgroundColor: C.card,
+    paddingVertical: 4,
+    paddingHorizontal: 5,
+    minHeight: 30,
+  },
+  fieldLabel: { color: C.muted, fontSize: 6.5, fontWeight: 700 },
+  fieldValue: { fontSize: 8.6, marginTop: 1.5 },
+  mono: { fontFamily: "Courier" },
+
+  badge: {
+    alignSelf: "flex-start",
+    borderRadius: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    color: C.white,
+    fontSize: 8.5,
+    fontWeight: 700,
+  },
+
   mapImage: {
     width: "100%",
-    height: 190,
+    height: 150,
     objectFit: "cover",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.border,
+    borderRadius: 5,
+    borderWidth: 0.8,
+    borderColor: C.line,
   },
-  mapMissing: {
-    borderWidth: 1,
+  warnBox: {
+    borderWidth: 0.8,
     borderStyle: "dashed",
     borderColor: C.amber,
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 4,
+    padding: 6,
     color: C.amber,
-    fontSize: 7.5,
+    fontSize: 8,
   },
-  metaRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
-  metaChip: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 5,
+  legendRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  legendDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 3 },
+  legendText: { fontSize: 7.2, color: C.muted, marginRight: 10 },
+  link: { color: C.blue, fontSize: 8, textDecoration: "underline" },
+  credit: { fontSize: 7, color: C.muted, marginTop: 3 },
+
+  statCard: {
+    borderWidth: 0.8,
+    borderColor: C.line,
+    borderLeftWidth: 2.4,
+    borderLeftColor: C.cyan,
+    borderRadius: 4,
+    backgroundColor: C.card,
+    paddingVertical: 4,
+    paddingHorizontal: 5,
+    minHeight: 32,
+  },
+  statLabel: { color: C.muted, fontSize: 6.4, fontWeight: 700 },
+  statValue: { fontSize: 11, fontWeight: 700, marginTop: 1 },
+
+  th: {
+    color: C.white,
+    fontSize: 7.4,
+    fontWeight: 700,
+    paddingVertical: 4,
+    paddingHorizontal: 3,
+  },
+  theadRow: { flexDirection: "row", backgroundColor: C.navySoft, borderRadius: 3 },
+  tr: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 0.6,
+    borderBottomColor: C.line,
+    paddingVertical: 3.4,
+    paddingHorizontal: 3,
+  },
+  trAlt: { backgroundColor: "#eef4fb" },
+  td: { fontSize: 8.2 },
+  colorTag: {
+    borderRadius: 3,
+    paddingVertical: 1.8,
+    paddingHorizontal: 4,
+    fontSize: 7,
+    fontWeight: 700,
+    alignSelf: "flex-start",
+    borderWidth: 0.7,
+    borderColor: "#334155",
+  },
+  statusTag: {
+    borderRadius: 3,
+    paddingVertical: 1.8,
+    paddingHorizontal: 4,
+    fontSize: 6.8,
+    fontWeight: 700,
+    alignSelf: "flex-start",
+    color: C.white,
+  },
+
+  chipRow: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
+  chip: {
+    borderWidth: 0.7,
+    borderColor: C.line,
+    backgroundColor: C.card,
+    borderRadius: 3,
     paddingVertical: 2,
     paddingHorizontal: 5,
     marginRight: 4,
     marginBottom: 3,
-    color: C.muted,
-    fontSize: 6.4,
+    fontSize: 7.4,
+    color: C.ink,
   },
-  link: { color: C.cyan, fontSize: 7, marginTop: 3 },
-  tableHead: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    paddingBottom: 3,
-    marginBottom: 2,
-  },
-  th: { color: C.muted, fontSize: 6.4, fontWeight: 700 },
-  tr: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#12335c",
-    paddingVertical: 3.4,
-  },
-  cPorta: { width: "8%", fontSize: 7.4, fontWeight: 700 },
-  cCor: { width: "18%" },
-  cStatus: { width: "15%" },
-  cCliente: { width: "28%", fontSize: 7, color: C.text },
-  cPot: { width: "16%", fontSize: 7.2, textAlign: "right" },
-  cPass: { width: "15%", fontSize: 7, textAlign: "right", color: C.muted },
-  colorTag: {
+
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 },
+  photoCell: { width: "33.33%", paddingHorizontal: 3, paddingBottom: 6 },
+  photoInner: {
+    borderWidth: 0.8,
+    borderColor: C.line,
     borderRadius: 4,
-    paddingVertical: 1.6,
-    paddingHorizontal: 4,
-    fontSize: 6.4,
-    fontWeight: 700,
-    alignSelf: "flex-start",
+    padding: 3,
+    backgroundColor: C.card,
   },
-  statusTag: {
-    borderRadius: 4,
-    paddingVertical: 1.6,
-    paddingHorizontal: 4,
-    fontSize: 6.2,
-    fontWeight: 700,
-    alignSelf: "flex-start",
-    color: "#ffffff",
+  photoImage: { width: "100%", height: 105, objectFit: "cover", borderRadius: 3 },
+  photoCaption: { fontSize: 6.8, color: C.muted, marginTop: 2.5 },
+
+  closure: {
+    borderWidth: 0.8,
+    borderColor: C.line,
+    borderRadius: 5,
+    padding: 8,
+    backgroundColor: C.card,
+    marginTop: 10,
   },
-  statCol: { width: "20%", paddingHorizontal: 3 },
-  statCard: {
-    borderWidth: 1,
-    borderColor: C.cyan,
-    borderRadius: 8,
-    padding: 6,
-    backgroundColor: "#041126",
-  },
-  statLabel: { color: C.cyan, fontSize: 6.2, fontWeight: 700 },
-  statValue: { fontSize: 13, fontWeight: 700, marginTop: 2 },
   signBox: {
-    height: 58,
-    borderWidth: 1,
+    height: 62,
+    borderWidth: 0.8,
     borderStyle: "dashed",
-    borderColor: C.cyan,
-    borderRadius: 6,
+    borderColor: C.blue,
+    borderRadius: 4,
+    backgroundColor: C.white,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ffffff",
-    padding: 4,
-    marginTop: 4,
+    padding: 3,
   },
-  signImage: { maxHeight: 50, maxWidth: "92%", objectFit: "contain" },
-  authenticity: {
-    marginTop: 5,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 8,
-    padding: 6,
-    backgroundColor: C.panel,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  qr: { width: 42, height: 42, borderRadius: 4, marginRight: 8 },
-  authTitle: { color: C.cyan, fontSize: 7.5, fontWeight: 700 },
-  authText: { color: C.muted, fontSize: 6.3, marginTop: 2 },
-  photoGrid: { flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 },
-  photoCell: { width: "50%", paddingHorizontal: 3, paddingBottom: 6 },
-  photoInner: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 7,
-    padding: 4,
-    backgroundColor: "#041126",
-  },
-  photoTag: {
-    borderRadius: 4,
-    paddingVertical: 1.6,
-    paddingHorizontal: 5,
-    fontSize: 6.4,
-    fontWeight: 700,
-    color: "#ffffff",
-    alignSelf: "flex-start",
-    marginBottom: 3,
-  },
-  photoImage: { width: "100%", height: 118, objectFit: "cover", borderRadius: 5 },
-  photoCaption: { color: C.muted, fontSize: 6.2, marginTop: 2 },
-  footer: {
-    marginTop: 6,
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    color: C.muted,
-    fontSize: 6,
-  },
+  signImage: { maxHeight: 54, maxWidth: "92%", objectFit: "contain" },
+  qr: { width: 62, height: 62, marginRight: 8 },
 });
 
 const STATUS_LABEL: Record<string, { label: string; bg: string }> = {
-  ocupada: { label: "OCUPADA", bg: "#1b7f3b" },
-  livre: { label: "LIVRE", bg: "#0c45a5" },
-  reserva: { label: "RESERVA", bg: "#8a6a12" },
-  nao_identificada: { label: "NÃO IDENT.", bg: "#5a2230" },
-  nao_identificado: { label: "NÃO IDENT.", bg: "#5a2230" },
+  ocupada: { label: "OCUPADA", bg: "#1f8a4c" },
+  livre: { label: "LIVRE", bg: "#1667c9" },
+  reserva: { label: "RESERVA", bg: "#b7791f" },
+  nao_identificada: { label: "NÃO IDENT.", bg: "#7a2230" },
+  nao_identificado: { label: "NÃO IDENT.", bg: "#7a2230" },
 };
 
-function Info({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+const COL = {
+  porta: "10%",
+  cor: "22%",
+  status: "18%",
+  cliente: "32%",
+  pot: "18%",
+} as const;
+
+/* ------------------------------------------------------------ componentes */
+
+function Field({
+  label,
+  value,
+  mono,
+  width = 25,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+  width?: 25 | 33 | 50;
+}) {
+  const cell = width === 50 ? s.cell50 : width === 33 ? s.cell33 : s.cell25;
   return (
-    <View style={wide ? [s.infoCard, s.infoWide] : s.infoCard}>
-      <View style={s.infoInner}>
-        <Text style={s.infoLabel}>{label}</Text>
-        <Text style={s.infoValue}>{value || "—"}</Text>
+    <View style={cell}>
+      <View style={s.field}>
+        <Text style={s.fieldLabel}>{label}</Text>
+        <Text style={mono ? [s.fieldValue, s.mono] : s.fieldValue}>{value?.trim() || "—"}</Text>
       </View>
     </View>
   );
 }
+
+function StatusBadge({ report }: { report: RemapReport }) {
+  return (
+    <Text style={[s.badge, { backgroundColor: STATUS_COLOR[report.status] }]}>
+      {report.statusLabel}
+    </Text>
+  );
+}
+
+function DocumentHeader({ code, revision }: { code: string; revision: number }) {
+  return (
+    <View style={s.headerBar} fixed>
+      <View style={s.headerLeft}>
+        {logoUriRef.value ? <Image src={logoUriRef.value} style={s.logo} /> : null}
+        <View>
+          <Text style={s.headerTitle}>Remapeamento de CTO/NAP</Text>
+          <Text style={s.headerSub}>CheckTecnico · Documento técnico de campo</Text>
+        </View>
+      </View>
+      <View>
+        <Text style={s.headerCode}>{code}</Text>
+        <Text style={s.headerMeta}>Revisão {revision}</Text>
+      </View>
+    </View>
+  );
+}
+
+function DocumentFooter({ code, emitido }: { code: string; emitido: string }) {
+  return (
+    <View style={s.footerBar} fixed>
+      <Text
+        style={s.footerText}
+        render={({ pageNumber, totalPages }) =>
+          `CheckTecnico • ${code} • Emitido em ${emitido} • Página ${pageNumber} de ${totalPages}`
+        }
+      />
+    </View>
+  );
+}
+
+function LocationSection({ d, mapUri }: { d: RemapeamentoData; mapUri: string }) {
+  const ativo = d.localizacao?.ativo ?? null;
+  const pos = ativo ?? d.localizacao?.confirmada ?? null;
+  const gps = d.localizacao?.gps_original ?? null;
+  const dist = d.localizacao?.distancia_m ?? d.localizacao?.meta?.distancia_tecnico_ativo_m ?? null;
+  return (
+    <View>
+      <Text style={s.sectionTitle}>Localização</Text>
+      {mapUri ? (
+        <Image src={mapUri} style={s.mapImage} />
+      ) : (
+        <Text style={s.warnBox}>
+          Imagem cartográfica não gerada para esta revisão. Gere a evidência de mapa no checklist
+          antes de emitir o documento definitivo.
+        </Text>
+      )}
+      <View style={s.legendRow}>
+        <View style={[s.legendDot, { backgroundColor: "#e11d48" }]} />
+        <Text style={s.legendText}>Marcador vermelho: CTO/NAP</Text>
+        <View style={[s.legendDot, { backgroundColor: "#2563eb" }]} />
+        <Text style={s.legendText}>Marcador azul: posição do técnico</Text>
+      </View>
+      <View style={s.grid}>
+        <Field
+          label="COORDENADAS DA CTO"
+          mono
+          width={33}
+          value={pos ? `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}` : ""}
+        />
+        <Field
+          label="COORDENADAS DO TÉCNICO"
+          mono
+          width={33}
+          value={gps ? `${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)}` : ""}
+        />
+        <Field
+          label="PRECISÃO DO GPS"
+          width={33}
+          value={gps?.accuracy_m != null ? `± ${gps.accuracy_m} m` : ""}
+        />
+        <Field
+          label="DISTÂNCIA ENTRE TÉCNICO E ATIVO"
+          width={50}
+          value={dist != null ? `${dist} m` : ""}
+        />
+        <Field
+          label="CONFIRMAÇÃO EM CAMPO"
+          width={50}
+          value={
+            d.localizacao?.confirmada_em
+              ? new Date(d.localizacao.confirmada_em).toLocaleString("pt-BR")
+              : ativo?.confirmed_at
+                ? new Date(ativo.confirmed_at).toLocaleString("pt-BR")
+                : ""
+          }
+        />
+      </View>
+      {pos ? (
+        <Link style={s.link} src={`https://maps.google.com/?q=${pos.lat},${pos.lng}`}>
+          Abrir no Google Maps
+        </Link>
+      ) : null}
+      <Text style={s.credit}>Fonte cartográfica: Esri/ArcGIS</Text>
+    </View>
+  );
+}
+
+function OpticalSummary({ d, report }: { d: RemapeamentoData; report: RemapReport }) {
+  const st = report.stats;
+  const tipo =
+    d.splitter?.tipo === "outro" ? d.splitter?.tipo_outro || "Outro" : (d.splitter?.tipo ?? "");
+  const cards: { l: string; v: string }[] = [
+    { l: "SPLITTER", v: tipo || "—" },
+    { l: "ENTRADA", v: st.entrada_dbm != null ? `${st.entrada_dbm} dBm` : "—" },
+    { l: "MÉDIA DAS SAÍDAS", v: st.media_saida_dbm != null ? `${st.media_saida_dbm} dBm` : "—" },
+    { l: "PERDA MÉDIA", v: st.perda_media_db != null ? `${st.perda_media_db} dB` : "—" },
+    {
+      l: "MELHOR SAÍDA",
+      v: st.melhor ? `${st.melhor.dbm} dBm (P${String(st.melhor.porta).padStart(2, "0")})` : "—",
+    },
+    {
+      l: "PIOR SAÍDA",
+      v: st.pior ? `${st.pior.dbm} dBm (P${String(st.pior.porta).padStart(2, "0")})` : "—",
+    },
+    { l: "VARIAÇÃO ENTRE PORTAS", v: st.delta_db != null ? `${st.delta_db} dB` : "—" },
+    { l: "OCUPAÇÃO", v: `${st.ocupadas}/${st.total}` },
+    { l: "PORTAS LIVRES", v: `${report.portSummary.livres}` },
+  ];
+  return (
+    <View wrap={false}>
+      <Text style={s.sectionTitle}>Resumo óptico</Text>
+      <View style={s.grid}>
+        {cards.map((c) => (
+          <View key={c.l} style={s.cell33}>
+            <View style={s.statCard}>
+              <Text style={s.statLabel}>{c.l}</Text>
+              <Text style={s.statValue}>{c.v}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function FeederSection({ d }: { d: RemapeamentoData }) {
+  const a = d.alimentacao;
+  return (
+    <View wrap={false}>
+      <Text style={s.sectionTitle}>Alimentação da CTO</Text>
+      <View style={s.grid}>
+        <Field label="CABO (IDENTIFICAÇÃO)" value={a?.cabo} />
+        <Field label="TUBO" value={a?.tubo} />
+        <Field label="FIBRA" value={a?.fibra} />
+        <Field label="COR DA FIBRA" value={a?.cor_fibra} />
+        <Field label="ORIGEM" value={a?.origem} width={50} />
+        <Field label="OBSERVAÇÃO" value={a?.observacao} width={50} />
+      </View>
+    </View>
+  );
+}
+
+function PortTableHead() {
+  return (
+    <View style={s.theadRow}>
+      <Text style={[s.th, { width: COL.porta }]}>PORTA</Text>
+      <Text style={[s.th, { width: COL.cor }]}>COR DA FIBRA</Text>
+      <Text style={[s.th, { width: COL.status }]}>STATUS</Text>
+      <Text style={[s.th, { width: COL.cliente }]}>CLIENTE / ID · DESTINO/PASSANTE</Text>
+      <Text style={[s.th, { width: COL.pot, textAlign: "right" }]}>POTÊNCIA FINAL</Text>
+    </View>
+  );
+}
+
+function PortMappingTable({ report }: { report: RemapReport }) {
+  const sum = report.portSummary;
+  return (
+    <View>
+      <Text style={s.sectionTitle}>Mapeamento de portas (TIA-598-C)</Text>
+      <View style={s.chipRow}>
+        <Text style={s.chip}>Ocupadas: {sum.ocupadas}</Text>
+        <Text style={s.chip}>Livres: {sum.livres}</Text>
+        <Text style={s.chip}>Reservadas: {sum.reservadas}</Text>
+        <Text style={s.chip}>Destino/Passante: {sum.passantes}</Text>
+        {sum.nao_identificadas > 0 ? (
+          <Text style={s.chip}>Não identificadas: {sum.nao_identificadas}</Text>
+        ) : null}
+      </View>
+      {report.portPages.map((block, blockIndex) => (
+        <View key={`block-${blockIndex}`} break={blockIndex > 0} style={{ marginTop: 5 }}>
+          <PortTableHead />
+          {block.map((p, i) => {
+            const color = fiberColorBySlug(p.cor);
+            const st = STATUS_LABEL[p.status] ?? STATUS_LABEL.livre;
+            const destino =
+              p.passante_trocado === "sim"
+                ? "Passante trocado"
+                : p.passante_trocado === "nao"
+                  ? "Passante não trocado"
+                  : "";
+            const cliente = [p.cliente, p.cliente_id].filter(Boolean).join(" · ");
+            return (
+              <View
+                key={p.numero}
+                style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr}
+                wrap={false}
+              >
+                <Text style={[s.td, s.mono, { width: COL.porta }]}>
+                  {String(p.numero).padStart(2, "0")}
+                </Text>
+                <View style={{ width: COL.cor }}>
+                  <Text style={[s.colorTag, { backgroundColor: color.hex, color: color.ink }]}>
+                    {p.cor_custom || color.label}
+                  </Text>
+                </View>
+                <View style={{ width: COL.status }}>
+                  <Text style={[s.statusTag, { backgroundColor: st.bg }]}>{st.label}</Text>
+                </View>
+                <Text style={[s.td, { width: COL.cliente }]}>
+                  {[cliente, destino].filter(Boolean).join(" · ") || "—"}
+                </Text>
+                <Text style={[s.td, s.mono, { width: COL.pot, textAlign: "right" }]}>
+                  {p.potencia_dbm ? `${p.potencia_dbm} dBm` : "—"}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function FusionSection({ d, report }: { d: RemapeamentoData; report: RemapReport }) {
+  const itens = d.fusao?.itens ?? [];
+  const pendente = report.pendencies.some((p) => p.code === "fusao_sem_detalhe");
+  return (
+    <View style={{ marginTop: 4 }} wrap={false}>
+      <Text style={s.sectionTitle}>Fusões</Text>
+      {itens.length > 0 ? (
+        <>
+          <View style={s.theadRow}>
+            <Text style={[s.th, { width: "25%" }]}>FIBRA</Text>
+            <Text style={[s.th, { width: "39%" }]}>MOTIVO</Text>
+            <Text style={[s.th, { width: "18%", textAlign: "right" }]}>ANTES (dBm)</Text>
+            <Text style={[s.th, { width: "18%", textAlign: "right" }]}>DEPOIS (dBm)</Text>
+          </View>
+          {itens.map((f, i) => (
+            <View key={`${f.fibra}-${i}`} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+              <Text style={[s.td, { width: "25%" }]}>{f.fibra || "—"}</Text>
+              <Text style={[s.td, { width: "39%" }]}>{f.motivo || "—"}</Text>
+              <Text style={[s.td, s.mono, { width: "18%", textAlign: "right" }]}>
+                {f.antes_dbm || "—"}
+              </Text>
+              <Text style={[s.td, s.mono, { width: "18%", textAlign: "right" }]}>
+                {f.depois_dbm || "—"}
+              </Text>
+            </View>
+          ))}
+        </>
+      ) : pendente ? (
+        <View
+          style={{
+            borderWidth: 0.9,
+            borderColor: C.red,
+            borderRadius: 4,
+            padding: 6,
+            backgroundColor: "#fdecee",
+          }}
+        >
+          <Text style={{ color: C.red, fontSize: 8.6, fontWeight: 700 }}>
+            PENDÊNCIA: fusão indicada sem detalhamento.
+          </Text>
+          <Text style={{ color: C.ink, fontSize: 8, marginTop: 2 }}>
+            O técnico marcou que a fusão era necessária, mas nenhuma fibra foi detalhada. O
+            remapeamento não pode ser considerado concluído até o detalhamento.
+          </Text>
+        </View>
+      ) : (
+        <Text style={{ fontSize: 8.4, color: C.muted }}>
+          {d.fusao?.necessaria === "nao"
+            ? "Nenhuma fusão necessária ou realizada."
+            : "Fusão não informada."}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function EvidenceGrid({ fotos }: { fotos: ResolvedFoto[] }) {
+  const antes = fotos.filter((f) => f.categoria === "antes");
+  const depois = fotos.filter((f) => f.categoria === "depois");
+  const outras = fotos.filter((f) => f.categoria !== "antes" && f.categoria !== "depois");
+  const groups: { title: string; items: ResolvedFoto[] }[] = [
+    { title: "Antes da intervenção", items: antes },
+    { title: "Depois da intervenção", items: depois },
+    { title: "Outras evidências", items: outras },
+  ].filter((g) => g.items.length > 0);
+
+  return (
+    <View>
+      <Text style={s.sectionTitle}>Evidências fotográficas</Text>
+      {groups.length === 0 ? (
+        <Text style={s.warnBox}>
+          Nenhuma foto de evidência anexada a esta revisão. Registre as fotos da CTO antes e depois
+          do remapeamento.
+        </Text>
+      ) : (
+        groups.map((g) => (
+          <View key={g.title} style={{ marginBottom: 4 }}>
+            <Text style={{ fontSize: 8.8, fontWeight: 700, color: C.navy, marginBottom: 3 }}>
+              {g.title} ({g.items.length})
+            </Text>
+            <View style={s.photoGrid}>
+              {g.items.map((f, i) => (
+                <View key={f.id} style={s.photoCell} wrap={false}>
+                  <View style={s.photoInner}>
+                    <Image src={f.uri} style={s.photoImage} />
+                    <Text style={s.photoCaption}>
+                      {evidenceCaption(f.categoria, f.legenda, i)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
+function DocumentClosure({
+  report,
+  tecnicoNome,
+  assinatura,
+  assinadoEm,
+  publicUrl,
+  qrUri,
+  publicCode,
+  emitido,
+}: {
+  report: RemapReport;
+  tecnicoNome: string;
+  assinatura?: string | null;
+  assinadoEm: string | null;
+  publicUrl?: string | null;
+  qrUri: string;
+  publicCode: string;
+  emitido: string;
+}) {
+  const naoBloqueantes = report.pendencies.filter((p) => !p.blocking);
+  return (
+    <View style={s.closure} wrap={false}>
+      <Text style={s.sectionTitle}>Resultado e encerramento</Text>
+      <Text
+        style={{
+          color: STATUS_COLOR[report.status],
+          fontSize: 9.6,
+          fontWeight: 700,
+        }}
+      >
+        {report.conclusion}
+      </Text>
+      {report.pendencies.length > 0 ? (
+        <View style={{ marginTop: 3 }}>
+          <Text style={{ fontSize: 7.6, fontWeight: 700, color: C.muted }}>
+            PENDÊNCIAS ENCONTRADAS
+          </Text>
+          {report.pendencies.map((p) => (
+            <Text key={p.code + p.label} style={{ fontSize: 8, color: C.ink }}>
+              • {p.label}
+            </Text>
+          ))}
+          {naoBloqueantes.length === 0 ? null : null}
+        </View>
+      ) : (
+        <Text style={{ fontSize: 8, color: C.muted, marginTop: 3 }}>
+          Nenhuma pendência registrada.
+        </Text>
+      )}
+
+      <View style={[s.row, { marginTop: 8 }]}>
+        <View style={{ width: "56%", paddingRight: 8 }}>
+          <Text style={s.fieldLabel}>ASSINATURA DO TÉCNICO RESPONSÁVEL</Text>
+          <View style={s.signBox}>
+            {assinatura ? (
+              <Image src={assinatura} style={s.signImage} />
+            ) : (
+              <Text style={{ color: C.muted, fontSize: 8 }}>Sem assinatura cadastrada</Text>
+            )}
+          </View>
+          <Text style={{ fontSize: 8.6, fontWeight: 700, marginTop: 3 }}>{tecnicoNome || "—"}</Text>
+          <Text style={{ fontSize: 7.4, color: C.muted }}>
+            {assinadoEm ? `Assinado em ${assinadoEm}` : "Data da assinatura não registrada"}
+          </Text>
+        </View>
+        <View style={{ width: "44%", flexDirection: "row" }}>
+          {qrUri ? <Image src={qrUri} style={s.qr} /> : null}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 7.6, fontWeight: 700, color: C.navy }}>
+              VALIDAÇÃO PÚBLICA
+            </Text>
+            <Text style={[s.mono, { fontSize: 8, marginTop: 2 }]}>{publicCode}</Text>
+            {publicUrl ? (
+              <Link style={[s.link, { marginTop: 2 }]} src={publicUrl}>
+                Validar documento online
+              </Link>
+            ) : (
+              <Text style={{ fontSize: 7.4, color: C.muted, marginTop: 2 }}>
+                Link público não disponível.
+              </Text>
+            )}
+            <Text style={{ fontSize: 7.2, color: C.muted, marginTop: 3 }}>
+              Emitido em {emitido}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/* ------------------------------------------------------------- documento */
 
 type Params = {
   row: ChecklistRow;
@@ -233,9 +718,14 @@ type RenderParams = Omit<Params, "fotos"> & {
   qrUri: string;
   mapUri: string;
   fotos: ResolvedFoto[];
+  emittedAt?: Date;
 };
 
-function RemapeamentoDocument({
+/** O cabeçalho fixo precisa do logo; guardado fora do componente para não
+ * propagar props por toda a árvore de páginas. */
+const logoUriRef: { value: string } = { value: "" };
+
+export function RemapeamentoDocument({
   row,
   tecnicoNome,
   assinatura,
@@ -244,309 +734,89 @@ function RemapeamentoDocument({
   qrUri,
   mapUri,
   fotos,
+  emittedAt,
 }: RenderParams) {
+  logoUriRef.value = logoUri;
   const d = row.dados as RemapeamentoData;
-  const stats = computeSplitterStats(d);
-  const ativo = d.localizacao?.ativo ?? null;
-  const pos = ativo ?? d.localizacao?.confirmada ?? null;
-  const meta = d.localizacao?.meta ?? null;
-  const gps = d.localizacao?.gps_original ?? null;
-  const data = row.data_atendimento
+  const report = buildRemapReport(d);
+  const code = remapDocumentCode(row);
+  const emitido = (emittedAt ?? new Date()).toLocaleString("pt-BR");
+  const revision = row.revision_number ?? 1;
+  const dataExec = row.data_atendimento
     ? new Date(`${row.data_atendimento}T00:00:00`).toLocaleDateString("pt-BR")
-    : "—";
+    : "";
+  const assinadoEm = row.finalizado_em
+    ? new Date(row.finalizado_em).toLocaleString("pt-BR")
+    : null;
+  const publicCode = row.numero_publico || row.codigo_validacao || code;
+
+  const chrome = (
+    <>
+      <DocumentHeader code={code} revision={revision} />
+      <DocumentFooter code={code} emitido={emitido} />
+    </>
+  );
 
   return (
-    <Document>
+    <Document
+      title={`Remapeamento ${code}`}
+      author="CheckTecnico"
+      subject="Remapeamento de CTO/NAP"
+    >
+      {/* Página 1 — identificação, localização, resumo óptico, alimentação */}
       <Page size="A4" style={s.page}>
-        <View style={s.frame}>
-          <View style={s.header}>
-            {logoUri ? <Image src={logoUri} style={s.logo} /> : null}
-            <Text style={s.title}>
-              REMAPEAMENTO DE <Text style={s.titleAccent}>CTO / NAP</Text>
-            </Text>
-            <Text style={s.subtitle}>
-              {row.rmap_code || row.numero_publico || row.codigo_validacao || row.id.slice(0, 8)} ·
-              Revisão {row.revision_number ?? 1}
-            </Text>
-          </View>
-
-          <View style={s.grid}>
-            <Info label="CÓDIGO RMAP" value={row.rmap_code ?? "—"} />
-            <Info label="CTO / NAP" value={d.identificacao?.cto_codigo ?? ""} />
-            <Info label="SETOR" value={d.identificacao?.setor ?? ""} />
-            <Info label="CIDADE" value={row.cidade ?? ""} />
-            <Info label="TÉCNICO" value={tecnicoNome} wide />
-            <Info label="DATA" value={data} />
-            <Info label="HORA" value={row.hora_atendimento ?? "—"} />
-          </View>
-
-          {/* Localização geográfica verificada */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Localização da CTO (confirmada em campo)</Text>
-            {mapUri ? (
-              <Image src={mapUri} style={s.mapImage} />
-            ) : (
-              <Text style={s.mapMissing}>
-                Imagem cartográfica não gerada para esta revisão. Gere a evidência de mapa no
-                checklist antes de emitir o documento definitivo.
-              </Text>
-            )}
-            <View style={s.metaRow}>
-              <Text style={s.metaChip}>
-                Ativo: {pos ? `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}` : "não confirmado"}
-              </Text>
-              {gps && (
-                <Text style={s.metaChip}>
-                  GPS técnico: {gps.lat.toFixed(6)}, {gps.lng.toFixed(6)} · ±{gps.accuracy_m ?? 0} m
-                </Text>
-              )}
-              {d.localizacao?.distancia_m != null && (
-                <Text style={s.metaChip}>Distância técnico → ativo: {d.localizacao.distancia_m} m</Text>
-              )}
-              {d.localizacao?.confirmada_em && (
-                <Text style={s.metaChip}>
-                  Confirmado em {new Date(d.localizacao.confirmada_em).toLocaleString("pt-BR")}
-                </Text>
-              )}
-              {meta && (
-                <Text style={s.metaChip}>
-                  {meta.map_engine}/{meta.map_provider} · {meta.basemap_style} · zoom {meta.zoom}
-                </Text>
-              )}
-              {d.localizacao?.snapshot && (
-                <Text style={s.metaChip}>SHA-256 {d.localizacao.snapshot.sha256.slice(0, 16)}…</Text>
-              )}
-            </View>
-            {pos && (
-              <Text style={s.link}>
-                Abrir no Google Maps: https://maps.google.com/?q={pos.lat},{pos.lng}
-              </Text>
-            )}
-            <Text style={s.authText}>Fonte cartográfica: ArcGIS / Esri</Text>
-          </View>
-
-          {/* Splitter */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Splitter e potências</Text>
-            <View style={{ flexDirection: "row", marginHorizontal: -3 }}>
-              {[
-                {
-                  l: "TIPO",
-                  v: d.splitter?.tipo === "outro" ? d.splitter?.tipo_outro || "Outro" : (d.splitter?.tipo ?? "—"),
-                },
-                { l: "ENTRADA", v: stats.entrada_dbm != null ? `${stats.entrada_dbm} dBm` : "—" },
-                { l: "MÉDIA SAÍDA", v: stats.media_saida_dbm != null ? `${stats.media_saida_dbm} dBm` : "—" },
-                { l: "PERDA MÉDIA", v: stats.perda_media_db != null ? `${stats.perda_media_db} dB` : "—" },
-                { l: "OCUPAÇÃO", v: `${stats.ocupadas}/${stats.total}` },
-              ].map((k) => (
-                <View key={k.l} style={s.statCol}>
-                  <View style={s.statCard}>
-                    <Text style={s.statLabel}>{k.l}</Text>
-                    <Text style={s.statValue}>{k.v}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Alimentação */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Alimentação da CTO</Text>
-            <View style={s.grid}>
-              <Info label="CABO" value={d.alimentacao?.cabo ?? ""} />
-              <Info label="TUBO" value={d.alimentacao?.tubo ?? ""} />
-              <Info label="FIBRA" value={d.alimentacao?.fibra ?? ""} />
-              <Info label="COR DA FIBRA" value={d.alimentacao?.cor_fibra ?? ""} />
-              <Info label="ORIGEM" value={d.alimentacao?.origem ?? ""} wide />
-              <Info label="OBSERVAÇÃO" value={d.alimentacao?.observacao ?? ""} wide />
-            </View>
-          </View>
-
-          {/* Portas */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Mapeamento de portas (TIA-598-C)</Text>
-            <View style={s.tableHead}>
-              <Text style={[s.th, s.cPorta]}>PORTA</Text>
-              <Text style={[s.th, s.cCor]}>COR DA FIBRA</Text>
-              <Text style={[s.th, s.cStatus]}>STATUS</Text>
-              <Text style={[s.th, s.cCliente]}>CLIENTE / ID</Text>
-              <Text style={[s.th, s.cPot]}>POTÊNCIA</Text>
-              <Text style={[s.th, s.cPass]}>PASSANTE</Text>
-            </View>
-            {(d.portas ?? []).map((p) => {
-              const color = fiberColorBySlug(p.cor);
-              const st = STATUS_LABEL[p.status] ?? STATUS_LABEL.livre;
-              return (
-                <View key={p.numero} style={s.tr}>
-                  <Text style={s.cPorta}>{String(p.numero).padStart(2, "0")}</Text>
-                  <View style={s.cCor}>
-                    <Text style={[s.colorTag, { backgroundColor: color.hex, color: color.ink }]}>
-                      {p.cor_custom || color.label}
-                    </Text>
-                  </View>
-                  <View style={s.cStatus}>
-                    <Text style={[s.statusTag, { backgroundColor: st.bg }]}>{st.label}</Text>
-                  </View>
-                  <Text style={s.cCliente}>
-                    {[p.cliente, p.cliente_id].filter(Boolean).join(" · ") || "—"}
-                  </Text>
-                  <Text style={s.cPot}>{p.potencia_dbm ? `${p.potencia_dbm} dBm` : "—"}</Text>
-                  <Text style={s.cPass}>
-                    {p.passante_trocado === "sim"
-                      ? "Trocado"
-                      : p.passante_trocado === "nao"
-                        ? "Não trocado"
-                        : "—"}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Fusões */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Fusões realizadas</Text>
-            {(d.fusao?.itens ?? []).length > 0 ? (
-              <>
-                <View style={s.tableHead}>
-                  <Text style={[s.th, { width: "25%" }]}>FIBRA</Text>
-                  <Text style={[s.th, { width: "39%" }]}>MOTIVO</Text>
-                  <Text style={[s.th, { width: "18%", textAlign: "right" }]}>ANTES (dBm)</Text>
-                  <Text style={[s.th, { width: "18%", textAlign: "right" }]}>DEPOIS (dBm)</Text>
-                </View>
-                {(d.fusao?.itens ?? []).map((f, i) => (
-                  <View key={`${f.fibra}-${i}`} style={s.tr}>
-                    <Text style={{ width: "25%", fontSize: 7.2 }}>{f.fibra || "—"}</Text>
-                    <Text style={{ width: "39%", fontSize: 7.2 }}>{f.motivo || "—"}</Text>
-                    <Text style={{ width: "18%", fontSize: 7.2, textAlign: "right" }}>
-                      {f.antes_dbm || "—"}
-                    </Text>
-                    <Text style={{ width: "18%", fontSize: 7.2, textAlign: "right" }}>
-                      {f.depois_dbm || "—"}
-                    </Text>
-                  </View>
-                ))}
-              </>
-            ) : (
-              // Um técnico pode marcar "Sim, foi necessário" e não chegar a
-              // detalhar nenhuma fibra (o formulário permite isso). Tratar
-              // esse caso igual a "não necessária" faz o documento afirmar
-              // o oposto do que o técnico marcou — bug real reportado.
-              <Text
-                style={{
-                  color: d.fusao?.necessaria === "sim" ? C.amber : C.muted,
-                  fontSize: 7.4,
-                  fontWeight: d.fusao?.necessaria === "sim" ? 700 : 400,
-                }}
-              >
-                {d.fusao?.necessaria === "sim"
-                  ? "Fusão marcada como necessária pelo técnico, mas nenhuma fibra foi detalhada."
-                  : d.fusao?.necessaria === "nao"
-                    ? "Nenhuma fusão necessária."
-                    : "Fusão não informada."}
-              </Text>
-            )}
-          </View>
-
-
-          {/* Evidências fotográficas */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Evidências fotográficas (antes e depois)</Text>
-            {fotos.length === 0 ? (
-              <Text style={s.mapMissing}>
-                Nenhuma foto de evidência anexada a esta revisão. Registre as fotos da CTO antes e
-                depois do remapeamento.
-              </Text>
-            ) : (
-              // Agrupado por categoria (antes/depois sempre juntos e nessa
-              // ordem — fotoCategoriaSortWeight) em vez de uma grade só na
-              // ordem de upload, que misturava antes/depois/etiqueta.
-              // Importante: só a CÉLULA de cada foto (wrap=false abaixo) é
-              // inquebrável — o painel e cada grupo de categoria podem
-              // quebrar de página normalmente. Antes o painel inteiro tinha
-              // wrap=false, e com muitas fotos (3+ categorias) o bloco não
-              // cabia numa página só e o react-pdf renderizava tudo
-              // sobreposto/cortado ("desconexo").
-              groupFotosByCategoria(fotos).map(([categoria, group]) => (
-                <View key={categoria} style={{ marginBottom: 6 }}>
-                  <Text
-                    style={[
-                      s.photoTag,
-                      {
-                        backgroundColor:
-                          categoria === "antes"
-                            ? "#8a3b12"
-                            : categoria === "depois"
-                              ? "#1b7f3b"
-                              : categoria === "sinal_fibra"
-                                ? "#7c1ea3"
-                                : "#0c45a5",
-                      },
-                    ]}
-                  >
-                    {fotoCategoriaLabel(categoria).toUpperCase()} ({group.length})
-                  </Text>
-                  <View style={s.photoGrid}>
-                    {group.map((f) => (
-                      <View key={f.id} style={s.photoCell} wrap={false}>
-                        <View style={s.photoInner}>
-                          <Image src={f.uri} style={s.photoImage} />
-                          {f.legenda ? <Text style={s.photoCaption}>{f.legenda}</Text> : null}
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
-
-          {/* Resultado + assinatura */}
-          <View style={s.panel}>
-            <Text style={s.panelTitle}>Resultado do remapeamento</Text>
-            <Text style={{ color: d.resultado?.estado === "sim" ? C.green : C.amber, fontSize: 8 }}>
-              {d.resultado?.estado === "sim"
-                ? "CTO remapeada integralmente."
-                : d.resultado?.estado === "parcialmente"
-                  ? "CTO remapeada parcialmente."
-                  : "Resultado não informado."}
-            </Text>
-            {d.resultado?.pendencia ? (
-              <Text style={{ color: C.muted, fontSize: 7, marginTop: 3 }}>
-                Pendências: {d.resultado.pendencia}
-              </Text>
-            ) : null}
-            <View style={s.signBox}>
-              {assinatura ? (
-                <Image src={assinatura} style={s.signImage} />
-              ) : (
-                <Text style={{ color: "#64748b", fontSize: 7 }}>Sem assinatura cadastrada</Text>
-              )}
-            </View>
-            <Text style={{ fontSize: 6.8, fontWeight: 700, marginTop: 3, textAlign: "center" }}>
-              {tecnicoNome}
-            </Text>
-          </View>
-
-          {publicUrl ? (
-            <View style={s.authenticity}>
-              {qrUri ? <Image src={qrUri} style={s.qr} /> : null}
-              <View>
-                <Text style={s.authTitle}>VALIDAÇÃO PÚBLICA DO DOCUMENTO</Text>
-                <Text style={s.authText}>{publicUrl}</Text>
-              </View>
-            </View>
-          ) : null}
-
-          <View style={s.footer}>
-            <Text>CheckTecnico · Remapeamento de CTO/NAP</Text>
-            <Text>Emitido em {new Date().toLocaleString("pt-BR")}</Text>
-          </View>
+        {chrome}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>
+            Identificação e resumo técnico
+          </Text>
+          <StatusBadge report={report} />
         </View>
+        <View style={[s.grid, { marginTop: 6 }]}>
+          <Field label="CÓDIGO RMAP" value={row.rmap_code ?? code} mono />
+          <Field label="REVISÃO" value={`R${revision}`} />
+          <Field label="CTO / NAP" value={d.identificacao?.cto_codigo} />
+          <Field label="SETOR" value={d.identificacao?.setor} />
+          <Field label="CIDADE" value={row.cidade} />
+          <Field label="TÉCNICO" value={tecnicoNome} width={50} />
+          <Field
+            label="EXECUÇÃO"
+            value={[dataExec, row.hora_atendimento].filter(Boolean).join(" · ")}
+          />
+        </View>
+
+        <LocationSection d={d} mapUri={mapUri} />
+        <OpticalSummary d={d} report={report} />
+        <FeederSection d={d} />
+      </Page>
+
+      {/* Página 2 — mapeamento de portas + fusões */}
+      <Page size="A4" style={s.page}>
+        {chrome}
+        <PortMappingTable report={report} />
+        <FusionSection d={d} report={report} />
+      </Page>
+
+      {/* Página 3 — evidências e encerramento */}
+      <Page size="A4" style={s.page}>
+        {chrome}
+        <EvidenceGrid fotos={fotos} />
+        <DocumentClosure
+          report={report}
+          tecnicoNome={tecnicoNome}
+          assinatura={assinatura}
+          assinadoEm={assinadoEm}
+          publicUrl={publicUrl}
+          qrUri={qrUri}
+          publicCode={publicCode}
+          emitido={emitido}
+        />
       </Page>
     </Document>
   );
 }
+
+/* --------------------------------------------------------------- geração */
 
 async function toDataUri(url: string): Promise<string> {
   const response = await fetch(url);
@@ -564,7 +834,8 @@ async function resolveMapUri(row: ChecklistRow): Promise<string> {
   if (!path) return "";
   try {
     const signed = await getMapSnapshotUrl({ data: { path } });
-    return signed ? await toDataUri(signed) : "";
+    if (!signed) return "";
+    return await optimizeImageDataUri(await toDataUri(signed), 1400, 0.82);
   } catch {
     return "";
   }
@@ -572,7 +843,7 @@ async function resolveMapUri(row: ChecklistRow): Promise<string> {
 
 export async function buildRemapeamentoPdfBlob(params: Params): Promise<Blob> {
   const { fotos: fotoRows, ...rest } = params;
-  const [logoUri, qrUri, mapUri, fotos] = await Promise.all([
+  const [logoUri, qrUri, mapUri, fotosRaw] = await Promise.all([
     toDataUri(logoAsset.url).catch(() => ""),
     params.publicUrl
       ? QRCode.toDataURL(params.publicUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" }).catch(
@@ -582,6 +853,9 @@ export async function buildRemapeamentoPdfBlob(params: Params): Promise<Blob> {
     resolveMapUri(params.row),
     resolveFotoDataUris(fotoRows ?? []).catch(() => [] as ResolvedFoto[]),
   ]);
+  // Evidências entram no PDF como miniaturas: 1600 px no maior lado já é
+  // superior ao necessário e derruba o arquivo de ~11 MB para poucos MB.
+  const fotos = await optimizeImageDataUris(fotosRaw);
   return await pdf(
     <RemapeamentoDocument
       {...rest}
