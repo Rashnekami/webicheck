@@ -30,6 +30,7 @@ function normalizedIdentifier(raw: string) {
 export const Route = createFileRoute("/api/public/webi-diagnostic/resolve-checklist")({
   server: {
     handlers: {
+      GET: async () => json({ ok: false, error: "method_not_allowed", hint: "Use POST" }, 405),
       OPTIONS: async () =>
         new Response(null, {
           status: 204,

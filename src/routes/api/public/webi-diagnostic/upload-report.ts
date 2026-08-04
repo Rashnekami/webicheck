@@ -62,6 +62,7 @@ function isValidIsoDate(value: string): boolean {
 export const Route = createFileRoute("/api/public/webi-diagnostic/upload-report")({
   server: {
     handlers: {
+      GET: async () => json({ ok: false, error: "method_not_allowed", hint: "Use POST" }, 405),
       OPTIONS: async () =>
         new Response(null, {
           status: 204,

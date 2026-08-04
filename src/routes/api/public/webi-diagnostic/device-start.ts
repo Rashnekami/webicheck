@@ -4,6 +4,7 @@ import { apiJson, secureToken, sha256Hex } from "@/lib/webi-agent-auth.server";
 export const Route = createFileRoute("/api/public/webi-diagnostic/device-start")({
   server: {
     handlers: {
+      GET: async () => apiJson({ ok: false, error: "method_not_allowed", hint: "Use POST" }, 405),
       POST: async ({ request }) => {
         let body: {
           provider?: string;
