@@ -7,7 +7,7 @@ function fixture() {
   const d = emptyRemapeamentoData();
   d.identificacao = { setor: "Setor 3", cto_codigo: "CTO-1042" };
   d.localizacao.ativo = {
-    tipo: "cto",
+    tipo: "CTO",
     lat: -24.79,
     lng: -50.01,
     confirmed: true,
