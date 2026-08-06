@@ -23,10 +23,39 @@ function fileDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error("Não foi possível ler a foto."));
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Fotos de celular chegam com 4–12 MB e, no iPhone, às vezes em HEIC — os dois
+ * casos quebravam o envio (limite de 8 MB / "Imagem inválida"). Aqui a foto é
+ * sempre reduzida e reconvertida para JPEG antes de sair do aparelho.
+ */
+async function prepareIdentityPhoto(file: File): Promise<string> {
+  const original = await fileDataUrl(file);
+  const img = await new Promise<HTMLImageElement | null>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = original;
+  });
+  if (!img?.naturalWidth) {
+    throw new Error("Formato de foto não suportado. Tire a foto novamente pela câmera.");
+  }
+  const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Não foi possível processar a foto neste aparelho.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.78);
+}
+
 
 function CounterproofPage() {
   const { token } = Route.useParams();
