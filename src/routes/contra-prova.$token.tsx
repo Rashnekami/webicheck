@@ -63,8 +63,11 @@ function CounterproofPage() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Partial<Record<string, CustomerCounterproofAnswer>>>({});
   const [identity, setIdentity] = useState<string | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+
   const query = useQuery({
     queryKey: ["public-counterproof", token],
     queryFn: () => getPublicCounterproof({ data: { token } }),
