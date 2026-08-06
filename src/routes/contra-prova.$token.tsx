@@ -217,8 +217,8 @@ function CounterproofPage() {
             type="file"
             accept="image/*"
             onChange={async (event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
+              const input = event.currentTarget;
+              const file = input.files?.[0];
               if (!file) return;
               setIdentityError(null);
               setIdentityLoading(true);
@@ -229,6 +229,8 @@ function CounterproofPage() {
                 setIdentityError(error instanceof Error ? error.message : "Não foi possível usar esta foto.");
               } finally {
                 setIdentityLoading(false);
+                // limpar só depois de ler o arquivo: em alguns Android limpar antes invalida o File
+                input.value = "";
               }
             }}
           />
