@@ -266,7 +266,7 @@ export const completePublicCounterproof = createServerFn({ method: "POST" }).inp
     cp.kind === "maintenance" ? "maintenance" : "installation",
   );
   const path = `${cp.provider_id}/${cp.checklist_id}/${cp.id}/identificacao.${identity.mime.split("/")[1]}`;
-  const { error: storageError } = await supabaseAdmin.storage.from("customer-counterproof-evidence").upload(path, identity.bytes, { contentType: identity.mime, upsert: false }); if (storageError) throw new Error("Não foi possível armazenar a evidência.");
+  const { error: storageError } = await supabaseAdmin.storage.from("customer-counterproof-evidence").upload(path, identity.bytes, { contentType: identity.mime, upsert: true }); if (storageError) throw new Error(`Não foi possível armazenar a evidência: ${storageError.message}`);
   const meta = requestMeta(); const now = new Date().toISOString();
   const { error } = await db.from("customer_counterproofs").update({
     status: "validated",
