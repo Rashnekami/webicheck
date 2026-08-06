@@ -23,10 +23,39 @@ function fileDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error("Não foi possível ler a foto."));
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * Fotos de celular chegam com 4–12 MB e, no iPhone, às vezes em HEIC — os dois
+ * casos quebravam o envio (limite de 8 MB / "Imagem inválida"). Aqui a foto é
+ * sempre reduzida e reconvertida para JPEG antes de sair do aparelho.
+ */
+async function prepareIdentityPhoto(file: File): Promise<string> {
+  const original = await fileDataUrl(file);
+  const img = await new Promise<HTMLImageElement | null>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = original;
+  });
+  if (!img?.naturalWidth) {
+    throw new Error("Formato de foto não suportado. Tire a foto novamente pela câmera.");
+  }
+  const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Não foi possível processar a foto neste aparelho.");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.78);
+}
+
 
 function CounterproofPage() {
   const { token } = Route.useParams();
@@ -34,8 +63,11 @@ function CounterproofPage() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Partial<Record<string, CustomerCounterproofAnswer>>>({});
   const [identity, setIdentity] = useState<string | null>(null);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [identityLoading, setIdentityLoading] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
+
   const query = useQuery({
     queryKey: ["public-counterproof", token],
     queryFn: () => getPublicCounterproof({ data: { token } }),
@@ -177,7 +209,46 @@ function CounterproofPage() {
       {allQuestionsAnswered && currentQuestion >= questions.length && (
       <section className="space-y-5 rounded-2xl border border-blue-500/35 bg-[#06152d] p-4 shadow-[inset_0_0_26px_rgba(0,105,255,.07)] [&_label]:text-slate-200">
         <div className="flex items-start gap-2"><Checkbox id="confirm" checked={confirmed} onCheckedChange={(value) => setConfirmed(value === true)} /><Label htmlFor="confirm" className="leading-5">Confirmo que recebi e compreendi as orientações acima e tive oportunidade de esclarecer minhas dúvidas.</Label></div>
-        <div className="rounded-xl border border-blue-500/25 bg-[#041126] p-3"><Label>🔒 Foto segurando RG ou CNH</Label><input ref={input} className="hidden" type="file" accept="image/jpeg,image/png,image/webp" capture="user" onChange={async (event) => { const file = event.target.files?.[0]; if (file) setIdentity(await fileDataUrl(file)); }} /><Button className="mt-2 border-cyan-500/40 bg-blue-600/20 text-white hover:bg-blue-600/35" variant="outline" onClick={() => input.current?.click()}>{identity ? "✓ Foto registrada" : "Tirar foto"}</Button><p className="mt-2 text-xs text-slate-400">A foto com RG/CNH é privada e pode ser consultada somente pela administração autorizada.</p></div>
+        <div className="rounded-xl border border-blue-500/25 bg-[#041126] p-3">
+          <Label>🔒 Foto segurando RG ou CNH</Label>
+          <input
+            ref={input}
+            className="hidden"
+            type="file"
+            accept="image/*"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              setIdentityError(null);
+              setIdentityLoading(true);
+              try {
+                setIdentity(await prepareIdentityPhoto(file));
+              } catch (error) {
+                setIdentity(null);
+                setIdentityError(error instanceof Error ? error.message : "Não foi possível usar esta foto.");
+              } finally {
+                setIdentityLoading(false);
+              }
+            }}
+          />
+          <Button
+            className="mt-2 border-cyan-500/40 bg-blue-600/20 text-white hover:bg-blue-600/35"
+            variant="outline"
+            type="button"
+            disabled={identityLoading}
+            onClick={() => input.current?.click()}
+          >
+            {identityLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {identityLoading ? "Processando foto..." : identity ? "✓ Foto registrada — trocar" : "Tirar foto"}
+          </Button>
+          {identity && (
+            <img src={identity} alt="Pré-visualização da foto com documento" className="mt-3 max-h-48 rounded-lg border border-blue-500/25 object-contain" />
+          )}
+          {identityError && <p className="mt-2 text-xs font-semibold text-red-400">{identityError}</p>}
+          <p className="mt-2 text-xs text-slate-400">Use a câmera ou escolha uma foto da galeria. A foto com RG/CNH é privada e pode ser consultada somente pela administração autorizada.</p>
+        </div>
+
         <div><Label>✍ Assinatura digital do cliente</Label><div className="mt-2 overflow-hidden rounded-xl border border-cyan-500/35 bg-white"><SignaturePad value={signature} onChange={setSignature} height={150} /></div></div>
         <Button className="h-12 w-full bg-gradient-to-r from-blue-600 to-cyan-500 font-bold text-white shadow-[0_0_20px_rgba(0,160,255,.22)] hover:from-blue-500 hover:to-cyan-400" disabled={!allQuestionsAnswered || !confirmed || !identity || !signature || finish.isPending} onClick={() => finish.mutate()}>{finish.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Finalizar Contra-Prova</Button>
         {finish.error && <p className="text-sm text-destructive">{finish.error.message}</p>}
