@@ -597,6 +597,14 @@ export function RemapeamentoForm({
           <Stat label="Melhor" value={stats.melhor ? `P${String(stats.melhor.porta).padStart(2, "0")} ${stats.melhor.dbm} dBm` : "—"} />
           <Stat label="Pior" value={stats.pior ? `P${String(stats.pior.porta).padStart(2, "0")} ${stats.pior.dbm} dBm` : "—"} />
         </div>
+        {stats.perda_media_db === null && (
+          <p className="mt-2 text-xs text-amber-300">
+            {stats.entrada_dbm === null
+              ? "Informe a potência de entrada do splitter (seção 5) para calcular a perda."
+              : "Informe a potência (dBm) de pelo menos uma porta para calcular a perda."}
+          </p>
+        )}
+
       </Section>
 
       {/* 8 Fusão */}
