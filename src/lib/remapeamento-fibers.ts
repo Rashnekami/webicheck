@@ -60,9 +60,16 @@ export function reconcilePorts(existing: RemapPort[], count: number): RemapPort[
   });
 }
 
-function parseDbm(raw?: string): number | null {
-  if (!raw) return null;
-  const n = parseFloat(raw.replace(",", "."));
+function parseDbm(raw?: string | number | null): number | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  // aceita "-22,10", "−22.10 dBm", " -22.10dBm "
+  const cleaned = raw
+    .replace(/[\u2212\u2013\u2014]/g, "-")
+    .replace(",", ".")
+    .replace(/[^0-9.+-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "+") return null;
+  const n = parseFloat(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -83,12 +90,17 @@ export function computeSplitterStats(data: RemapeamentoData): SplitterStats {
   const portas = data.portas ?? [];
   const ocupadas = portas.filter((p) => p.status === "ocupada");
   const livres = portas.filter((p) => p.status === "livre").length;
-  const naoId = portas.filter((p) => p.status === "nao_identificado").length;
-  const readings = ocupadas
+  const naoId = portas.filter(
+    (p) => p.status === "nao_identificado" || p.status === "nao_identificada",
+  ).length;
+  // Leituras de potência valem para qualquer porta medida (ocupada, livre,
+  // reserva ou não identificada) — o técnico pode medir porta livre.
+  const readings = portas
     .map((p) => ({ porta: p.numero, dbm: parseDbm(p.potencia_dbm) }))
     .filter((r): r is { porta: number; dbm: number } => r.dbm !== null);
 
-  const entrada = parseDbm(data.splitter.potencia_entrada_dbm);
+  const entrada = parseDbm(data.splitter?.potencia_entrada_dbm);
+
   if (readings.length === 0) {
     return {
       total: portas.length,
