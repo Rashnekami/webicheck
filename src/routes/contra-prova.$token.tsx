@@ -69,6 +69,34 @@ async function prepareIdentityPhoto(file: File): Promise<string> {
 }
 
 
+/**
+ * No Android, abrir a câmera/galeria costuma descartar a aba por falta de
+ * memória: ao voltar, o cliente perdia respostas, foto e assinatura e nunca
+ * conseguia concluir. O preenchimento fica salvo no próprio aparelho até a
+ * validação.
+ */
+type DraftState = {
+  confirmed: boolean;
+  currentQuestion: number;
+  answers: Partial<Record<string, CustomerCounterproofAnswer>>;
+  identity: string | null;
+  signature: string | null;
+};
+
+function draftKey(token: string) {
+  return `cp-draft:${token}`;
+}
+
+function readDraft(token: string): DraftState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(draftKey(token));
+    return raw ? (JSON.parse(raw) as DraftState) : null;
+  } catch {
+    return null;
+  }
+}
+
 function CounterproofPage() {
   const { token } = Route.useParams();
   const [confirmed, setConfirmed] = useState(false);
@@ -78,7 +106,33 @@ function CounterproofPage() {
   const [identityError, setIdentityError] = useState<string | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const draft = readDraft(token);
+    if (draft) {
+      setConfirmed(!!draft.confirmed);
+      setCurrentQuestion(draft.currentQuestion ?? 0);
+      setAnswers(draft.answers ?? {});
+      setIdentity(draft.identity ?? null);
+      setSignature(draft.signature ?? null);
+    }
+    setRestored(true);
+  }, [token]);
+
+  useEffect(() => {
+    if (!restored || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        draftKey(token),
+        JSON.stringify({ confirmed, currentQuestion, answers, identity, signature } satisfies DraftState),
+      );
+    } catch {
+      /* armazenamento cheio ou bloqueado: segue sem rascunho */
+    }
+  }, [restored, token, confirmed, currentQuestion, answers, identity, signature]);
+
 
   const query = useQuery({
     queryKey: ["public-counterproof", token],
