@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import { CheckCircle2, ChevronLeft, Loader2, ShieldCheck } from "lucide-react";
 import { getPublicCounterproof, completePublicCounterproof } from "@/lib/customer-counterproof.functions";
 import {
