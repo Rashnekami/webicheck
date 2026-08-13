@@ -161,7 +161,15 @@ function CounterproofPage() {
           },
         },
       }),
+    onSuccess: () => {
+      try {
+        window.localStorage.removeItem(draftKey(token));
+      } catch {
+        /* ignore */
+      }
+    },
   });
+
 
   if (query.isLoading) return <div className="flex min-h-screen items-center justify-center bg-[#020817] text-cyan-300"><Loader2 className="animate-spin" /></div>;
   const cp = query.data;
