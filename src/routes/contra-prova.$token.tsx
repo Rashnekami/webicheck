@@ -55,7 +55,7 @@ async function prepareIdentityPhoto(file: File): Promise<string> {
   if (!source || !width || !height) {
     throw new Error("Formato de foto não suportado. Tire a foto novamente pela câmera.");
   }
-  const scale = Math.min(1, 1600 / Math.max(width, height));
+  const scale = Math.min(1, 1280 / Math.max(width, height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
