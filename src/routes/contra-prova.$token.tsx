@@ -65,7 +65,7 @@ async function prepareIdentityPhoto(file: File): Promise<string> {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(source as CanvasImageSource, 0, 0, canvas.width, canvas.height);
   if (source instanceof ImageBitmap) source.close();
-  return canvas.toDataURL("image/jpeg", 0.78);
+  return canvas.toDataURL("image/jpeg", 0.72);
 }
 
 
