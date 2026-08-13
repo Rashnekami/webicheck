@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
 import { CheckCircle2, ChevronLeft, Loader2, ShieldCheck } from "lucide-react";
 import { getPublicCounterproof, completePublicCounterproof } from "@/lib/customer-counterproof.functions";
 import {
@@ -54,7 +55,7 @@ async function prepareIdentityPhoto(file: File): Promise<string> {
   if (!source || !width || !height) {
     throw new Error("Formato de foto não suportado. Tire a foto novamente pela câmera.");
   }
-  const scale = Math.min(1, 1600 / Math.max(width, height));
+  const scale = Math.min(1, 1280 / Math.max(width, height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(width * scale));
   canvas.height = Math.max(1, Math.round(height * scale));
@@ -64,9 +65,37 @@ async function prepareIdentityPhoto(file: File): Promise<string> {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(source as CanvasImageSource, 0, 0, canvas.width, canvas.height);
   if (source instanceof ImageBitmap) source.close();
-  return canvas.toDataURL("image/jpeg", 0.78);
+  return canvas.toDataURL("image/jpeg", 0.72);
 }
 
+
+/**
+ * No Android, abrir a câmera/galeria costuma descartar a aba por falta de
+ * memória: ao voltar, o cliente perdia respostas, foto e assinatura e nunca
+ * conseguia concluir. O preenchimento fica salvo no próprio aparelho até a
+ * validação.
+ */
+type DraftState = {
+  confirmed: boolean;
+  currentQuestion: number;
+  answers: Partial<Record<string, CustomerCounterproofAnswer>>;
+  identity: string | null;
+  signature: string | null;
+};
+
+function draftKey(token: string) {
+  return `cp-draft:${token}`;
+}
+
+function readDraft(token: string): DraftState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(draftKey(token));
+    return raw ? (JSON.parse(raw) as DraftState) : null;
+  } catch {
+    return null;
+  }
+}
 
 function CounterproofPage() {
   const { token } = Route.useParams();
@@ -77,7 +106,33 @@ function CounterproofPage() {
   const [identityError, setIdentityError] = useState<string | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const draft = readDraft(token);
+    if (draft) {
+      setConfirmed(!!draft.confirmed);
+      setCurrentQuestion(draft.currentQuestion ?? 0);
+      setAnswers(draft.answers ?? {});
+      setIdentity(draft.identity ?? null);
+      setSignature(draft.signature ?? null);
+    }
+    setRestored(true);
+  }, [token]);
+
+  useEffect(() => {
+    if (!restored || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        draftKey(token),
+        JSON.stringify({ confirmed, currentQuestion, answers, identity, signature } satisfies DraftState),
+      );
+    } catch {
+      /* armazenamento cheio ou bloqueado: segue sem rascunho */
+    }
+  }, [restored, token, confirmed, currentQuestion, answers, identity, signature]);
+
 
   const query = useQuery({
     queryKey: ["public-counterproof", token],
@@ -106,7 +161,15 @@ function CounterproofPage() {
           },
         },
       }),
+    onSuccess: () => {
+      try {
+        window.localStorage.removeItem(draftKey(token));
+      } catch {
+        /* ignore */
+      }
+    },
   });
+
 
   if (query.isLoading) return <div className="flex min-h-screen items-center justify-center bg-[#020817] text-cyan-300"><Loader2 className="animate-spin" /></div>;
   const cp = query.data;
