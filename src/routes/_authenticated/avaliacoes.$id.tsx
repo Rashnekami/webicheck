@@ -242,6 +242,7 @@ function ReviewDetail() {
         evidences: fresh.evidences,
         meeting: fresh.meeting,
         followups: fresh.followups,
+        ai: fresh.ai,
         finalScore: overallScore(scores),
       });
       qc.invalidateQueries({ queryKey: ["technical-review", id] });
