@@ -1364,6 +1364,435 @@ export type Database = {
           },
         ]
       }
+      technical_employee_review_ai: {
+        Row: {
+          analysis_type: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          input_snapshot: Json
+          model: string | null
+          options: Json
+          review_id: string
+        }
+        Insert: {
+          analysis_type: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_snapshot?: Json
+          model?: string | null
+          options?: Json
+          review_id: string
+        }
+        Update: {
+          analysis_type?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          input_snapshot?: Json
+          model?: string | null
+          options?: Json
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_review_ai_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_employee_review_audit: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          provider_id: string | null
+          review_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          provider_id?: string | null
+          review_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          provider_id?: string | null
+          review_id?: string | null
+        }
+        Relationships: []
+      }
+      technical_employee_review_evidences: {
+        Row: {
+          checklist_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          evidence_reference_id: string | null
+          evidence_type: string
+          id: string
+          os: string | null
+          review_id: string
+        }
+        Insert: {
+          checklist_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          evidence_reference_id?: string | null
+          evidence_type: string
+          id?: string
+          os?: string | null
+          review_id: string
+        }
+        Update: {
+          checklist_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          evidence_reference_id?: string | null
+          evidence_type?: string
+          id?: string
+          os?: string | null
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_review_evidences_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_employee_review_evidences_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_employee_review_followups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          followup_date: string
+          id: string
+          observation: string | null
+          previous_goal: string | null
+          result: string | null
+          review_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          followup_date?: string
+          id?: string
+          observation?: string | null
+          previous_goal?: string | null
+          result?: string | null
+          review_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          followup_date?: string
+          id?: string
+          observation?: string | null
+          previous_goal?: string | null
+          result?: string | null
+          review_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_review_followups_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_employee_review_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_not_applicable: boolean
+          item_key: string
+          item_label: string
+          observation: string | null
+          review_id: string
+          score: number | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          is_not_applicable?: boolean
+          item_key: string
+          item_label: string
+          observation?: string | null
+          review_id: string
+          score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_not_applicable?: boolean
+          item_key?: string
+          item_label?: string
+          observation?: string | null
+          review_id?: string
+          score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_review_items_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_employee_review_meetings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_comments: string | null
+          employee_reaction: string | null
+          id: string
+          meeting_date: string
+          meeting_place: string | null
+          new_information: string | null
+          new_information_presented: boolean
+          review_id: string
+          supervisor_notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_comments?: string | null
+          employee_reaction?: string | null
+          id?: string
+          meeting_date?: string
+          meeting_place?: string | null
+          new_information?: string | null
+          new_information_presented?: boolean
+          review_id: string
+          supervisor_notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_comments?: string | null
+          employee_reaction?: string | null
+          id?: string
+          meeting_date?: string
+          meeting_place?: string | null
+          new_information?: string | null
+          new_information_presented?: boolean
+          review_id?: string
+          supervisor_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_review_meetings_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_employee_reviews: {
+        Row: {
+          archived_at: string | null
+          communication_notes: string | null
+          communication_score: number | null
+          created_at: string
+          development_action: string | null
+          development_due_date: string | null
+          development_goal: string | null
+          development_metric: string | null
+          development_notes: string | null
+          development_points: Json
+          employee_city: string | null
+          employee_id: string
+          employee_role: string | null
+          evaluator_user_id: string
+          evidence_notes: string | null
+          evidence_score: number | null
+          feedback_completed_at: string | null
+          feedback_completed_by: string | null
+          final_score: number | null
+          general_notes: string | null
+          id: string
+          next_review_date: string | null
+          operational_notes: string | null
+          operational_score: number | null
+          period_end: string
+          period_start: string
+          productivity_notes: string | null
+          productivity_score: number | null
+          provider_id: string
+          recurrence_notes: string | null
+          recurrence_score: number | null
+          review_date: string
+          status: string
+          strengths: Json
+          strengths_notes: string | null
+          technical_notes: string | null
+          technical_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          communication_notes?: string | null
+          communication_score?: number | null
+          created_at?: string
+          development_action?: string | null
+          development_due_date?: string | null
+          development_goal?: string | null
+          development_metric?: string | null
+          development_notes?: string | null
+          development_points?: Json
+          employee_city?: string | null
+          employee_id: string
+          employee_role?: string | null
+          evaluator_user_id: string
+          evidence_notes?: string | null
+          evidence_score?: number | null
+          feedback_completed_at?: string | null
+          feedback_completed_by?: string | null
+          final_score?: number | null
+          general_notes?: string | null
+          id?: string
+          next_review_date?: string | null
+          operational_notes?: string | null
+          operational_score?: number | null
+          period_end: string
+          period_start: string
+          productivity_notes?: string | null
+          productivity_score?: number | null
+          provider_id: string
+          recurrence_notes?: string | null
+          recurrence_score?: number | null
+          review_date?: string
+          status?: string
+          strengths?: Json
+          strengths_notes?: string | null
+          technical_notes?: string | null
+          technical_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          communication_notes?: string | null
+          communication_score?: number | null
+          created_at?: string
+          development_action?: string | null
+          development_due_date?: string | null
+          development_goal?: string | null
+          development_metric?: string | null
+          development_notes?: string | null
+          development_points?: Json
+          employee_city?: string | null
+          employee_id?: string
+          employee_role?: string | null
+          evaluator_user_id?: string
+          evidence_notes?: string | null
+          evidence_score?: number | null
+          feedback_completed_at?: string | null
+          feedback_completed_by?: string | null
+          final_score?: number | null
+          general_notes?: string | null
+          id?: string
+          next_review_date?: string | null
+          operational_notes?: string | null
+          operational_score?: number | null
+          period_end?: string
+          period_start?: string
+          productivity_notes?: string | null
+          productivity_score?: number | null
+          provider_id?: string
+          recurrence_notes?: string | null
+          recurrence_score?: number | null
+          review_date?: string
+          status?: string
+          strengths?: Json
+          strengths_notes?: string | null
+          technical_notes?: string | null
+          technical_score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_reviews_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_feedback_access: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          provider_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provider_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provider_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_feedback_access_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_cities: {
         Row: {
           city: string
@@ -1588,6 +2017,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_technical_feedback_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_supervisor_of: {
         Args: { _supervisor: string; _tecnico: string }
@@ -1616,6 +2049,7 @@ export type Database = {
         }[]
       }
       norm_city: { Args: { _city: string }; Returns: string }
+      owns_technical_review: { Args: { _review_id: string }; Returns: boolean }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
       purge_old_security_logs: { Args: never; Returns: undefined }
       review_checklist: {
