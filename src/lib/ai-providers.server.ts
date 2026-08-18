@@ -14,6 +14,12 @@ export type AiProviderConfig = {
 export function aiProviders(): AiProviderConfig[] {
   return [
     {
+      name: "lovable",
+      envKey: "LOVABLE_API_KEY",
+      baseURL: "https://ai.gateway.lovable.dev/v1",
+      model: "google/gemini-2.5-flash",
+    },
+    {
       name: "openrouter",
       envKey: "OPENROUTER_API_KEY",
       baseURL: "https://openrouter.ai/api/v1",
@@ -59,6 +65,7 @@ async function callProvider(
     body: JSON.stringify({
       model: cfg.model,
       temperature: 0.2,
+      max_tokens: 4096,
       messages: [
         {
           role: "system",
