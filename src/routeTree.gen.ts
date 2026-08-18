@@ -15,7 +15,9 @@ import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DenunciaIndexRouteImport } from './routes/denuncia.index'
 import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
+import { Route as DenunciaAcompanharRouteImport } from './routes/denuncia.acompanhar'
 import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
@@ -32,9 +34,12 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
 import { Route as AuthenticatedMapaOpticoIndexRouteImport } from './routes/_authenticated/mapa-optico.index'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
+import { Route as AuthenticatedCanalEticoIndexRouteImport } from './routes/_authenticated/canal-etico.index'
 import { Route as AuthenticatedAvaliacoesIndexRouteImport } from './routes/_authenticated/avaliacoes.index'
+import { Route as DenunciaValidarCodigoRouteImport } from './routes/denuncia.validar.$codigo'
 import { Route as AuthenticatedMapaOpticoCeoIdRouteImport } from './routes/_authenticated/mapa-optico.$ceoId'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
+import { Route as AuthenticatedCanalEticoIdRouteImport } from './routes/_authenticated/canal-etico.$id'
 import { Route as AuthenticatedAvaliacoesIdRouteImport } from './routes/_authenticated/avaliacoes.$id'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
 import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
@@ -72,9 +77,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DenunciaIndexRoute = DenunciaIndexRouteImport.update({
+  id: '/denuncia/',
+  path: '/denuncia/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ValidarTokenRoute = ValidarTokenRouteImport.update({
   id: '/validar/$token',
   path: '/validar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DenunciaAcompanharRoute = DenunciaAcompanharRouteImport.update({
+  id: '/denuncia/acompanhar',
+  path: '/denuncia/acompanhar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContraProvaTokenRoute = ContraProvaTokenRouteImport.update({
@@ -163,12 +178,23 @@ const AuthenticatedChecklistsIndexRoute =
     path: '/checklists/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCanalEticoIndexRoute =
+  AuthenticatedCanalEticoIndexRouteImport.update({
+    id: '/canal-etico/',
+    path: '/canal-etico/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAvaliacoesIndexRoute =
   AuthenticatedAvaliacoesIndexRouteImport.update({
     id: '/avaliacoes/',
     path: '/avaliacoes/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const DenunciaValidarCodigoRoute = DenunciaValidarCodigoRouteImport.update({
+  id: '/denuncia/validar/$codigo',
+  path: '/denuncia/validar/$codigo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedMapaOpticoCeoIdRoute =
   AuthenticatedMapaOpticoCeoIdRouteImport.update({
     id: '/mapa-optico/$ceoId',
@@ -179,6 +205,12 @@ const AuthenticatedChecklistsIdRoute =
   AuthenticatedChecklistsIdRouteImport.update({
     id: '/checklists/$id',
     path: '/checklists/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCanalEticoIdRoute =
+  AuthenticatedCanalEticoIdRouteImport.update({
+    id: '/canal-etico/$id',
+    path: '/canal-etico/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAvaliacoesIdRoute =
@@ -244,11 +276,16 @@ export interface FileRoutesByFullPath {
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
+  '/denuncia/acompanhar': typeof DenunciaAcompanharRoute
   '/validar/$token': typeof ValidarTokenRoute
+  '/denuncia/': typeof DenunciaIndexRoute
   '/avaliacoes/$id': typeof AuthenticatedAvaliacoesIdRoute
+  '/canal-etico/$id': typeof AuthenticatedCanalEticoIdRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
+  '/denuncia/validar/$codigo': typeof DenunciaValidarCodigoRoute
   '/avaliacoes/': typeof AuthenticatedAvaliacoesIndexRoute
+  '/canal-etico/': typeof AuthenticatedCanalEticoIndexRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/mapa-optico/': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
@@ -278,11 +315,16 @@ export interface FileRoutesByTo {
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
+  '/denuncia/acompanhar': typeof DenunciaAcompanharRoute
   '/validar/$token': typeof ValidarTokenRoute
+  '/denuncia': typeof DenunciaIndexRoute
   '/avaliacoes/$id': typeof AuthenticatedAvaliacoesIdRoute
+  '/canal-etico/$id': typeof AuthenticatedCanalEticoIdRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
+  '/denuncia/validar/$codigo': typeof DenunciaValidarCodigoRoute
   '/avaliacoes': typeof AuthenticatedAvaliacoesIndexRoute
+  '/canal-etico': typeof AuthenticatedCanalEticoIndexRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
   '/mapa-optico': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
@@ -314,11 +356,16 @@ export interface FileRoutesById {
   '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
+  '/denuncia/acompanhar': typeof DenunciaAcompanharRoute
   '/validar/$token': typeof ValidarTokenRoute
+  '/denuncia/': typeof DenunciaIndexRoute
   '/_authenticated/avaliacoes/$id': typeof AuthenticatedAvaliacoesIdRoute
+  '/_authenticated/canal-etico/$id': typeof AuthenticatedCanalEticoIdRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
+  '/denuncia/validar/$codigo': typeof DenunciaValidarCodigoRoute
   '/_authenticated/avaliacoes/': typeof AuthenticatedAvaliacoesIndexRoute
+  '/_authenticated/canal-etico/': typeof AuthenticatedCanalEticoIndexRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/_authenticated/mapa-optico/': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
@@ -350,11 +397,16 @@ export interface FileRouteTypes {
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
+    | '/denuncia/acompanhar'
     | '/validar/$token'
+    | '/denuncia/'
     | '/avaliacoes/$id'
+    | '/canal-etico/$id'
     | '/checklists/$id'
     | '/mapa-optico/$ceoId'
+    | '/denuncia/validar/$codigo'
     | '/avaliacoes/'
+    | '/canal-etico/'
     | '/checklists/'
     | '/mapa-optico/'
     | '/api/public/auth/login-internal'
@@ -384,11 +436,16 @@ export interface FileRouteTypes {
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
+    | '/denuncia/acompanhar'
     | '/validar/$token'
+    | '/denuncia'
     | '/avaliacoes/$id'
+    | '/canal-etico/$id'
     | '/checklists/$id'
     | '/mapa-optico/$ceoId'
+    | '/denuncia/validar/$codigo'
     | '/avaliacoes'
+    | '/canal-etico'
     | '/checklists'
     | '/mapa-optico'
     | '/api/public/auth/login-internal'
@@ -419,11 +476,16 @@ export interface FileRouteTypes {
     | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
     | '/contra-prova/$token'
+    | '/denuncia/acompanhar'
     | '/validar/$token'
+    | '/denuncia/'
     | '/_authenticated/avaliacoes/$id'
+    | '/_authenticated/canal-etico/$id'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/mapa-optico/$ceoId'
+    | '/denuncia/validar/$codigo'
     | '/_authenticated/avaliacoes/'
+    | '/_authenticated/canal-etico/'
     | '/_authenticated/checklists/'
     | '/_authenticated/mapa-optico/'
     | '/api/public/auth/login-internal'
@@ -442,7 +504,10 @@ export interface RootRouteChildren {
   CompletarCadastroRoute: typeof CompletarCadastroRoute
   TrocarSenhaRoute: typeof TrocarSenhaRoute
   ContraProvaTokenRoute: typeof ContraProvaTokenRoute
+  DenunciaAcompanharRoute: typeof DenunciaAcompanharRoute
   ValidarTokenRoute: typeof ValidarTokenRoute
+  DenunciaIndexRoute: typeof DenunciaIndexRoute
+  DenunciaValidarCodigoRoute: typeof DenunciaValidarCodigoRoute
   ApiPublicAuthLoginInternalRoute: typeof ApiPublicAuthLoginInternalRoute
   ApiPublicWebiDiagnosticDeviceStartRoute: typeof ApiPublicWebiDiagnosticDeviceStartRoute
   ApiPublicWebiDiagnosticDeviceTokenRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRoute
@@ -495,11 +560,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/denuncia/': {
+      id: '/denuncia/'
+      path: '/denuncia'
+      fullPath: '/denuncia/'
+      preLoaderRoute: typeof DenunciaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/validar/$token': {
       id: '/validar/$token'
       path: '/validar/$token'
       fullPath: '/validar/$token'
       preLoaderRoute: typeof ValidarTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/denuncia/acompanhar': {
+      id: '/denuncia/acompanhar'
+      path: '/denuncia/acompanhar'
+      fullPath: '/denuncia/acompanhar'
+      preLoaderRoute: typeof DenunciaAcompanharRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contra-prova/$token': {
@@ -614,12 +693,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/canal-etico/': {
+      id: '/_authenticated/canal-etico/'
+      path: '/canal-etico'
+      fullPath: '/canal-etico/'
+      preLoaderRoute: typeof AuthenticatedCanalEticoIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/avaliacoes/': {
       id: '/_authenticated/avaliacoes/'
       path: '/avaliacoes'
       fullPath: '/avaliacoes/'
       preLoaderRoute: typeof AuthenticatedAvaliacoesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/denuncia/validar/$codigo': {
+      id: '/denuncia/validar/$codigo'
+      path: '/denuncia/validar/$codigo'
+      fullPath: '/denuncia/validar/$codigo'
+      preLoaderRoute: typeof DenunciaValidarCodigoRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/mapa-optico/$ceoId': {
       id: '/_authenticated/mapa-optico/$ceoId'
@@ -633,6 +726,13 @@ declare module '@tanstack/react-router' {
       path: '/checklists/$id'
       fullPath: '/checklists/$id'
       preLoaderRoute: typeof AuthenticatedChecklistsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/canal-etico/$id': {
+      id: '/_authenticated/canal-etico/$id'
+      path: '/canal-etico/$id'
+      fullPath: '/canal-etico/$id'
+      preLoaderRoute: typeof AuthenticatedCanalEticoIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/avaliacoes/$id': {
@@ -702,9 +802,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedAvaliacoesIdRoute: typeof AuthenticatedAvaliacoesIdRoute
+  AuthenticatedCanalEticoIdRoute: typeof AuthenticatedCanalEticoIdRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
   AuthenticatedMapaOpticoCeoIdRoute: typeof AuthenticatedMapaOpticoCeoIdRoute
   AuthenticatedAvaliacoesIndexRoute: typeof AuthenticatedAvaliacoesIndexRoute
+  AuthenticatedCanalEticoIndexRoute: typeof AuthenticatedCanalEticoIndexRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
   AuthenticatedMapaOpticoIndexRoute: typeof AuthenticatedMapaOpticoIndexRoute
 }
@@ -724,9 +826,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedAvaliacoesIdRoute: AuthenticatedAvaliacoesIdRoute,
+  AuthenticatedCanalEticoIdRoute: AuthenticatedCanalEticoIdRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
   AuthenticatedMapaOpticoCeoIdRoute: AuthenticatedMapaOpticoCeoIdRoute,
   AuthenticatedAvaliacoesIndexRoute: AuthenticatedAvaliacoesIndexRoute,
+  AuthenticatedCanalEticoIndexRoute: AuthenticatedCanalEticoIndexRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
   AuthenticatedMapaOpticoIndexRoute: AuthenticatedMapaOpticoIndexRoute,
 }
@@ -742,7 +846,10 @@ const rootRouteChildren: RootRouteChildren = {
   CompletarCadastroRoute: CompletarCadastroRoute,
   TrocarSenhaRoute: TrocarSenhaRoute,
   ContraProvaTokenRoute: ContraProvaTokenRoute,
+  DenunciaAcompanharRoute: DenunciaAcompanharRoute,
   ValidarTokenRoute: ValidarTokenRoute,
+  DenunciaIndexRoute: DenunciaIndexRoute,
+  DenunciaValidarCodigoRoute: DenunciaValidarCodigoRoute,
   ApiPublicAuthLoginInternalRoute: ApiPublicAuthLoginInternalRoute,
   ApiPublicWebiDiagnosticDeviceStartRoute:
     ApiPublicWebiDiagnosticDeviceStartRoute,

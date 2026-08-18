@@ -54,6 +54,7 @@ import {
 import { listAnnouncements } from "@/lib/provider-admin.functions";
 import { getChecklistCounts } from "@/lib/checklists";
 import { getTechnicalFeedbackAccess } from "@/lib/technical-reviews.functions";
+import { getWhistleblowerAccess } from "@/lib/whistleblower-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -194,6 +195,12 @@ function Painel() {
         userId: user!.id,
       }),
     enabled: !!user,
+  });
+  const wbAccess = useQuery({
+    queryKey: ["wb-access"],
+    queryFn: () => getWhistleblowerAccess(),
+    enabled: !!user,
+    staleTime: 300_000,
   });
   const feedbackAccess = useQuery({
     queryKey: ["technical-feedback-access"],
@@ -446,6 +453,14 @@ function Painel() {
                       icon={ShieldAlert}
                       title="Segurança"
                       description="Tentativas de login e acessos recentes, com IP e localização."
+                    />
+                  )}
+                  {wbAccess.data?.hasAccess && (
+                    <HomeNavCard
+                      to="/canal-etico"
+                      icon={ShieldAlert}
+                      title="Canal Ético"
+                      description="Denúncias recebidas pelo canal confidencial, com trilha de auditoria."
                     />
                   )}
                   {feedbackAccess.data?.hasAccess && (
