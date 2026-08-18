@@ -178,31 +178,7 @@ function AuthPage() {
             </p>
           </div>
 
-          <div className="mt-4">
-            <InstallButton
-              variant="secondary"
-              size="lg"
-              fullWidth
-              label="Instalar aplicativo"
-              className="border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-            />
-          </div>
-
-          {/* Selos do celular — no desktop quem cumpre esse papel é a
-              coluna de marketing à esquerda. */}
-          <ul className="mt-7 grid grid-cols-3 gap-2 lg:hidden">
-            {SELOS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex flex-col items-center gap-2 text-center">
-                <Icon className="h-6 w-6 text-sky-400" />
-                <span className="whitespace-pre-line text-[11px] leading-tight text-slate-400">
-                  {label}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-
-          <div className="mt-7 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
+          <div className="mt-5 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-amber-300">
               <ShieldCheck className="h-4 w-4" /> Canal de Denúncias
             </p>
@@ -229,6 +205,30 @@ function AuthPage() {
               </Button>
             </div>
           </div>
+
+          <div className="mt-4">
+            <InstallButton
+              variant="secondary"
+              size="lg"
+              fullWidth
+              label="Instalar aplicativo"
+              className="border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+            />
+          </div>
+
+          {/* Selos do celular — no desktop quem cumpre esse papel é a
+              coluna de marketing à esquerda. */}
+          <ul className="mt-7 grid grid-cols-3 gap-2 lg:hidden">
+            {SELOS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex flex-col items-center gap-2 text-center">
+                <Icon className="h-6 w-6 text-sky-400" />
+                <span className="whitespace-pre-line text-[11px] leading-tight text-slate-400">
+                  {label}
+                </span>
+              </li>
+            ))}
+          </ul>
+
 
           <p className="mt-6 text-center text-xs text-slate-500">
             © {new Date().getFullYear()} CheckTecnico — uso interno
