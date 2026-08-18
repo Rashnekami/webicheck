@@ -163,14 +163,23 @@ function ReviewDetail() {
   });
 
   const ai = useMutation({
-    mutationFn: (type: "gerencial" | "solides" | "conversa" | "plano") =>
-      runTechnicalReviewAi({ data: { id, type, tom } }),
+    mutationFn: async (type: "gerencial" | "solides" | "conversa" | "plano") => {
+      // A IA lê os dados gravados: salva o que está na tela antes de analisar.
+      await saveTechnicalReview({ data: { id, scores, itemNotes, groupNotes, ...form } });
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* ignore */
+      }
+      return runTechnicalReviewAi({ data: { id, type, tom } });
+    },
     onSuccess: () => {
       toast.success("Análise gerada.");
       qc.invalidateQueries({ queryKey: ["technical-review", id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const remove = useMutation({
     mutationFn: () => deleteTechnicalReview({ data: { id } }),
