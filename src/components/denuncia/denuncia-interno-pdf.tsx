@@ -44,7 +44,8 @@ export type InternalPdfInput = {
 
 
 export function DenunciaInternaPdfDocument({ data }: { data: InternalPdfInput }) {
-  const { report, messages, history, notes, attachments, logs, names } = data;
+  const { report, messages, history, notes, attachments, logs, names, ai } = data;
+
   return (
     <Document title={`CONFIDENCIAL - ${report.protocol}`}>
       <Page size="A4" style={s.page}>
