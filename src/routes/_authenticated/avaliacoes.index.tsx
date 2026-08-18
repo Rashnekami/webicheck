@@ -223,13 +223,25 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
         </section>
 
         <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              {showArchived ? "Avaliações arquivadas" : "Avaliações ativas"}
+            </p>
+            <Button size="sm" variant="secondary" onClick={() => setShowArchived((v) => !v)}>
+              {showArchived ? "Ver ativas" : "Ver arquivadas"}
+            </Button>
+          </div>
           {reviews.isLoading ? (
             <p className="text-sm text-slate-400">Carregando avaliações…</p>
           ) : list.length === 0 ? (
             <Card>
               <CardContent className="space-y-2 p-8 text-center">
                 <UsersRound className="mx-auto h-8 w-8 text-cyan-400" />
-                <p className="text-white">Nenhuma avaliação registrada ainda.</p>
+                <p className="text-white">
+                  {showArchived
+                    ? "Nenhuma avaliação arquivada."
+                    : "Nenhuma avaliação registrada ainda."}
+                </p>
                 <p className="text-sm text-slate-400">
                   Crie a primeira avaliação para começar o histórico de evolução.
                 </p>
@@ -247,9 +259,13 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
                         {r.employee_city ? ` · ${r.employee_city}` : ""}
                       </p>
                     </div>
+                    {r.next_review_date && r.next_review_date < today ? (
+                      <Badge variant="destructive">Follow-up vencido</Badge>
+                    ) : null}
                     <Badge variant={r.status === "concluida" ? "default" : "secondary"}>
                       {r.status === "concluida" ? "Concluída" : "Rascunho"}
                     </Badge>
+
                     <div className="text-right">
                       <p className="text-xl font-bold text-white">{formatScore(r.final_score)}</p>
                       <p className="text-[11px] text-slate-400">{scoreLabel(r.final_score)}</p>
