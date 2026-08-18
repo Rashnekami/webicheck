@@ -1,119 +1,56 @@
-# Plano — Remapeamento + Intervenções de Rede WebiCheck
+# Avaliação Técnica Interna — o que ainda falta
 
-Escopo grande. Vou dividir em **4 fases entregáveis** para evitar refatoração cega e permitir validar cada etapa. Confirme se quer que eu execute tudo em sequência, ou só a Fase 1 primeiro.
+O que já está pronto: acesso restrito por liberação, criação de avaliação por colaborador/período, as 6 categorias com notas e observações, cálculo de médias e nota final, rascunho local automático, e as 4 análises de IA (gerencial, Sólides, roteiro de conversa, PDI).
 
----
-
-## Fase 1 — Correção do Remapeamento (base do restante)
-
-**1.1 Validação sem cliente**
-- Remover qualquer regra em `remapeamento-form.tsx` / `checklists.ts` que exija cliente em portas.
-- Portas podem estar todas `livre` / `reserva` / `nao_identificada`; cliente e observação continuam opcionais.
-- Ajustar labels/mensagens.
-
-**1.2 Mapa Mapbox real (substitui Google Maps atual do MapPicker)**
-- Trocar `MapPicker` para **Mapbox GL JS** (`mapbox://styles/mapbox/satellite-v9`), somente para Remapeamento e Intervenções. Não mexer nas outras telas que usam Google Maps.
-- Conectar Mapbox via connector (`standard_connectors--connect mapbox`); pk. no browser, sk. no server para Static Images API.
-- Comportamento:
-  - GPS do técnico apenas centraliza o mapa inicialmente (não define CTO).
-  - Marcador azul = técnico; pino vermelho = CTO (arrastável e clicável).
-  - Botão **"Centralizar no meu GPS"** só move a câmera.
-  - Botão **"Confirmar localização da CTO"** só habilita após interação.
-  - Ao reabrir checklist com localização já confirmada, nunca sobrescrever com GPS atual.
-- Persistir em `data.localizacao`: `gps_original {lat,lng,accuracy_m,captured_at}`, `cto {lat,lng}`, `confirmed`, `confirmed_at`, `confirmed_by`, `distancia_m`.
-
-**1.3 Snapshot satélite (Mapbox Static Images API)**
-- Nova server fn `generate-map-snapshot.functions.ts` — recebe `checklist_id`, lê `cto.lat/lng`, chama Static Images API via gateway Mapbox (sk.), salva PNG em bucket novo `map-snapshots` (privado, signed URL).
-- Salvar `map_snapshot_path` em `data.localizacao.snapshot_path`.
-- Regerar automaticamente sempre que a CTO for reconfirmada.
-
-**1.4 Pipeline de finalização robusto**
-Fluxo atômico com estados intermediários e botão "Tentar novamente":
-```text
-salvar → confirmar loc → snapshot satélite → imagem resumo → PDF → link público + QR → finalizar
-```
-- Se falhar em qualquer etapa: manter status `finalizando_com_erro`, exibir botão para reprocessar sem refazer checklist.
-- Sinalizar visualmente no card.
-
-**1.5 PDF de Remapeamento (substitui stub atual)**
-- Implementar `remapeamento-pdf.tsx` real, tema dark igual aos outros PDFs, incluindo:
-  - Cabeçalho com RMAP, CTO, cidade, setor, técnico, data.
-  - **Bloco "Localização da CTO"** com a imagem satélite (map_snapshot), lat/lng, link "Abrir no Google Maps".
-  - Splitter, tabela de portas com cores TIA-598, fotos antes/depois, resultado.
-- Imagem resumo (PNG) usa o mesmo snapshot — nunca captura mapa interativo.
-- Link público + QR já reutilizam infra existente de snapshots.
+Abaixo as etapas que faltam para o módulo ficar completo conforme a especificação. As tabelas do banco para todas elas já existem — falta a interface e as funções.
 
 ---
 
-## Fase 2 — Módulo Remapeamentos (correções)
+## Etapa 1 — Evidências ligadas a checklists
 
-Já existe rota `/remapeamentos`. Ajustar:
-- Aba **Mapa** passa a usar Mapbox (mesmo estilo satélite), lê `data.localizacao.cto`, InfoWindow com "Ver Remapeamento".
-- Aba **Lista** e **Indicadores**: adicionar filtros por ano, cidade, técnico, provider (já existente). Garantir que indicadores do dashboard reflitam.
-- Adicionar link "Mapa de CTOs" no dashboard principal.
+- Painel na avaliação para anexar evidências reais (checklist/OS/reclamação) com descrição.
+- Busca de checklists do colaborador dentro do período avaliado, para vincular com um clique.
+- Evidências entram no contexto enviado à IA (hoje a IA só vê notas e observações).
 
----
+## Etapa 2 — Registro da conversa de feedback
 
-## Fase 3 — Intervenções de Rede (Rompimento / Readequação / Melhoria de Sinal)
+- Bloco "Reunião de feedback": data, local, reação do colaborador, comentários dele, notas do gestor.
+- Marcação "colaborador apresentou informação nova" com campo de texto.
+- Botão **Concluir avaliação** que grava data/autor da conclusão e trava a edição.
 
-**3.1 Schema**
-- Adicionar 3 novos valores ao enum `checklist_tipo`: `rompimento`, `readequacao`, `melhoria_sinal`.
-- `empty_checklist_revision_data` retorna estruturas específicas por tipo.
-- Novos códigos via triggers (paralelos ao `assign_rmap_code`):
-  - `RPT-YYYY-XXXX`, `RDEA-YYYY-XXXX`, `MSIG-YYYY-XXXX` (sequência por provedor+ano).
-- Coluna `intervention_code text` + índice único parcial `(provider_id, intervention_code)`.
+## Etapa 3 — Acompanhamento (follow-up)
 
-**3.2 Estrutura de dados por tipo** (jsonb em `dados`)
-- Comum: `mapa.pontos[]` (tipo, id, lat, lng, sequência, observação, foto_id, técnico, timestamp), `mapa.rota_antes` e `mapa.rota_depois` (GeoJSON LineString), `otdr.antes[]`, `otdr.depois[]`, `laudos[]` (PDFs anexos preservados), `evidencias.antes[]`, `evidencias.depois[]`, `fechamento_hubsoft {ia, editado}`.
-- Rompimento/Readequação: `motivo`, `cabo`, `qtd_fibras`, `ctos_afetadas`, `equipe`, `caixas[]` (entrada/saída/FO/fusões/passantes/reservas/rompidas/fotos).
-- Melhoria Sinal: `motivo`, `medidas.antes {olt_tx, olt_rx, cto_entrada, cto_pos_splitter, ont_rx, ont_tx, retorno_olt}` e `medidas.depois`, cálculo automático `melhoria_db`.
+- Lista de acompanhamentos por avaliação: data, status (pendente / em andamento / atingido / não atingido), meta anterior, resultado, observação.
+- Alerta na listagem quando a data do próximo acompanhamento vencer.
 
-**3.3 UI — form multi-etapas** (`intervencao-form.tsx`)
-- Reaproveita layout do Remapeamento; renderiza etapas conforme tipo.
-- Etapa Mapa: componente `MapaIntervencao` (Mapbox) — múltiplos pinos, arrastáveis, tipos configuráveis; para Readequação permite ordenar pontos e desenhar linha (GeoJSON) — antes/depois.
-- Etapa Evidências: fotos antes/depois (bucket `evidencias` existente, nova `foto_categoria` se preciso).
-- Etapa OTDR: múltiplas medições (1310/1550/1650), campos técnicos.
-- Etapa Laudo OTDR: upload de PDFs originais → bucket novo `otdr-reports` (privado). Campo `fabricante` livre (VIAVI/EXFO/Yokogawa/...).
-- Etapa Análise IA: botão "Analisar" → server fn `analyze-otdr.functions.ts` chama Lovable AI Gateway com PDFs + medições. Retorna eventos, perdas, PASS/FAIL, comparação antes/depois. Sem inventar.
-- Etapa Cruzamento OTDR+Mapa: server fn compara distância do evento OTDR × rota; retorna status indicativo.
-- Etapa Fechamento HubSoft: botão gera texto via IA baseado só em dados reais existentes; guarda `fechamento_ia` + `fechamento_editado`; botões Copiar / Editar / Regerar.
+## Etapa 4 — Exportação em PDF
 
-**3.4 Roteamento**
-- Adicionar tipos no seletor de criação de checklist e no editor (`checklists.$id.tsx`).
-- Suportar geração de PDF, imagem, link público e QR — reaproveitando pipeline da Fase 1.
+- PDF da avaliação no mesmo padrão visual dos outros documentos do sistema: cabeçalho com colaborador/período/avaliador, gráfico ou barras das 6 categorias, nota final, pontos fortes e de desenvolvimento, PDI, e espaço de assinatura do gestor e do colaborador.
+- Botão de download e de compartilhamento privado (sem link público).
 
-**3.5 Módulo de acompanhamento**
-- Nova rota `/intervencoes` com abas Lista, Mapa, Indicadores (mesmo padrão de `/remapeamentos`), filtro por tipo.
+## Etapa 5 — Histórico e evolução
 
----
+- Aba de histórico do colaborador: todas as avaliações em linha do tempo com nota final.
+- Comparativo entre a avaliação atual e a anterior, por categoria (subiu/caiu/estável).
+- Indicadores do módulo: média por categoria, colaboradores avaliados no período, metas atingidas.
 
-## Fase 4 — Dashboard + Housekeeping
+## Etapa 6 — Ajustes finais
 
-- Cards adicionais no dashboard: remapeamentos (hoje/7d/mês/ano), CTOs remapeadas, portas ocupadas/livres, intervenções por tipo, melhoria média em dB.
-- Ranking por técnico e cidade.
-- Filtros: provedor, cidade, técnico, período.
-- Atualizar menu principal com "Intervenções".
-- Testes vitest para: cálculo de melhoria dB, geração de código, pipeline de snapshot com falha e retry.
+- Arquivar avaliação (a coluna já existe) e filtro para esconder arquivadas.
+- Excluir avaliação com confirmação (a função já existe no servidor, falta o botão).
+- Registro de auditoria das ações na tela de segurança.
 
 ---
 
 ## Detalhes técnicos
 
-- **Migração 1** (Fase 1): remove exigência de cliente no data-shape (não altera schema; só form/lib), cria bucket `map-snapshots`.
-- **Migração 2** (Fase 3): enum + coluna `intervention_code` + trigger + bucket `otdr-reports` + `foto_categoria` novas (`otdr_antes`, `otdr_depois`, `intervencao_antes`, `intervencao_depois`, `caixa_emenda`).
-- **Connector Mapbox**: precisa do usuário linkar (pk. + sk.). Sem sk. não há snapshot; UI mostra aviso.
-- **Sem contra-prova de cliente** em nenhum desses tipos (bloquear na UI).
-- **Multi-provider**: tudo passa por RLS existente em `checklists` (`provider_id`).
-- **Não tocar**: fluxo de Validação ONT, Instalação, Troca de ONT, contra-prova do cliente.
+- Novas server functions em `src/lib/technical-reviews.functions.ts` para evidências, reunião, follow-ups e histórico; tabelas `technical_employee_review_evidences`, `_meetings`, `_followups` e `_audit` já existem com RLS via `owns_technical_review`.
+- PDF novo em `src/components/checklist/`-padrão, reaproveitando o tema escuro e o pipeline de imagem já usado nos demais documentos.
+- O contexto da IA em `src/lib/technical-review-ai.server.ts` passa a incluir evidências e histórico anterior.
+- Sem mudança de schema prevista; só se a comparação exigir índice extra.
 
 ---
 
-## Ordem de execução sugerida
+## Ordem sugerida
 
-1. Confirmar connector Mapbox linkado (pré-requisito da Fase 1.3+).
-2. Fase 1 completa → validar em preview.
-3. Fase 2.
-4. Fase 3 (migração + form + acompanhamento).
-5. Fase 4 (dashboard + testes).
-
-**Pergunta antes de começar:** posso conectar o Mapbox agora e executar as **Fases 1 e 2 nesta rodada**, deixando Fases 3 e 4 (Intervenções + OTDR + IA + HubSoft) para as próximas rodadas? Ou prefere que eu tente empurrar tudo de uma vez?
+Etapas 1 → 2 → 3 numa rodada (fluxo completo do feedback), depois 4 → 5 → 6.
