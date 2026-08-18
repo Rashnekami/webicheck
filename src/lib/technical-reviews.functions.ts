@@ -169,36 +169,57 @@ export const getTechnicalReview = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!review) throw new Error("Avaliação não encontrada.");
-    const [{ data: items }, { data: ai }, { data: evidences }] = await Promise.all([
-      client.from("technical_employee_review_items").select("*").eq("review_id", data.id),
-      client
-        .from("technical_employee_review_ai")
-        .select("*")
-        .eq("review_id", data.id)
-        .order("created_at", { ascending: false }),
-      client
-        .from("technical_employee_review_evidences")
-        .select("*")
-        .eq("review_id", data.id)
-        .order("created_at", { ascending: false }),
-    ]);
+    const [{ data: items }, { data: ai }, { data: evidences }, { data: meetings }, { data: followups }] =
+      await Promise.all([
+        client.from("technical_employee_review_items").select("*").eq("review_id", data.id),
+        client
+          .from("technical_employee_review_ai")
+          .select("*")
+          .eq("review_id", data.id)
+          .order("created_at", { ascending: false }),
+        client
+          .from("technical_employee_review_evidences")
+          .select("*")
+          .eq("review_id", data.id)
+          .order("created_at", { ascending: false }),
+        client
+          .from("technical_employee_review_meetings")
+          .select("*")
+          .eq("review_id", data.id)
+          .order("created_at", { ascending: true })
+          .limit(1),
+        client
+          .from("technical_employee_review_followups")
+          .select("*")
+          .eq("review_id", data.id)
+          .order("followup_date", { ascending: true }),
+      ]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: employee } = await supabaseAdmin
       .from("profiles")
       .select("full_name, city, email")
       .eq("id", review.employee_id)
       .maybeSingle();
+    const { data: evaluator } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", review.evaluator_user_id)
+      .maybeSingle();
     return {
       review: review as any,
       items: (items ?? []) as any[],
       ai: (ai ?? []) as any[],
       evidences: (evidences ?? []) as any[],
+      meeting: (((meetings ?? []) as any[])[0] ?? null) as any,
+      followups: (followups ?? []) as any[],
+      evaluatorName: (evaluator?.full_name as string) || "",
       employee: {
         full_name: (employee?.full_name as string) || "(sem nome)",
         city: (employee?.city as string | null) ?? null,
       },
     };
   });
+
 
 export interface SaveReviewInput {
   id: string;
