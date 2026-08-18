@@ -23,6 +23,7 @@ import {
   Zap,
   KeyRound,
   Menu,
+  GraduationCap,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +53,7 @@ import {
 } from "@/components/ui/sheet";
 import { listAnnouncements } from "@/lib/provider-admin.functions";
 import { getChecklistCounts } from "@/lib/checklists";
+import { getTechnicalFeedbackAccess } from "@/lib/technical-reviews.functions";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -192,6 +194,12 @@ function Painel() {
         userId: user!.id,
       }),
     enabled: !!user,
+  });
+  const feedbackAccess = useQuery({
+    queryKey: ["technical-feedback-access"],
+    queryFn: () => getTechnicalFeedbackAccess(),
+    enabled: !!user,
+    staleTime: 300_000,
   });
 
   // Recupera assinatura pendente do signup (quando sessão só chegou depois)
@@ -438,6 +446,14 @@ function Painel() {
                       icon={ShieldAlert}
                       title="Segurança"
                       description="Tentativas de login e acessos recentes, com IP e localização."
+                    />
+                  )}
+                  {feedbackAccess.data?.hasAccess && (
+                    <HomeNavCard
+                      to="/avaliacoes"
+                      icon={GraduationCap}
+                      title="Avaliação Técnica Interna"
+                      description="Módulo privado de avaliação técnica e feedback com apoio de IA."
                     />
                   )}
                   <HomeNavCard
