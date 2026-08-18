@@ -109,7 +109,38 @@ function ReviewDetail() {
       development_due_date: data.review.development_due_date ?? "",
       next_review_date: data.review.next_review_date ?? "",
     });
-  }, [query.data]);
+
+    // Restaura o rascunho local (o que o usuário digitou e ainda não salvou).
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw) as {
+          scores?: Record<string, number | null>;
+          itemNotes?: Record<string, string>;
+          groupNotes?: Record<string, string>;
+          form?: Record<string, string>;
+        };
+        if (draft.scores) setScores((prev) => ({ ...prev, ...draft.scores }));
+        if (draft.itemNotes) setItemNotes((prev) => ({ ...prev, ...draft.itemNotes }));
+        if (draft.groupNotes) setGroupNotes((prev) => ({ ...prev, ...draft.groupNotes }));
+        if (draft.form) setForm((prev) => ({ ...prev, ...(draft.form as typeof prev) }));
+        draftRestored.current = true;
+        toast.info("Rascunho local restaurado. Clique em salvar para gravar.");
+      }
+    } catch {
+      /* rascunho inválido é ignorado */
+    }
+  }, [query.data, draftKey]);
+
+  // Guarda tudo o que foi digitado no navegador, para nada se perder em erros ou recargas.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ scores, itemNotes, groupNotes, form }));
+    } catch {
+      /* armazenamento indisponível */
+    }
+  }, [draftKey, scores, itemNotes, groupNotes, form]);
 
   const finalScore = useMemo(() => overallScore(scores), [scores]);
 
