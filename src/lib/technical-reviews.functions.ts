@@ -467,3 +467,264 @@ export const setTechnicalFeedbackAccess = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+/* ---------- Evidências, reunião de feedback, acompanhamentos e histórico ---------- */
+
+async function loadReview(context: { supabase: unknown }, id: string) {
+  const { data: review, error } = await db(context.supabase)
+    .from("technical_employee_reviews")
+    .select("id, provider_id, employee_id, period_start, period_end")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!review) throw new Error("Avaliação não encontrada.");
+  return review as {
+    id: string;
+    provider_id: string;
+    employee_id: string;
+    period_start: string;
+    period_end: string;
+  };
+}
+
+/** Checklists do colaborador dentro do período avaliado (para virar evidência). */
+export const listReviewCandidateChecklists = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string }) => {
+    if (!data?.id) throw new Error("Avaliação inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const review = await loadReview(context, data.id);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await db(supabaseAdmin)
+      .from("checklists")
+      .select("id, tipo, os, cliente, cidade, status, numero_publico, rmap_code, intervention_code, created_at")
+      .eq("provider_id", review.provider_id)
+      .eq("tecnico_id", review.employee_id)
+      .gte("created_at", `${review.period_start}T00:00:00Z`)
+      .lte("created_at", `${review.period_end}T23:59:59Z`)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    return ((rows ?? []) as any[]).map((c) => ({
+      id: c.id as string,
+      tipo: c.tipo as string,
+      os: (c.os as string | null) ?? null,
+      cliente: (c.cliente as string | null) ?? null,
+      cidade: (c.cidade as string | null) ?? null,
+      status: c.status as string,
+      codigo: (c.rmap_code || c.intervention_code || c.numero_publico || null) as string | null,
+      created_at: c.created_at as string,
+    }));
+  });
+
+export const addReviewEvidence = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      id: string;
+      evidenceType: string;
+      checklistId?: string | null;
+      os?: string | null;
+      description?: string | null;
+    }) => {
+      if (!data?.id) throw new Error("Avaliação inválida.");
+      if (!data.evidenceType) throw new Error("Informe o tipo de evidência.");
+      if (!data.checklistId && !data.os && !data.description)
+        throw new Error("Descreva a evidência ou vincule um checklist.");
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { data: saved, error } = await db(context.supabase)
+      .from("technical_employee_review_evidences")
+      .insert({
+        review_id: data.id,
+        evidence_type: data.evidenceType,
+        checklist_id: data.checklistId || null,
+        os: data.os || null,
+        description: data.description || null,
+        created_by: context.userId,
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return saved as any;
+  });
+
+export const removeReviewEvidence = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { evidenceId: string }) => {
+    if (!data?.evidenceId) throw new Error("Evidência inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { error } = await db(context.supabase)
+      .from("technical_employee_review_evidences")
+      .delete()
+      .eq("id", data.evidenceId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export interface MeetingInput {
+  id: string;
+  meetingDate: string;
+  meetingPlace?: string | null;
+  employeeReaction?: string | null;
+  employeeComments?: string | null;
+  supervisorNotes?: string | null;
+  newInformationPresented?: boolean;
+  newInformation?: string | null;
+}
+
+/** Registra (ou atualiza) a conversa de feedback com o colaborador. */
+export const saveReviewMeeting = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: MeetingInput) => {
+    if (!data?.id) throw new Error("Avaliação inválida.");
+    if (!data.meetingDate) throw new Error("Informe a data da conversa.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const client = db(context.supabase);
+    const payload = {
+      review_id: data.id,
+      meeting_date: new Date(data.meetingDate).toISOString(),
+      meeting_place: data.meetingPlace || null,
+      employee_reaction: data.employeeReaction || null,
+      employee_comments: data.employeeComments || null,
+      supervisor_notes: data.supervisorNotes || null,
+      new_information_presented: Boolean(data.newInformationPresented),
+      new_information: data.newInformation || null,
+      created_by: context.userId,
+    };
+    const { data: existing } = await client
+      .from("technical_employee_review_meetings")
+      .select("id")
+      .eq("review_id", data.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (existing?.id) {
+      const { error } = await client
+        .from("technical_employee_review_meetings")
+        .update(payload)
+        .eq("id", existing.id);
+      if (error) throw new Error(error.message);
+      return { ok: true, id: existing.id as string };
+    }
+    const { data: created, error } = await client
+      .from("technical_employee_review_meetings")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true, id: created.id as string };
+  });
+
+export const saveReviewFollowup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      id: string;
+      followupId?: string | null;
+      followupDate: string;
+      status: string;
+      previousGoal?: string | null;
+      result?: string | null;
+      observation?: string | null;
+    }) => {
+      if (!data?.id) throw new Error("Avaliação inválida.");
+      if (!data.followupDate) throw new Error("Informe a data do acompanhamento.");
+      if (!["pendente", "em_andamento", "atingido", "nao_atingido"].includes(data.status))
+        throw new Error("Situação inválida.");
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const client = db(context.supabase);
+    const payload = {
+      review_id: data.id,
+      followup_date: data.followupDate,
+      status: data.status,
+      previous_goal: data.previousGoal || null,
+      result: data.result || null,
+      observation: data.observation || null,
+      created_by: context.userId,
+    };
+    if (data.followupId) {
+      const { error } = await client
+        .from("technical_employee_review_followups")
+        .update(payload)
+        .eq("id", data.followupId);
+      if (error) throw new Error(error.message);
+      return { ok: true, id: data.followupId };
+    }
+    const { data: created, error } = await client
+      .from("technical_employee_review_followups")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true, id: created.id as string };
+  });
+
+export const deleteReviewFollowup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { followupId: string }) => {
+    if (!data?.followupId) throw new Error("Acompanhamento inválido.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { error } = await db(context.supabase)
+      .from("technical_employee_review_followups")
+      .delete()
+      .eq("id", data.followupId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setReviewArchived = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; archived: boolean }) => {
+    if (!data?.id) throw new Error("Avaliação inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { error } = await db(context.supabase)
+      .from("technical_employee_reviews")
+      .update({ archived_at: data.archived ? new Date().toISOString() : null })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Histórico do colaborador para comparar a evolução entre avaliações. */
+export const getEmployeeReviewHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { employeeId: string }) => {
+    if (!data?.employeeId) throw new Error("Colaborador inválido.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { data: rows, error } = await db(context.supabase)
+      .from("technical_employee_reviews")
+      .select(
+        "id, period_start, period_end, status, final_score, technical_score, recurrence_score, evidence_score, productivity_score, operational_score, communication_score, archived_at",
+      )
+      .eq("employee_id", data.employeeId)
+      .order("period_end", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as any[];
+  });
