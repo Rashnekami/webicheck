@@ -19,7 +19,30 @@ const s = StyleSheet.create({
   body: { fontSize: 9, lineHeight: 1.45 },
   item: { marginBottom: 5 },
   meta: { fontSize: 7.5, color: C.soft },
+  aiCard: {
+    backgroundColor: C.panel,
+    borderLeftWidth: 2,
+    borderLeftColor: C.purple,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+  },
 });
+
+function AiList({ title, items }: { title: string; items?: string[] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <View style={{ marginTop: 5 }}>
+      <Text style={s.label}>{title}</Text>
+      {items.map((it, i) => (
+        <Text key={i} style={s.body}>
+          • {it}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
