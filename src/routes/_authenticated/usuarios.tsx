@@ -44,6 +44,7 @@ const ROLE_LABEL: Record<ManagedUserRole, string> = {
   admin: "Administrador",
   supervisor: "Supervisor",
   noc: "NOC",
+  rh: "RH",
   almoxarifado: "Almoxarifado",
   tecnico: "Técnico",
 };
@@ -425,6 +426,7 @@ function UsersPage() {
                   <option value="supervisor">Supervisor</option>
                   <option value="noc">NOC (leitura)</option>
                   <option value="almoxarifado">Almoxarifado (somente trocas)</option>
+                  <option value="rh">RH (denúncias e feedbacks)</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>

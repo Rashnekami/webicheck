@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { territoryNames } from "@/lib/profile-cities";
 
-export type AppRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc";
+export type AppRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc" | "rh";
 
 export interface CurrentUser {
   id: string;
@@ -26,6 +26,8 @@ export interface CurrentUser {
   isWarehouse: boolean;
   isSupervisor: boolean;
   isNoc: boolean;
+  /** Setor de RH: só enxerga Canal Ético (denúncias) e Avaliações Técnicas. */
+  isRh: boolean;
   isPlatformAdmin: boolean;
 }
 
@@ -82,6 +84,7 @@ export function useCurrentUser() {
         isWarehouse: roleList.includes("almoxarifado"),
         isSupervisor: roleList.includes("supervisor"),
         isNoc: roleList.includes("noc"),
+        isRh: roleList.includes("rh") && !roleList.includes("admin") && !platformAdmin,
         isPlatformAdmin: platformAdmin,
       };
     },

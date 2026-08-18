@@ -2536,7 +2536,13 @@ export type Database = {
       user_territories: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
-      app_role: "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc"
+      app_role:
+        | "admin"
+        | "tecnico"
+        | "almoxarifado"
+        | "supervisor"
+        | "noc"
+        | "rh"
       checklist_status: "rascunho" | "finalizado"
       checklist_tipo:
         | "validacao_ont"
@@ -2682,7 +2688,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "tecnico", "almoxarifado", "supervisor", "noc"],
+      app_role: ["admin", "tecnico", "almoxarifado", "supervisor", "noc", "rh"],
       checklist_status: ["rascunho", "finalizado"],
       checklist_tipo: [
         "validacao_ont",

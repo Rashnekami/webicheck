@@ -303,6 +303,41 @@ function Painel() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-7 px-4 py-7 sm:px-6 sm:py-9">
+        {/* Setor de RH: acesso restrito ao Canal Ético e às Avaliações
+            Técnicas — nada de checklists, dashboards ou cadastros. */}
+        {user.isRh && (
+          <section className="space-y-4">
+            <div>
+              <p className="text-base text-slate-400">Olá,</p>
+              <h2 className="mt-1 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+                {firstName} <span aria-hidden>👋</span>
+              </h2>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Badge className="border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300 hover:bg-fuchsia-400/15">
+                  <UsersRound className="mr-1 h-3.5 w-3.5" /> Recursos Humanos
+                </Badge>
+                {!user.active && <Badge variant="destructive">Usuário bloqueado</Badge>}
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <HomeNavCard
+                to="/canal-etico"
+                icon={ShieldAlert}
+                title="Canal Ético"
+                description="Denúncias recebidas pelo canal confidencial, com trilha de auditoria."
+              />
+              <HomeNavCard
+                to="/avaliacoes"
+                icon={GraduationCap}
+                title="Avaliação Técnica Interna"
+                description="Avaliações e feedbacks dos colaboradores, com apoio de IA."
+              />
+            </div>
+          </section>
+        )}
+
+        {!user.isRh && (
+          <>
         <section className="grid gap-6 lg:grid-cols-[.8fr_1.5fr] lg:items-end">
           <div>
             <p className="text-base text-slate-400">Olá,</p>
@@ -563,6 +598,8 @@ function Painel() {
             </CardContent>
           </Card>
         </section>
+          </>
+        )}
       </main>
 
       <Dialog open={sigOpen} onOpenChange={setSigOpen}>
