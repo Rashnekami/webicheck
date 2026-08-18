@@ -216,6 +216,43 @@ function ReviewDetail() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const archive = useMutation({
+    mutationFn: (archived: boolean) => setReviewArchived({ data: { id, archived } }),
+    onSuccess: () => {
+      toast.success("Situação de arquivamento atualizada.");
+      qc.invalidateQueries({ queryKey: ["technical-review", id] });
+      qc.invalidateQueries({ queryKey: ["technical-reviews"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [pdfBusy, setPdfBusy] = useState(false);
+  async function exportPdf() {
+    if (!query.data) return;
+    setPdfBusy(true);
+    try {
+      await saveTechnicalReview({ data: { id, scores, itemNotes, groupNotes, ...form } });
+      const fresh = await getTechnicalReview({ data: { id } });
+      await downloadAvaliacaoPdf({
+        review: fresh.review,
+        employee: fresh.employee,
+        evaluatorName: fresh.evaluatorName,
+        scores,
+        items: fresh.items,
+        evidences: fresh.evidences,
+        meeting: fresh.meeting,
+        followups: fresh.followups,
+        finalScore: overallScore(scores),
+      });
+      qc.invalidateQueries({ queryKey: ["technical-review", id] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
+
   if (query.isLoading) {
     return <div className="webi-page min-h-screen p-6 text-slate-400">Carregando avaliação…</div>;
   }
