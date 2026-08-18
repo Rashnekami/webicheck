@@ -32,6 +32,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
 import { Route as AuthenticatedMapaOpticoIndexRouteImport } from './routes/_authenticated/mapa-optico.index'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
+import { Route as AuthenticatedAvaliacoesIndexRouteImport } from './routes/_authenticated/avaliacoes.index'
 import { Route as AuthenticatedMapaOpticoCeoIdRouteImport } from './routes/_authenticated/mapa-optico.$ceoId'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
@@ -161,6 +162,12 @@ const AuthenticatedChecklistsIndexRoute =
     path: '/checklists/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAvaliacoesIndexRoute =
+  AuthenticatedAvaliacoesIndexRouteImport.update({
+    id: '/avaliacoes/',
+    path: '/avaliacoes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMapaOpticoCeoIdRoute =
   AuthenticatedMapaOpticoCeoIdRouteImport.update({
     id: '/mapa-optico/$ceoId',
@@ -233,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
+  '/avaliacoes/': typeof AuthenticatedAvaliacoesIndexRoute
   '/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/mapa-optico/': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
@@ -265,6 +273,7 @@ export interface FileRoutesByTo {
   '/validar/$token': typeof ValidarTokenRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
+  '/avaliacoes': typeof AuthenticatedAvaliacoesIndexRoute
   '/checklists': typeof AuthenticatedChecklistsIndexRoute
   '/mapa-optico': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
@@ -299,6 +308,7 @@ export interface FileRoutesById {
   '/validar/$token': typeof ValidarTokenRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
+  '/_authenticated/avaliacoes/': typeof AuthenticatedAvaliacoesIndexRoute
   '/_authenticated/checklists/': typeof AuthenticatedChecklistsIndexRoute
   '/_authenticated/mapa-optico/': typeof AuthenticatedMapaOpticoIndexRoute
   '/api/public/auth/login-internal': typeof ApiPublicAuthLoginInternalRoute
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/checklists/$id'
     | '/mapa-optico/$ceoId'
+    | '/avaliacoes/'
     | '/checklists/'
     | '/mapa-optico/'
     | '/api/public/auth/login-internal'
@@ -365,6 +376,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/checklists/$id'
     | '/mapa-optico/$ceoId'
+    | '/avaliacoes'
     | '/checklists'
     | '/mapa-optico'
     | '/api/public/auth/login-internal'
@@ -398,6 +410,7 @@ export interface FileRouteTypes {
     | '/validar/$token'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/mapa-optico/$ceoId'
+    | '/_authenticated/avaliacoes/'
     | '/_authenticated/checklists/'
     | '/_authenticated/mapa-optico/'
     | '/api/public/auth/login-internal'
@@ -588,6 +601,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/avaliacoes/': {
+      id: '/_authenticated/avaliacoes/'
+      path: '/avaliacoes'
+      fullPath: '/avaliacoes/'
+      preLoaderRoute: typeof AuthenticatedAvaliacoesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/mapa-optico/$ceoId': {
       id: '/_authenticated/mapa-optico/$ceoId'
       path: '/mapa-optico/$ceoId'
@@ -663,6 +683,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
   AuthenticatedMapaOpticoCeoIdRoute: typeof AuthenticatedMapaOpticoCeoIdRoute
+  AuthenticatedAvaliacoesIndexRoute: typeof AuthenticatedAvaliacoesIndexRoute
   AuthenticatedChecklistsIndexRoute: typeof AuthenticatedChecklistsIndexRoute
   AuthenticatedMapaOpticoIndexRoute: typeof AuthenticatedMapaOpticoIndexRoute
 }
@@ -683,6 +704,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
   AuthenticatedMapaOpticoCeoIdRoute: AuthenticatedMapaOpticoCeoIdRoute,
+  AuthenticatedAvaliacoesIndexRoute: AuthenticatedAvaliacoesIndexRoute,
   AuthenticatedChecklistsIndexRoute: AuthenticatedChecklistsIndexRoute,
   AuthenticatedMapaOpticoIndexRoute: AuthenticatedMapaOpticoIndexRoute,
 }

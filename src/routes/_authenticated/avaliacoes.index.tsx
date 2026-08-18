@@ -33,7 +33,7 @@ import {
 } from "@/lib/technical-reviews.functions";
 import { formatScore, scoreLabel } from "@/lib/technical-review-catalog";
 
-export const Route = createFileRoute("/_authenticated/avaliacoes")({
+export const Route = createFileRoute("/_authenticated/avaliacoes/")({
   head: () => ({
     meta: [
       { title: "Avaliação Técnica Interna — CheckTecnico" },
