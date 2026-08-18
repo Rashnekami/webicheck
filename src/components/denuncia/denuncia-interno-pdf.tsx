@@ -3,7 +3,7 @@ import { WB_PRIORITY_LABEL, WB_STATUS_LABEL, formatWbDate, type WbPriority, type
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const C = { page: "#0a0f1c", panel: "#121b30", accent: "#ffb648", soft: "#93a5c4", text: "#f4f7ff", red: "#ff6b7d" };
+const C = { page: "#0a0f1c", panel: "#121b30", accent: "#ffb648", soft: "#93a5c4", text: "#f4f7ff", red: "#ff6b7d", purple: "#b877d9" };
 
 const s = StyleSheet.create({
   page: { padding: 26, backgroundColor: C.page, color: C.text, fontFamily: "Helvetica", fontSize: 9 },
