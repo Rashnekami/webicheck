@@ -234,7 +234,7 @@ function ReviewDetail() {
     );
   }
 
-  const { review, employee, ai: aiHistory } = query.data;
+  const { review, employee, ai: aiHistory, evidences, meeting, followups } = query.data;
 
   return (
     <div className="webi-page min-h-screen pb-24">
