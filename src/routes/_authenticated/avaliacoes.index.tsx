@@ -29,7 +29,9 @@ import {
   createTechnicalReview,
   getTechnicalFeedbackAccess,
   listEvaluableEmployees,
+  listTechnicalFeedbackAccess,
   listTechnicalReviews,
+  setTechnicalFeedbackAccess,
 } from "@/lib/technical-reviews.functions";
 import { formatScore, scoreLabel } from "@/lib/technical-review-catalog";
 
@@ -81,10 +83,10 @@ function AvaliacoesPage() {
     );
   }
 
-  return <AvaliacoesContent />;
+  return <AvaliacoesContent canManage={Boolean(access.data.canManage)} />;
 }
 
-function AvaliacoesContent() {
+function AvaliacoesContent({ canManage }: { canManage: boolean }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -252,6 +254,8 @@ function AvaliacoesContent() {
           )}
         </section>
 
+        {canManage ? <AccessManager /> : null}
+
         <p className="flex items-center gap-2 text-xs text-slate-500">
           <Sparkles className="h-3.5 w-3.5" /> As análises de IA são apoio à decisão — a avaliação
           final é sempre do gestor.
@@ -267,6 +271,85 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
       <CardContent className="p-4">
         <p className="text-2xl font-extrabold text-white">{value}</p>
         <p className="text-xs text-slate-400">{label}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccessManager() {
+  const qc = useQueryClient();
+  const [userId, setUserId] = useState("");
+  const allowed = useQuery({
+    queryKey: ["technical-feedback-access-list"],
+    queryFn: () => listTechnicalFeedbackAccess(),
+  });
+  const employees = useQuery({
+    queryKey: ["technical-review-employees"],
+    queryFn: () => listEvaluableEmployees(),
+  });
+  const mutate = useMutation({
+    mutationFn: (input: { userId: string; allow: boolean }) =>
+      setTechnicalFeedbackAccess({ data: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["technical-feedback-access-list"] });
+      qc.invalidateQueries({ queryKey: ["technical-feedback-access"] });
+      setUserId("");
+      toast.success("Acesso atualizado.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <div>
+          <h2 className="font-semibold text-white">Quem enxerga este módulo</h2>
+          <p className="text-xs text-slate-400">
+            Somente os usuários liberados aqui veem o módulo. Cada gestor vê apenas as próprias
+            avaliações.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select value={userId} onValueChange={setUserId}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Selecione o usuário" />
+            </SelectTrigger>
+            <SelectContent>
+              {(employees.data ?? []).map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.full_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            disabled={!userId || mutate.isPending}
+            onClick={() => mutate.mutate({ userId, allow: true })}
+          >
+            Liberar acesso
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {(allowed.data ?? []).map((row) => (
+            <div
+              key={row.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-white/10 p-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm text-white">{row.full_name}</p>
+                <p className="truncate text-xs text-slate-500">{row.email}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-rose-300 hover:bg-rose-500/10"
+                onClick={() => mutate.mutate({ userId: row.user_id, allow: false })}
+              >
+                Remover
+              </Button>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
