@@ -550,3 +550,490 @@ function ReviewDetail() {
     </div>
   );
 }
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const EVIDENCE_TYPES = [
+  { value: "checklist", label: "Checklist" },
+  { value: "reclamacao", label: "Reclamação" },
+  { value: "retrabalho", label: "Retrabalho" },
+  { value: "elogio", label: "Elogio" },
+  { value: "outro", label: "Outro" },
+];
+
+function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: any[] }) {
+  const qc = useQueryClient();
+  const [type, setType] = useState("checklist");
+  const [checklistId, setChecklistId] = useState("");
+  const [description, setDescription] = useState("");
+
+  const candidates = useQuery({
+    queryKey: ["review-candidate-checklists", reviewId],
+    queryFn: () => listReviewCandidateChecklists({ data: { id: reviewId } }),
+  });
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["technical-review", reviewId] });
+
+  const add = useMutation({
+    mutationFn: () => {
+      const picked = (candidates.data ?? []).find((c) => c.id === checklistId);
+      return addReviewEvidence({
+        data: {
+          id: reviewId,
+          evidenceType: type,
+          checklistId: checklistId || null,
+          os: picked?.os ?? null,
+          description: description || picked?.codigo || null,
+        },
+      });
+    },
+    onSuccess: () => {
+      setChecklistId("");
+      setDescription("");
+      refresh();
+      toast.success("Evidência registrada.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: (evidenceId: string) => removeReviewEvidence({ data: { evidenceId } }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <div>
+          <h2 className="flex items-center gap-2 font-semibold text-white">
+            <Link2 className="h-4 w-4 text-cyan-400" /> Evidências
+          </h2>
+          <p className="text-xs text-slate-400">
+            Vincule fatos reais do período avaliado. Elas também entram no contexto da IA.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {EVIDENCE_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={checklistId} onValueChange={setChecklistId}>
+            <SelectTrigger className="sm:col-span-1">
+              <SelectValue
+                placeholder={candidates.isLoading ? "Carregando…" : "Checklist do período"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {(candidates.data ?? []).map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {(c.codigo || c.os || c.id.slice(0, 8)) +
+                    (c.cliente ? ` · ${c.cliente}` : "") +
+                    ` · ${c.tipo}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            className="sm:col-span-2"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Descrição do fato observado"
+          />
+        </div>
+        <Button size="sm" disabled={add.isPending} onClick={() => add.mutate()}>
+          <Plus className="mr-1.5 h-4 w-4" /> Adicionar evidência
+        </Button>
+        <div className="space-y-2">
+          {evidences.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhuma evidência registrada.</p>
+          ) : (
+            evidences.map((e) => (
+              <div
+                key={e.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-white/10 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-white">{e.description || "(sem descrição)"}</p>
+                  <p className="text-xs text-slate-500">
+                    {e.evidence_type}
+                    {e.os ? ` · OS ${e.os}` : ""}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-rose-300 hover:bg-rose-500/10"
+                  onClick={() => del.mutate(e.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MeetingCard({ reviewId, meeting }: { reviewId: string; meeting: any | null }) {
+  const qc = useQueryClient();
+  const [state, setState] = useState({
+    meetingDate: meeting?.meeting_date
+      ? new Date(meeting.meeting_date).toISOString().slice(0, 16)
+      : new Date().toISOString().slice(0, 16),
+    meetingPlace: meeting?.meeting_place ?? "",
+    employeeReaction: meeting?.employee_reaction ?? "",
+    employeeComments: meeting?.employee_comments ?? "",
+    supervisorNotes: meeting?.supervisor_notes ?? "",
+    newInformationPresented: Boolean(meeting?.new_information_presented),
+    newInformation: meeting?.new_information ?? "",
+  });
+
+  const save = useMutation({
+    mutationFn: () => saveReviewMeeting({ data: { id: reviewId, ...state } }),
+    onSuccess: () => {
+      toast.success("Conversa registrada.");
+      qc.invalidateQueries({ queryKey: ["technical-review", reviewId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <h2 className="flex items-center gap-2 font-semibold text-white">
+          <MessageSquare className="h-4 w-4 text-cyan-400" /> Conversa de feedback
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label>Data e hora</Label>
+            <Input
+              type="datetime-local"
+              value={state.meetingDate}
+              onChange={(e) => setState({ ...state, meetingDate: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Local</Label>
+            <Input
+              value={state.meetingPlace}
+              onChange={(e) => setState({ ...state, meetingPlace: e.target.value })}
+              placeholder="Ex.: base operacional"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Reação do colaborador</Label>
+            <Select
+              value={state.employeeReaction || "nao_informado"}
+              onValueChange={(v) =>
+                setState({ ...state, employeeReaction: v === "nao_informado" ? "" : v })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nao_informado">Não informado</SelectItem>
+                <SelectItem value="receptivo">Receptivo</SelectItem>
+                <SelectItem value="neutro">Neutro</SelectItem>
+                <SelectItem value="defensivo">Defensivo</SelectItem>
+                <SelectItem value="discordou">Discordou</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Comentários do colaborador</Label>
+            <Textarea
+              rows={3}
+              value={state.employeeComments}
+              onChange={(e) => setState({ ...state, employeeComments: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Notas do gestor</Label>
+            <Textarea
+              rows={3}
+              value={state.supervisorNotes}
+              onChange={(e) => setState({ ...state, supervisorNotes: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={state.newInformationPresented}
+            onCheckedChange={(v) => setState({ ...state, newInformationPresented: v })}
+          />
+          <Label className="text-sm text-slate-300">
+            O colaborador apresentou informação nova
+          </Label>
+        </div>
+        {state.newInformationPresented ? (
+          <Textarea
+            rows={2}
+            value={state.newInformation}
+            onChange={(e) => setState({ ...state, newInformation: e.target.value })}
+            placeholder="O que foi apresentado e o que muda na avaliação"
+          />
+        ) : null}
+        <Button size="sm" disabled={save.isPending} onClick={() => save.mutate()}>
+          <Save className="mr-1.5 h-4 w-4" /> Salvar conversa
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+const FOLLOWUP_STATUS = [
+  { value: "pendente", label: "Pendente" },
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "atingido", label: "Atingido" },
+  { value: "nao_atingido", label: "Não atingido" },
+];
+
+function FollowupsCard({
+  reviewId,
+  followups,
+  defaultGoal,
+}: {
+  reviewId: string;
+  followups: any[];
+  defaultGoal: string;
+}) {
+  const qc = useQueryClient();
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [status, setStatus] = useState("pendente");
+  const [result, setResult] = useState("");
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ["technical-review", reviewId] });
+
+  const add = useMutation({
+    mutationFn: () =>
+      saveReviewFollowup({
+        data: {
+          id: reviewId,
+          followupDate: date,
+          status,
+          previousGoal: defaultGoal || null,
+          result: result || null,
+        },
+      }),
+    onSuccess: () => {
+      setResult("");
+      refresh();
+      toast.success("Acompanhamento registrado.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const update = useMutation({
+    mutationFn: (input: { followupId: string; followupDate: string; status: string }) =>
+      saveReviewFollowup({ data: { id: reviewId, ...input } }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: (followupId: string) => deleteReviewFollowup({ data: { followupId } }),
+    onSuccess: refresh,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <h2 className="flex items-center gap-2 font-semibold text-white">
+          <CalendarCheck className="h-4 w-4 text-cyan-400" /> Acompanhamento do plano
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FOLLOWUP_STATUS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            className="sm:col-span-2"
+            value={result}
+            onChange={(e) => setResult(e.target.value)}
+            placeholder="Resultado / observação"
+          />
+        </div>
+        <Button size="sm" disabled={add.isPending} onClick={() => add.mutate()}>
+          <Plus className="mr-1.5 h-4 w-4" /> Adicionar acompanhamento
+        </Button>
+        <div className="space-y-2">
+          {followups.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhum acompanhamento registrado.</p>
+          ) : (
+            followups.map((f) => {
+              const overdue = f.status === "pendente" && f.followup_date < today;
+              return (
+                <div
+                  key={f.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-white">
+                      {f.followup_date}
+                      {overdue ? (
+                        <Badge variant="destructive" className="ml-2">
+                          Vencido
+                        </Badge>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {f.result || f.observation || f.previous_goal || "—"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={f.status}
+                      onValueChange={(v) =>
+                        update.mutate({
+                          followupId: f.id,
+                          followupDate: f.followup_date,
+                          status: v,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FOLLOWUP_STATUS.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-rose-300 hover:bg-rose-500/10"
+                      onClick={() => del.mutate(f.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HistoryCard({ employeeId, currentId }: { employeeId: string; currentId: string }) {
+  const history = useQuery({
+    queryKey: ["employee-review-history", employeeId],
+    queryFn: () => getEmployeeReviewHistory({ data: { employeeId } }),
+  });
+
+  const rows = history.data ?? [];
+  const current = rows.find((r) => r.id === currentId);
+  const previous = rows.filter((r) => r.id !== currentId)[0];
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <h2 className="flex items-center gap-2 font-semibold text-white">
+          <History className="h-4 w-4 text-cyan-400" /> Histórico e evolução
+        </h2>
+        {history.isLoading ? (
+          <p className="text-sm text-slate-400">Carregando histórico…</p>
+        ) : rows.length <= 1 ? (
+          <p className="text-sm text-slate-500">
+            Esta é a primeira avaliação registrada para o colaborador.
+          </p>
+        ) : (
+          <>
+            {previous && current ? (
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Comparativo com {previous.period_start} a {previous.period_end}
+                </p>
+                {REVIEW_GROUPS.map((g) => {
+                  const now = current[g.scoreColumn] as number | null;
+                  const before = previous[g.scoreColumn] as number | null;
+                  const delta =
+                    typeof now === "number" && typeof before === "number" ? now - before : null;
+                  return (
+                    <div
+                      key={g.category}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="text-slate-300">{g.title}</span>
+                      <span className="text-slate-400">
+                        {formatScore(before)} → {formatScore(now)}
+                        <span
+                          className={
+                            delta == null
+                              ? " text-slate-500"
+                              : delta > 0.05
+                                ? " text-emerald-400"
+                                : delta < -0.05
+                                  ? " text-rose-400"
+                                  : " text-slate-400"
+                          }
+                        >
+                          {delta == null
+                            ? " · —"
+                            : delta > 0.05
+                              ? ` · +${delta.toFixed(1)}`
+                              : delta < -0.05
+                                ? ` · ${delta.toFixed(1)}`
+                                : " · estável"}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            <Separator />
+            <div className="space-y-2">
+              {rows.map((r) => (
+                <Link
+                  key={r.id}
+                  to="/avaliacoes/$id"
+                  params={{ id: r.id }}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 p-3 text-sm"
+                >
+                  <span className="text-slate-300">
+                    {r.period_start} a {r.period_end}
+                    {r.id === currentId ? " (atual)" : ""}
+                  </span>
+                  <span className="font-semibold text-white">{formatScore(r.final_score)}</span>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
