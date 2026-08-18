@@ -150,6 +150,11 @@ function ReviewDetail() {
         data: { id, scores, itemNotes, groupNotes, ...form, status },
       }),
     onSuccess: () => {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* ignore */
+      }
       toast.success("Avaliação salva.");
       qc.invalidateQueries({ queryKey: ["technical-review", id] });
       qc.invalidateQueries({ queryKey: ["technical-reviews"] });
