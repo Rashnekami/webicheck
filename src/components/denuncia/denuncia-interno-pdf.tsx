@@ -38,7 +38,10 @@ export type InternalPdfInput = {
   attachments: any[];
   logs: any[];
   names: Record<string, string>;
+  /** Triagem gerada por IA (opcional). */
+  ai?: any | null;
 };
+
 
 export function DenunciaInternaPdfDocument({ data }: { data: InternalPdfInput }) {
   const { report, messages, history, notes, attachments, logs, names } = data;
