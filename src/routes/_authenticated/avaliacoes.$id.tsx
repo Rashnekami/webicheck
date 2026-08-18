@@ -78,10 +78,15 @@ function ReviewDetail() {
     next_review_date: "",
   });
   const [tom, setTom] = useState<"direto" | "equilibrado" | "acolhedor">("equilibrado");
+  const draftKey = `technical-review-draft:${id}`;
+  const draftRestored = useRef(false);
+  const hydrated = useRef(false);
 
   useEffect(() => {
     const data = query.data;
     if (!data) return;
+    if (hydrated.current) return;
+    hydrated.current = true;
     const s: Record<string, number | null> = {};
     const n: Record<string, string> = {};
     for (const item of data.items) {
