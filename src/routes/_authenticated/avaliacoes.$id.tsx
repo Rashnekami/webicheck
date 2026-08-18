@@ -537,7 +537,23 @@ function ReviewDetail() {
           >
             <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" disabled={pdfBusy} onClick={() => void exportPdf()}>
+              {pdfBusy ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="mr-1.5 h-4 w-4" />
+              )}
+              Baixar PDF
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={archive.isPending}
+              onClick={() => archive.mutate(!review.archived_at)}
+            >
+              <Archive className="mr-1.5 h-4 w-4" />
+              {review.archived_at ? "Desarquivar" : "Arquivar"}
+            </Button>
             <Button variant="secondary" disabled={save.isPending} onClick={() => save.mutate(undefined)}>
               <Save className="mr-1.5 h-4 w-4" /> Salvar rascunho
             </Button>
@@ -545,6 +561,7 @@ function ReviewDetail() {
               Concluir avaliação
             </Button>
           </div>
+
         </div>
       </main>
     </div>
