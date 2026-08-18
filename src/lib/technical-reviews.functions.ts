@@ -88,11 +88,12 @@ export const listTechnicalReviews = createServerFn({ method: "GET" })
     const { data, error } = await db(context.supabase)
       .from("technical_employee_reviews")
       .select(
-        "id, employee_id, employee_role, employee_city, period_start, period_end, review_date, status, final_score, updated_at",
+        "id, employee_id, employee_role, employee_city, period_start, period_end, review_date, status, final_score, updated_at, archived_at, next_review_date",
       )
       .order("period_end", { ascending: false })
       .limit(300);
     if (error) throw new Error(error.message);
+
     const rows = (data ?? []) as any[];
     if (rows.length === 0) return [];
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
