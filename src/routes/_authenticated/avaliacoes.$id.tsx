@@ -2,7 +2,21 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Copy, Loader2, Save, Sparkles, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArrowLeft,
+  CalendarCheck,
+  Copy,
+  FileDown,
+  History,
+  Link2,
+  Loader2,
+  MessageSquare,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -19,11 +34,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  addReviewEvidence,
+  deleteReviewFollowup,
   deleteTechnicalReview,
+  getEmployeeReviewHistory,
   getTechnicalReview,
+  listReviewCandidateChecklists,
+  removeReviewEvidence,
   runTechnicalReviewAi,
+  saveReviewFollowup,
+  saveReviewMeeting,
   saveTechnicalReview,
+  setReviewArchived,
 } from "@/lib/technical-reviews.functions";
+import { downloadAvaliacaoPdf } from "@/components/avaliacao/avaliacao-pdf";
 import {
   REVIEW_GROUPS,
   formatScore,
@@ -31,6 +55,7 @@ import {
   overallScore,
   scoreLabel,
 } from "@/lib/technical-review-catalog";
+
 
 export const Route = createFileRoute("/_authenticated/avaliacoes/$id")({
   head: () => ({
