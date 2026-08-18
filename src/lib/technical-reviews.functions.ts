@@ -24,7 +24,10 @@ export interface ReviewListItem {
   status: string;
   final_score: number | null;
   updated_at: string;
+  archived_at?: string | null;
+  next_review_date?: string | null;
 }
+
 
 async function assertAccess(context: { supabase: unknown; userId: string }) {
   const { data, error } = await db(context.supabase).rpc("has_technical_feedback_access", {
