@@ -448,6 +448,12 @@ function ReviewDetail() {
           </CardContent>
         </Card>
 
+        <EvidencesCard reviewId={id} evidences={evidences} />
+        <MeetingCard reviewId={id} meeting={meeting} />
+        <FollowupsCard reviewId={id} followups={followups} defaultGoal={form.development_goal} />
+        <HistoryCard employeeId={review.employee_id} currentId={id} />
+
+
         <Card>
           <CardContent className="space-y-4 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
