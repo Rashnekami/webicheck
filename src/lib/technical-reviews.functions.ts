@@ -383,7 +383,24 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
         os: e.os ?? null,
         descricao: e.description ?? null,
       })),
+      avaliacao_anterior: await (async () => {
+        const { data: prev } = await client
+          .from("technical_employee_reviews")
+          .select("period_start, period_end, final_score")
+          .eq("employee_id", review.employee_id)
+          .lt("period_end", review.period_start)
+          .order("period_end", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return prev
+          ? {
+              periodo: `${prev.period_start} a ${prev.period_end}`,
+              nota_geral: prev.final_score as number | null,
+            }
+          : null;
+      })(),
       tom: data.tom,
+
     };
 
     const { generateReviewAi } = await import("@/lib/technical-review-ai.server");
