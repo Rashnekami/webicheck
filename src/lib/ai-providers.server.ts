@@ -65,6 +65,7 @@ async function callProvider(
     body: JSON.stringify({
       model: cfg.model,
       temperature: 0.2,
+      max_tokens: 4096,
       messages: [
         {
           role: "system",
