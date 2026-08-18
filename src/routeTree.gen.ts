@@ -35,6 +35,7 @@ import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedAvaliacoesIndexRouteImport } from './routes/_authenticated/avaliacoes.index'
 import { Route as AuthenticatedMapaOpticoCeoIdRouteImport } from './routes/_authenticated/mapa-optico.$ceoId'
 import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
+import { Route as AuthenticatedAvaliacoesIdRouteImport } from './routes/_authenticated/avaliacoes.$id'
 import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
 import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
 import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
@@ -180,6 +181,12 @@ const AuthenticatedChecklistsIdRoute =
     path: '/checklists/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAvaliacoesIdRoute =
+  AuthenticatedAvaliacoesIdRouteImport.update({
+    id: '/avaliacoes/$id',
+    path: '/avaliacoes/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicWebiDiagnosticUploadReportRoute =
   ApiPublicWebiDiagnosticUploadReportRouteImport.update({
     id: '/api/public/webi-diagnostic/upload-report',
@@ -238,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
+  '/avaliacoes/$id': typeof AuthenticatedAvaliacoesIdRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
   '/avaliacoes/': typeof AuthenticatedAvaliacoesIndexRoute
@@ -271,6 +279,7 @@ export interface FileRoutesByTo {
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
+  '/avaliacoes/$id': typeof AuthenticatedAvaliacoesIdRoute
   '/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
   '/avaliacoes': typeof AuthenticatedAvaliacoesIndexRoute
@@ -306,6 +315,7 @@ export interface FileRoutesById {
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
   '/validar/$token': typeof ValidarTokenRoute
+  '/_authenticated/avaliacoes/$id': typeof AuthenticatedAvaliacoesIdRoute
   '/_authenticated/checklists/$id': typeof AuthenticatedChecklistsIdRoute
   '/_authenticated/mapa-optico/$ceoId': typeof AuthenticatedMapaOpticoCeoIdRoute
   '/_authenticated/avaliacoes/': typeof AuthenticatedAvaliacoesIndexRoute
@@ -341,6 +351,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/contra-prova/$token'
     | '/validar/$token'
+    | '/avaliacoes/$id'
     | '/checklists/$id'
     | '/mapa-optico/$ceoId'
     | '/avaliacoes/'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/usuarios'
     | '/contra-prova/$token'
     | '/validar/$token'
+    | '/avaliacoes/$id'
     | '/checklists/$id'
     | '/mapa-optico/$ceoId'
     | '/avaliacoes'
@@ -408,6 +420,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usuarios'
     | '/contra-prova/$token'
     | '/validar/$token'
+    | '/_authenticated/avaliacoes/$id'
     | '/_authenticated/checklists/$id'
     | '/_authenticated/mapa-optico/$ceoId'
     | '/_authenticated/avaliacoes/'
@@ -622,6 +635,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChecklistsIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/avaliacoes/$id': {
+      id: '/_authenticated/avaliacoes/$id'
+      path: '/avaliacoes/$id'
+      fullPath: '/avaliacoes/$id'
+      preLoaderRoute: typeof AuthenticatedAvaliacoesIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/webi-diagnostic/upload-report': {
       id: '/api/public/webi-diagnostic/upload-report'
       path: '/api/public/webi-diagnostic/upload-report'
@@ -681,6 +701,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSegurancaRoute: typeof AuthenticatedSegurancaRoute
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
+  AuthenticatedAvaliacoesIdRoute: typeof AuthenticatedAvaliacoesIdRoute
   AuthenticatedChecklistsIdRoute: typeof AuthenticatedChecklistsIdRoute
   AuthenticatedMapaOpticoCeoIdRoute: typeof AuthenticatedMapaOpticoCeoIdRoute
   AuthenticatedAvaliacoesIndexRoute: typeof AuthenticatedAvaliacoesIndexRoute
@@ -702,6 +723,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSegurancaRoute: AuthenticatedSegurancaRoute,
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
+  AuthenticatedAvaliacoesIdRoute: AuthenticatedAvaliacoesIdRoute,
   AuthenticatedChecklistsIdRoute: AuthenticatedChecklistsIdRoute,
   AuthenticatedMapaOpticoCeoIdRoute: AuthenticatedMapaOpticoCeoIdRoute,
   AuthenticatedAvaliacoesIndexRoute: AuthenticatedAvaliacoesIndexRoute,
