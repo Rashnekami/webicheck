@@ -3,7 +3,7 @@ import { WB_PRIORITY_LABEL, WB_STATUS_LABEL, formatWbDate, type WbPriority, type
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const C = { page: "#0a0f1c", panel: "#121b30", accent: "#ffb648", soft: "#93a5c4", text: "#f4f7ff", red: "#ff6b7d" };
+const C = { page: "#0a0f1c", panel: "#121b30", accent: "#ffb648", soft: "#93a5c4", text: "#f4f7ff", red: "#ff6b7d", purple: "#b877d9" };
 
 const s = StyleSheet.create({
   page: { padding: 26, backgroundColor: C.page, color: C.text, fontFamily: "Helvetica", fontSize: 9 },
@@ -19,7 +19,30 @@ const s = StyleSheet.create({
   body: { fontSize: 9, lineHeight: 1.45 },
   item: { marginBottom: 5 },
   meta: { fontSize: 7.5, color: C.soft },
+  aiCard: {
+    backgroundColor: C.panel,
+    borderLeftWidth: 2,
+    borderLeftColor: C.purple,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+  },
 });
+
+function AiList({ title, items }: { title: string; items?: string[] }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <View style={{ marginTop: 5 }}>
+      <Text style={s.label}>{title}</Text>
+      {items.map((it, i) => (
+        <Text key={i} style={s.body}>
+          • {it}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -38,10 +61,14 @@ export type InternalPdfInput = {
   attachments: any[];
   logs: any[];
   names: Record<string, string>;
+  /** Triagem gerada por IA (opcional). */
+  ai?: any | null;
 };
 
+
 export function DenunciaInternaPdfDocument({ data }: { data: InternalPdfInput }) {
-  const { report, messages, history, notes, attachments, logs, names } = data;
+  const { report, messages, history, notes, attachments, logs, names, ai } = data;
+
   return (
     <Document title={`CONFIDENCIAL - ${report.protocol}`}>
       <Page size="A4" style={s.page}>
@@ -101,7 +128,40 @@ export function DenunciaInternaPdfDocument({ data }: { data: InternalPdfInput })
           )}
         </View>
 
+        <View style={s.aiCard}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={[s.sectionTitle, { color: C.purple }]}>TRIAGEM ASSISTIDA POR IA</Text>
+            {ai ? (
+              <Text style={s.meta}>
+                {ai.modelo} • {formatWbDate(ai.gerado_em)}
+              </Text>
+            ) : null}
+          </View>
+          {!ai ? (
+            <Text style={s.meta}>Nenhuma análise de IA foi gerada para esta denúncia.</Text>
+          ) : (
+            <View>
+              <View style={s.row}>
+                <Field label="Classificação de risco" value={String(ai.classificacao_risco || "").toUpperCase()} />
+                <Field label="Risco de retaliação" value={ai.risco_retaliacao} />
+                <Field label="Prazo sugerido" value={`${ai.prazo_sugerido_dias} dias`} />
+              </View>
+              <Text style={[s.label, { marginTop: 2 }]}>RESUMO</Text>
+              <Text style={s.body}>{ai.resumo}</Text>
+              <AiList title="TEMAS IDENTIFICADOS" items={ai.temas} />
+              <AiList title="INDÍCIOS RELATADOS" items={ai.indicios} />
+              <AiList title="LACUNAS DE INFORMAÇÃO" items={ai.lacunas} />
+              <AiList title="SUGESTÕES DE APURAÇÃO" items={ai.sugestoes_apuracao} />
+              <Text style={[s.meta, { marginTop: 5 }]}>
+                Conteúdo gerado por IA a partir dos dados desta denúncia. Apoio à triagem — não substitui a
+                apuração humana nem constitui conclusão da investigação.
+              </Text>
+            </View>
+          )}
+        </View>
+
         <View style={s.card} break={false}>
+
           <Text style={s.sectionTitle}>COMUNICAÇÃO COM O DENUNCIANTE</Text>
           {messages.length === 0 ? (
             <Text style={s.meta}>Sem mensagens.</Text>
