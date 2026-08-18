@@ -652,7 +652,7 @@ function CredentialDialog({
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<"tecnico" | "almoxarifado" | "admin">("tecnico");
+  const [role, setRole] = useState<"tecnico" | "almoxarifado" | "admin" | "rh">("tecnico");
   const [matricula, setMatricula] = useState("");
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
@@ -750,6 +750,7 @@ function CredentialDialog({
               >
                 <option value="tecnico">Técnico</option>
                 <option value="almoxarifado">Almoxarifado</option>
+                <option value="rh">RH</option>
                 <option value="admin">Administrador</option>
               </select>
             </div>

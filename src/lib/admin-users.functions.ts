@@ -3,8 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
-export type ManagedUserRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc";
-const ALL_ROLES: ManagedUserRole[] = ["admin", "tecnico", "almoxarifado", "supervisor", "noc"];
+export type ManagedUserRole = "admin" | "tecnico" | "almoxarifado" | "supervisor" | "noc" | "rh";
+const ALL_ROLES: ManagedUserRole[] = ["admin", "tecnico", "almoxarifado", "supervisor", "noc", "rh"];
 
 export interface AdminUserRecord {
   id: string;
@@ -102,6 +102,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
         admin: 5,
         supervisor: 4,
         noc: 3,
+        rh: 3,
         almoxarifado: 2,
         tecnico: 1,
       };
