@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, Copy, Loader2, Save, Sparkles, Trash2 } from "lucide-react";
@@ -78,10 +78,15 @@ function ReviewDetail() {
     next_review_date: "",
   });
   const [tom, setTom] = useState<"direto" | "equilibrado" | "acolhedor">("equilibrado");
+  const draftKey = `technical-review-draft:${id}`;
+  const draftRestored = useRef(false);
+  const hydrated = useRef(false);
 
   useEffect(() => {
     const data = query.data;
     if (!data) return;
+    if (hydrated.current) return;
+    hydrated.current = true;
     const s: Record<string, number | null> = {};
     const n: Record<string, string> = {};
     for (const item of data.items) {
@@ -104,7 +109,38 @@ function ReviewDetail() {
       development_due_date: data.review.development_due_date ?? "",
       next_review_date: data.review.next_review_date ?? "",
     });
-  }, [query.data]);
+
+    // Restaura o rascunho local (o que o usuário digitou e ainda não salvou).
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw) as {
+          scores?: Record<string, number | null>;
+          itemNotes?: Record<string, string>;
+          groupNotes?: Record<string, string>;
+          form?: Record<string, string>;
+        };
+        if (draft.scores) setScores((prev) => ({ ...prev, ...draft.scores }));
+        if (draft.itemNotes) setItemNotes((prev) => ({ ...prev, ...draft.itemNotes }));
+        if (draft.groupNotes) setGroupNotes((prev) => ({ ...prev, ...draft.groupNotes }));
+        if (draft.form) setForm((prev) => ({ ...prev, ...(draft.form as typeof prev) }));
+        draftRestored.current = true;
+        toast.info("Rascunho local restaurado. Clique em salvar para gravar.");
+      }
+    } catch {
+      /* rascunho inválido é ignorado */
+    }
+  }, [query.data, draftKey]);
+
+  // Guarda tudo o que foi digitado no navegador, para nada se perder em erros ou recargas.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ scores, itemNotes, groupNotes, form }));
+    } catch {
+      /* armazenamento indisponível */
+    }
+  }, [draftKey, scores, itemNotes, groupNotes, form]);
 
   const finalScore = useMemo(() => overallScore(scores), [scores]);
 
@@ -114,6 +150,11 @@ function ReviewDetail() {
         data: { id, scores, itemNotes, groupNotes, ...form, status },
       }),
     onSuccess: () => {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* ignore */
+      }
       toast.success("Avaliação salva.");
       qc.invalidateQueries({ queryKey: ["technical-review", id] });
       qc.invalidateQueries({ queryKey: ["technical-reviews"] });
