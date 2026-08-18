@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Copy, Download, FileUp, Loader2, Lock, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -279,8 +279,9 @@ function NovaDenuncia() {
                 placeholder="Ex.: Situação recorrente de tratamento inadequado no setor."
               />
               <div className="space-y-2">
-                <Label>Descrição detalhada</Label>
+                <Label htmlFor="wb-descricao">Descrição detalhada</Label>
                 <Textarea
+                  id="wb-descricao"
                   rows={9}
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
@@ -469,10 +470,11 @@ function Field({
   placeholder?: string;
   type?: string;
 }) {
+  const id = useId();
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <Input type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
