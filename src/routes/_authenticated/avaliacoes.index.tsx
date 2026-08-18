@@ -114,7 +114,12 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const list = reviews.data ?? [];
+  const [showArchived, setShowArchived] = useState(false);
+  const all = reviews.data ?? [];
+  const list = useMemo(
+    () => all.filter((r) => (showArchived ? Boolean(r.archived_at) : !r.archived_at)),
+    [all, showArchived],
+  );
   const stats = useMemo(() => {
     const done = list.filter((r) => r.status === "concluida");
     const scores = done
@@ -127,6 +132,8 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
       average: scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null,
     };
   }, [list]);
+  const today = new Date().toISOString().slice(0, 10);
+
 
   return (
     <div className="webi-page min-h-screen">
