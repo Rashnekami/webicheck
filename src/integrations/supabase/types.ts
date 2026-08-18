@@ -1930,6 +1930,452 @@ export type Database = {
           },
         ]
       }
+      whistleblower_access: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          provider_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provider_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provider_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_access_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_access_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          metadata: Json
+          provider_id: string | null
+          report_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          provider_id?: string | null
+          report_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          provider_id?: string | null
+          report_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_access_logs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whistleblower_access_logs_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "whistleblower_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_attachments: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          mime_type: string
+          origin: string
+          report_id: string
+          size_bytes: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id?: string
+          mime_type: string
+          origin: string
+          report_id: string
+          size_bytes: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          mime_type?: string
+          origin?: string
+          report_id?: string
+          size_bytes?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_attachments_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "whistleblower_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_categories: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          provider_id: string | null
+          slug: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          provider_id?: string | null
+          slug: string
+          sort_order?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          provider_id?: string | null
+          slug?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_categories_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_internal_notes: {
+        Row: {
+          author_user_id: string
+          created_at: string
+          id: string
+          note: string
+          report_id: string
+        }
+        Insert: {
+          author_user_id: string
+          created_at?: string
+          id?: string
+          note: string
+          report_id: string
+        }
+        Update: {
+          author_user_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_internal_notes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "whistleblower_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_messages: {
+        Row: {
+          attachment_id: string | null
+          created_at: string
+          id: string
+          message: string
+          read_at: string | null
+          report_id: string
+          sender_type: string
+          sender_user_id: string | null
+        }
+        Insert: {
+          attachment_id?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          read_at?: string | null
+          report_id: string
+          sender_type: string
+          sender_user_id?: string | null
+        }
+        Update: {
+          attachment_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          read_at?: string | null
+          report_id?: string
+          sender_type?: string
+          sender_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_messages_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "whistleblower_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whistleblower_messages_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "whistleblower_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_rate_limits: {
+        Row: {
+          action: string
+          bucket: string
+          request_count: number
+          window_started_at: string
+        }
+        Insert: {
+          action: string
+          bucket: string
+          request_count?: number
+          window_started_at: string
+        }
+        Update: {
+          action?: string
+          bucket?: string
+          request_count?: number
+          window_started_at?: string
+        }
+        Relationships: []
+      }
+      whistleblower_reports: {
+        Row: {
+          access_key_hash: string
+          access_key_salt: string
+          assigned_to: string | null
+          category_label: string
+          category_slug: string
+          city: string | null
+          closed_at: string | null
+          conclusion: string | null
+          created_at: string
+          department: string | null
+          description: string
+          first_analysis_at: string | null
+          frequency: string | null
+          id: string
+          identified_department: string | null
+          identified_email: string | null
+          identified_name: string | null
+          identified_phone: string | null
+          incident_date: string | null
+          incident_time: string | null
+          location_description: string | null
+          people_involved: string | null
+          priority: string
+          protocol: string
+          provider_id: string
+          report_type: string
+          status: string
+          title: string
+          unit: string | null
+          updated_at: string
+          validation_code: string
+          witnesses: string | null
+        }
+        Insert: {
+          access_key_hash: string
+          access_key_salt: string
+          assigned_to?: string | null
+          category_label: string
+          category_slug: string
+          city?: string | null
+          closed_at?: string | null
+          conclusion?: string | null
+          created_at?: string
+          department?: string | null
+          description: string
+          first_analysis_at?: string | null
+          frequency?: string | null
+          id?: string
+          identified_department?: string | null
+          identified_email?: string | null
+          identified_name?: string | null
+          identified_phone?: string | null
+          incident_date?: string | null
+          incident_time?: string | null
+          location_description?: string | null
+          people_involved?: string | null
+          priority?: string
+          protocol: string
+          provider_id: string
+          report_type: string
+          status?: string
+          title: string
+          unit?: string | null
+          updated_at?: string
+          validation_code: string
+          witnesses?: string | null
+        }
+        Update: {
+          access_key_hash?: string
+          access_key_salt?: string
+          assigned_to?: string | null
+          category_label?: string
+          category_slug?: string
+          city?: string | null
+          closed_at?: string | null
+          conclusion?: string | null
+          created_at?: string
+          department?: string | null
+          description?: string
+          first_analysis_at?: string | null
+          frequency?: string | null
+          id?: string
+          identified_department?: string | null
+          identified_email?: string | null
+          identified_name?: string | null
+          identified_phone?: string | null
+          incident_date?: string | null
+          incident_time?: string | null
+          location_description?: string | null
+          people_involved?: string | null
+          priority?: string
+          protocol?: string
+          provider_id?: string
+          report_type?: string
+          status?: string
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          validation_code?: string
+          witnesses?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_reports_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_settings: {
+        Row: {
+          channel_enabled: boolean
+          intro_text: string | null
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          channel_enabled?: boolean
+          intro_text?: string | null
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          channel_enabled?: boolean
+          intro_text?: string | null
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_settings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whistleblower_status_history: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          from_status: string | null
+          id: string
+          internal_note: string | null
+          is_public: boolean
+          public_note: string | null
+          report_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          from_status?: string | null
+          id?: string
+          internal_note?: string | null
+          is_public?: boolean
+          public_note?: string | null
+          report_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          internal_note?: string | null
+          is_public?: boolean
+          public_note?: string | null
+          report_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whistleblower_status_history_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "whistleblower_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       cto_reference_latest: {
@@ -1967,6 +2413,15 @@ export type Database = {
           _action: string
           _limit?: number
           _token_id: string
+          _window_seconds?: number
+        }
+        Returns: boolean
+      }
+      consume_whistleblower_rate_limit: {
+        Args: {
+          _action: string
+          _bucket: string
+          _limit?: number
           _window_seconds?: number
         }
         Returns: boolean
@@ -2021,6 +2476,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      has_whistleblower_access: { Args: { _user_id: string }; Returns: boolean }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_supervisor_of: {
         Args: { _supervisor: string; _tecnico: string }

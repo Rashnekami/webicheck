@@ -201,9 +201,39 @@ function AuthPage() {
             ))}
           </ul>
 
+
+          <div className="mt-7 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-amber-300">
+              <ShieldCheck className="h-4 w-4" /> Canal de Denúncias
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              Espaço seguro e confidencial para relatar condutas inadequadas. Você pode registrar sua denúncia de
+              forma totalmente anônima, sem precisar entrar na plataforma.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1 border border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/20"
+                onClick={() => navigate({ to: "/denuncia" })}
+              >
+                Fazer denúncia
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex-1 text-slate-300 hover:text-amber-200"
+                onClick={() => navigate({ to: "/denuncia/acompanhar" })}
+              >
+                Acompanhar denúncia
+              </Button>
+            </div>
+          </div>
+
           <p className="mt-6 text-center text-xs text-slate-500">
             © {new Date().getFullYear()} CheckTecnico — uso interno
           </p>
+
         </section>
       </div>
     </div>
