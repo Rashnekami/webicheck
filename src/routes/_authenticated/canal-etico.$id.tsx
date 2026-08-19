@@ -28,7 +28,6 @@ import {
   updateWhistleblowerReport,
 } from "@/lib/whistleblower-admin.functions";
 import { downloadDenunciaInternaPdf } from "@/components/denuncia/denuncia-interno-pdf";
-import { analyzeWhistleblowerReport } from "@/lib/whistleblower-ai.functions";
 
 export const Route = createFileRoute("/_authenticated/canal-etico/$id")({
   head: () => ({
@@ -134,13 +133,7 @@ function CanalEticoDetalhe() {
   async function exportPdf() {
     setExporting(true);
     try {
-      let ai: any = null;
-      try {
-        ai = await analyzeWhistleblowerReport({ data: { id } });
-      } catch {
-        toast.message("Relatório gerado sem a triagem de IA (serviço indisponível).");
-      }
-      await downloadDenunciaInternaPdf({ ...data, ai });
+      await downloadDenunciaInternaPdf(data);
       await logWhistleblowerExport({ data: { id, kind: "pdf_interno" } });
     } catch {
       toast.error("Não foi possível gerar o relatório.");

@@ -52,19 +52,25 @@ export const postReporterMessage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const mod = await import("@/lib/whistleblower-service.server");
-    return mod.reporterUpdate(data);
+    return mod.reporterUpdate(data, {
+      ip: getRequestHeader("cf-connecting-ip") ?? getRequestHeader("x-forwarded-for") ?? "",
+    });
   });
 
 export const getReporterAttachmentUrl = createServerFn({ method: "POST" })
   .inputValidator((input: { protocol: string; accessKey: string; attachmentId: string }) => input)
   .handler(async ({ data }) => {
     const mod = await import("@/lib/whistleblower-service.server");
-    return mod.reporterAttachmentUrl(data);
+    return mod.reporterAttachmentUrl(data, {
+      ip: getRequestHeader("cf-connecting-ip") ?? getRequestHeader("x-forwarded-for") ?? "",
+    });
   });
 
 export const validateWhistleblowerDocument = createServerFn({ method: "GET" })
   .inputValidator((input: { code: string }) => input)
   .handler(async ({ data }) => {
     const mod = await import("@/lib/whistleblower-service.server");
-    return mod.validateDocument(data.code);
+    return mod.validateDocument(data.code, {
+      ip: getRequestHeader("cf-connecting-ip") ?? getRequestHeader("x-forwarded-for") ?? "",
+    });
   });

@@ -71,8 +71,26 @@ export function safeEqual(a: string, b: string) {
   return diff === 0;
 }
 
+/**
+ * Identificador derivado para rate limit. Usa HMAC com segredo de servidor:
+ * um SHA-256 puro de IP é reversível por força bruta do espaço IPv4 inteiro em
+ * segundos, o que permitiria correlacionar a janela de rate limit com o
+ * created_at da denúncia e descobrir o IP de um denunciante anônimo.
+ */
 export async function hashIdentifier(value: string) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`wb:${value}`));
+  const secret =
+    process.env.WHISTLEBLOWER_HASH_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "";
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const buf = await crypto.subtle.sign("HMAC", key, enc.encode(`wb:${value}`));
   return toHex(buf).slice(0, 32);
 }
 
@@ -83,12 +101,18 @@ export function sanitizeText(value: unknown, max: number): string | null {
   return clean.slice(0, max);
 }
 
+/**
+ * @param failOpen true para o envio de denúncia (uma falha de infraestrutura
+ * nunca pode impedir alguém de denunciar). false para endpoints que validam
+ * chave de acesso, onde falhar aberto liberaria força bruta sem teto.
+ */
 export async function checkRateLimit(
   admin: AnyClient,
   bucket: string,
   action: string,
   limit: number,
   windowSeconds: number,
+  failOpen = false,
 ) {
   const { data, error } = await admin.rpc("consume_whistleblower_rate_limit", {
     _bucket: bucket,
@@ -96,7 +120,7 @@ export async function checkRateLimit(
     _limit: limit,
     _window_seconds: windowSeconds,
   });
-  if (error) return true; // não bloquear o canal por falha de infraestrutura
+  if (error) return failOpen;
   return data !== false;
 }
 
@@ -142,6 +166,68 @@ function base64ToBytes(b64: string) {
   return out;
 }
 
+/**
+ * Assinaturas reais dos formatos aceitos. O MIME que chega na requisição é
+ * declarado pelo cliente e não prova nada: sem esta checagem é possível subir
+ * um executável dizendo que é PDF, e o RH baixaria o arquivo confiando no tipo.
+ */
+const MAGIC: Record<string, (b: Uint8Array) => boolean> = {
+  "image/jpeg": (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  "image/png": (b) =>
+    b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
+  "image/webp": (b) =>
+    b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+    b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50,
+  "application/pdf": (b) =>
+    b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46,
+  "audio/mpeg": (b) =>
+    (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) ||
+    (b[0] === 0xff && (b[1] & 0xe0) === 0xe0),
+  "audio/wav": (b) =>
+    b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46,
+  "audio/ogg": (b) =>
+    b[0] === 0x4f && b[1] === 0x67 && b[2] === 0x67 && b[3] === 0x53,
+  // ISO-BMFF (mp4/m4a/mov): "ftyp" no offset 4.
+  "audio/mp4": isFtyp,
+  "video/mp4": isFtyp,
+  "video/quicktime": isFtyp,
+  // Matroska/WebM.
+  "audio/webm": isEbml,
+  "video/webm": isEbml,
+  // ZIP (OOXML .docx).
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": (b) =>
+    b[0] === 0x50 && b[1] === 0x4b,
+  // OLE2 (.doc legado).
+  "application/msword": (b) =>
+    b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0,
+};
+
+function isFtyp(b: Uint8Array) {
+  return b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70;
+}
+
+function isEbml(b: Uint8Array) {
+  return b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3;
+}
+
+/** text/plain não tem assinatura: rejeita apenas bytes de controle/binário. */
+function looksLikeText(b: Uint8Array) {
+  const n = Math.min(b.length, 512);
+  for (let i = 0; i < n; i++) {
+    const c = b[i];
+    if (c === 0) return false;
+    if (c < 0x09 || (c > 0x0d && c < 0x20)) return false;
+  }
+  return true;
+}
+
+export function contentMatchesMime(mime: string, bytes: Uint8Array) {
+  if (bytes.byteLength < 12) return false;
+  if (mime === "text/plain") return looksLikeText(bytes);
+  const check = MAGIC[mime];
+  return check ? check(bytes) : false;
+}
+
 export async function storeAttachments(
   admin: AnyClient,
   reportId: string,
@@ -156,6 +242,8 @@ export async function storeAttachments(
     const bytes = base64ToBytes(file.dataBase64);
     if (bytes.byteLength > WB_MAX_FILE_BYTES) throw new Error(`Arquivo muito grande: ${file.name}`);
     if (bytes.byteLength === 0) continue;
+    if (!contentMatchesMime(file.mime, bytes))
+      throw new Error(`O conteúdo do arquivo não corresponde ao formato informado: ${file.name}`);
     const display = safeFileName(file.name);
     const ext = display.includes(".") ? display.split(".").pop() : "bin";
     const path = `${reportId}/${crypto.randomUUID()}.${(ext ?? "bin").toLowerCase().slice(0, 8)}`;

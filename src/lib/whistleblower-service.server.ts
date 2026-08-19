@@ -28,7 +28,7 @@ async function admin() {
 export async function submitReport(input: SubmitReportInput, ctx: { host?: string; ip?: string }) {
   const db = await admin();
   const bucket = await hashIdentifier(ctx.ip || "anon");
-  const allowed = await checkRateLimit(db, bucket, "submit", 5, 3600);
+  const allowed = await checkRateLimit(db, bucket, "submit", 5, 3600, true);
   if (!allowed) throw new Error("Muitos envios em pouco tempo. Tente novamente mais tarde.");
 
   const title = sanitizeText(input.title, 200);
@@ -117,13 +117,14 @@ export async function trackReport(input: { protocol: string; accessKey: string }
   return loadPublicView(db, id);
 }
 
-export async function reporterUpdate(input: {
-  protocol: string;
-  accessKey: string;
-  message?: string;
-  files?: IncomingFile[];
-}) {
+export async function reporterUpdate(
+  input: { protocol: string; accessKey: string; message?: string; files?: IncomingFile[] },
+  ctx: { ip?: string } = {},
+) {
   const db = await admin();
+  const bucket = await hashIdentifier(ctx.ip || "anon");
+  const allowed = await checkRateLimit(db, bucket, "reporter_update", 20, 600);
+  if (!allowed) throw new Error("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
   const id = await authenticateReport(db, input.protocol, input.accessKey);
   const message = sanitizeText(input.message, 5000);
   if (!message && !input.files?.length) throw new Error("Escreva uma mensagem ou anexe uma evidência.");
@@ -143,12 +144,14 @@ export async function reporterUpdate(input: {
   return loadPublicView(db, id);
 }
 
-export async function reporterAttachmentUrl(input: {
-  protocol: string;
-  accessKey: string;
-  attachmentId: string;
-}) {
+export async function reporterAttachmentUrl(
+  input: { protocol: string; accessKey: string; attachmentId: string },
+  ctx: { ip?: string } = {},
+) {
   const db = await admin();
+  const bucket = await hashIdentifier(ctx.ip || "anon");
+  const allowed = await checkRateLimit(db, bucket, "reporter_attachment", 30, 600);
+  if (!allowed) throw new Error("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
   const id = await authenticateReport(db, input.protocol, input.accessKey);
   const { data: att } = await db
     .from("whistleblower_attachments")
@@ -161,8 +164,11 @@ export async function reporterAttachmentUrl(input: {
   return { url: data.signedUrl as string };
 }
 
-export async function validateDocument(code: string) {
+export async function validateDocument(code: string, ctx: { ip?: string } = {}) {
   const db = await admin();
+  const bucket = await hashIdentifier(ctx.ip || "anon");
+  const allowed = await checkRateLimit(db, bucket, "validate", 30, 600);
+  if (!allowed) throw new Error("Muitas tentativas. Aguarde alguns minutos e tente novamente.");
   const clean = (code || "").trim().toUpperCase().slice(0, 40);
   const { data } = await db
     .from("whistleblower_reports")
