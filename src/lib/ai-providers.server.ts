@@ -86,20 +86,65 @@ async function callProvider(
   return text;
 }
 
+/** Escapa quebras de linha e outros caracteres de controle dentro de strings JSON. */
+function escapeControlCharsInStrings(input: string): string {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (const ch of input) {
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      out += ch;
+      escaped = inString;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      out += ch;
+      continue;
+    }
+    if (inString) {
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) {
+        if (ch === "\n") out += "\\n";
+        else if (ch === "\r") out += "\\r";
+        else if (ch === "\t") out += "\\t";
+        else out += `\\u${code.toString(16).padStart(4, "0")}`;
+        continue;
+      }
+    }
+    out += ch;
+  }
+  return out;
+}
+
 export function parseAiJson(raw: string): unknown {
   const cleaned = raw
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start < 0 || end <= start) throw new Error("A IA não retornou JSON válido.");
-    return JSON.parse(cleaned.slice(start, end + 1));
+
+  const candidates: string[] = [cleaned];
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) candidates.push(cleaned.slice(start, end + 1));
+
+  for (const candidate of candidates) {
+    for (const text of [candidate, escapeControlCharsInStrings(candidate)]) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        /* tenta o próximo formato */
+      }
+    }
   }
+  throw new Error("A IA não retornou JSON válido.");
 }
+
 
 /** Percorre a cascata até um provedor responder. Lança se todos falharem. */
 export async function runAiPrompt(prompt: string): Promise<{ raw: string; model: string }> {
