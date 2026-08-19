@@ -2,13 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, ShieldAlert, Sparkles, UsersRound } from "lucide-react";
+import { ArrowLeft, NotebookPen, Plus, ShieldAlert, Sparkles, UsersRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,9 @@ import {
   listEvaluableEmployees,
   listTechnicalFeedbackAccess,
   listTechnicalReviews,
+  listMonthlyTechnicalEmployeeNotes,
+  analyzeTechnicalEmployeeNote,
+  saveTechnicalEmployeeNote,
   setTechnicalFeedbackAccess,
 } from "@/lib/technical-reviews.functions";
 import { formatScore, scoreLabel } from "@/lib/technical-review-catalog";
@@ -104,8 +108,7 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
   });
 
   const create = useMutation({
-    mutationFn: () =>
-      createTechnicalReview({ data: { employeeId, periodStart, periodEnd } }),
+    mutationFn: () => createTechnicalReview({ data: { employeeId, periodStart, periodEnd } }),
     onSuccess: (res) => {
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["technical-reviews"] });
@@ -122,9 +125,7 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
   );
   const stats = useMemo(() => {
     const done = list.filter((r) => r.status === "concluida");
-    const scores = done
-      .map((r) => r.final_score)
-      .filter((s): s is number => typeof s === "number");
+    const scores = done.map((r) => r.final_score).filter((s): s is number => typeof s === "number");
     return {
       total: list.length,
       done: done.length,
@@ -133,7 +134,6 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
     };
   }, [list]);
   const today = new Date().toISOString().slice(0, 10);
-
 
   return (
     <div className="webi-page min-h-screen">
@@ -202,10 +202,7 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
                 </div>
               </div>
               <DialogFooter>
-                <Button
-                  onClick={() => create.mutate()}
-                  disabled={!employeeId || create.isPending}
-                >
+                <Button onClick={() => create.mutate()} disabled={!employeeId || create.isPending}>
                   {create.isPending ? "Criando…" : "Criar avaliação"}
                 </Button>
               </DialogFooter>
@@ -221,6 +218,8 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
           <StatCard label="Rascunhos" value={stats.drafts} />
           <StatCard label="Média geral" value={formatScore(stats.average)} />
         </section>
+
+        <MonthlyNotesCard employees={employees.data ?? []} />
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -285,6 +284,184 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
         </p>
       </main>
     </div>
+  );
+}
+
+const QUICK_NOTE_TYPES = [
+  ["positivo", "Positivo"],
+  ["atencao", "Atenção"],
+  ["desenvolvimento", "Desenvolvimento"],
+  ["destaque", "Destaque"],
+  ["tecnico", "Técnico"],
+  ["atendimento", "Atendimento"],
+  ["comunicacao", "Comunicação"],
+  ["operacional", "Operacional"],
+] as const;
+
+function MonthlyNotesCard({
+  employees,
+}: {
+  employees: Array<{ id: string; full_name: string; city: string | null }>;
+}) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [employeeId, setEmployeeId] = useState("");
+  const [noteText, setNoteText] = useState("");
+  const [noteType, setNoteType] = useState<(typeof QUICK_NOTE_TYPES)[number][0]>("operacional");
+  const [competence, setCompetence] = useState(new Date().toISOString().slice(0, 7));
+  const notes = useQuery({
+    queryKey: ["technical-monthly-notes", competence],
+    queryFn: () => listMonthlyTechnicalEmployeeNotes({ data: { competence } }),
+  });
+  const create = useMutation({
+    mutationFn: () =>
+      saveTechnicalEmployeeNote({
+        data: {
+          employeeId,
+          occurredAt:
+            competence === new Date().toISOString().slice(0, 7)
+              ? new Date().toISOString()
+              : `${competence}-01T12:00:00`,
+          noteText,
+          noteType,
+          status: "rascunho",
+        },
+      }),
+    onSuccess: () => {
+      setNoteText("");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["technical-monthly-notes", competence] });
+      toast.success("Anotação privada registrada.");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const analyze = useMutation({
+    mutationFn: (noteId: string) => analyzeTechnicalEmployeeNote({ data: { noteId } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["technical-monthly-notes", competence] });
+      toast.success("Sugestão da IA preparada para revisão.");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold text-white">
+              <NotebookPen className="h-4 w-4 text-cyan-400" /> Anotações do mês
+            </h2>
+            <p className="text-xs text-slate-400">
+              Registre durante o mês, antes mesmo de iniciar a avaliação. Somente você vê.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              className="w-40"
+              type="month"
+              value={competence}
+              onChange={(event) => setCompetence(event.target.value)}
+            />
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-1.5 h-4 w-4" /> Nova anotação
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nova anotação privada</DialogTitle>
+                  <DialogDescription>
+                    Salva inicialmente como rascunho e não entra como fato na IA.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Select value={employeeId} onValueChange={setEmployeeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o colaborador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {employees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.full_name}
+                          {employee.city ? ` · ${employee.city}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={noteType}
+                    onValueChange={(value) => setNoteType(value as typeof noteType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QUICK_NOTE_TYPES.map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Textarea
+                    rows={4}
+                    value={noteText}
+                    onChange={(event) => setNoteText(event.target.value)}
+                    placeholder="O que aconteceu? Escreva de forma simples."
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    disabled={!employeeId || noteText.trim().length < 3 || create.isPending}
+                    onClick={() => create.mutate()}
+                  >
+                    Salvar rascunho
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+        {notes.isLoading ? (
+          <p className="text-sm text-slate-500">Carregando anotações…</p>
+        ) : (notes.data ?? []).length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhuma anotação nesta competência.</p>
+        ) : (
+          <div className="space-y-2">
+            {(notes.data ?? []).slice(0, 8).map((row) => (
+              <div
+                key={row.id}
+                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-white/10 p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white">{row.employee_name}</p>
+                  <p className="line-clamp-2 text-sm text-slate-300">{row.note_text}</p>
+                  <div className="mt-1 flex gap-2">
+                    <Badge variant="secondary">{row.status}</Badge>
+                    <Badge variant="outline">{row.note_type}</Badge>
+                  </div>
+                  {row.ai_professional_text ? (
+                    <p className="mt-2 text-xs text-cyan-300">
+                      Sugestão da IA: {row.ai_professional_text}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={analyze.isPending}
+                  onClick={() => analyze.mutate(row.id)}
+                >
+                  <Sparkles className="mr-1 h-3.5 w-3.5" /> IA
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

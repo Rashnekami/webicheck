@@ -48,6 +48,7 @@ import {
   setReviewArchived,
 } from "@/lib/technical-reviews.functions";
 import { downloadAvaliacaoPdf } from "@/components/avaliacao/avaliacao-pdf";
+import { ContinuousReviewPanel } from "@/components/avaliacao/continuous-review-panel";
 import {
   REVIEW_GROUPS,
   formatScore,
@@ -55,7 +56,6 @@ import {
   overallScore,
   scoreLabel,
 } from "@/lib/technical-review-catalog";
-
 
 export const Route = createFileRoute("/_authenticated/avaliacoes/$id")({
   head: () => ({
@@ -76,6 +76,8 @@ const AI_LABELS: Record<string, string> = {
   solides: "Texto para o Sólides",
   conversa: "Roteiro de conversa",
   plano: "Plano de desenvolvimento",
+  copiloto: "Copiloto do Supervisor",
+  revisao: "Revisar avaliação com IA",
 };
 
 function ReviewDetail() {
@@ -188,7 +190,9 @@ function ReviewDetail() {
   });
 
   const ai = useMutation({
-    mutationFn: async (type: "gerencial" | "solides" | "conversa" | "plano") => {
+    mutationFn: async (
+      type: "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao",
+    ) => {
       // A IA lê os dados gravados: salva o que está na tela antes de analisar.
       await saveTechnicalReview({ data: { id, scores, itemNotes, groupNotes, ...form } });
       try {
@@ -204,7 +208,6 @@ function ReviewDetail() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
 
   const remove = useMutation({
     mutationFn: () => deleteTechnicalReview({ data: { id } }),
@@ -253,7 +256,6 @@ function ReviewDetail() {
     }
   }
 
-
   if (query.isLoading) {
     return <div className="webi-page min-h-screen p-6 text-slate-400">Carregando avaliação…</div>;
   }
@@ -272,7 +274,16 @@ function ReviewDetail() {
     );
   }
 
-  const { review, employee, ai: aiHistory, evidences, meeting, followups } = query.data;
+  const {
+    review,
+    employee,
+    ai: aiHistory,
+    evidences,
+    meeting,
+    followups,
+    notes,
+    pdiActions,
+  } = query.data;
 
   return (
     <div className="webi-page min-h-screen pb-24">
@@ -378,9 +389,7 @@ function ReviewDetail() {
                       </div>
                       <Input
                         value={itemNotes[item.key] ?? ""}
-                        onChange={(e) =>
-                          setItemNotes({ ...itemNotes, [item.key]: e.target.value })
-                        }
+                        onChange={(e) => setItemNotes({ ...itemNotes, [item.key]: e.target.value })}
                         placeholder="Observação factual (opcional)"
                       />
                     </div>
@@ -449,11 +458,16 @@ function ReviewDetail() {
           </CardContent>
         </Card>
 
+        <ContinuousReviewPanel
+          reviewId={id}
+          periodStart={review.period_start}
+          notes={notes}
+          pdiActions={pdiActions}
+        />
         <EvidencesCard reviewId={id} evidences={evidences} />
         <MeetingCard reviewId={id} meeting={meeting} />
         <FollowupsCard reviewId={id} followups={followups} defaultGoal={form.development_goal} />
         <HistoryCard employeeId={review.employee_id} currentId={id} />
-
 
         <Card>
           <CardContent className="space-y-4 p-5">
@@ -476,22 +490,24 @@ function ReviewDetail() {
               Salve a avaliação antes de gerar: a IA usa apenas os dados já registrados.
             </p>
             <div className="flex flex-wrap gap-2">
-              {(["gerencial", "solides", "conversa", "plano"] as const).map((type) => (
-                <Button
-                  key={type}
-                  size="sm"
-                  variant="secondary"
-                  disabled={ai.isPending}
-                  onClick={() => ai.mutate(type)}
-                >
-                  {ai.isPending && ai.variables === type ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-1.5 h-4 w-4" />
-                  )}
-                  {AI_LABELS[type]}
-                </Button>
-              ))}
+              {(["gerencial", "solides", "conversa", "plano", "copiloto", "revisao"] as const).map(
+                (type) => (
+                  <Button
+                    key={type}
+                    size="sm"
+                    variant="secondary"
+                    disabled={ai.isPending}
+                    onClick={() => ai.mutate(type)}
+                  >
+                    {ai.isPending && ai.variables === type ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-4 w-4" />
+                    )}
+                    {AI_LABELS[type]}
+                  </Button>
+                ),
+              )}
             </div>
             <div className="space-y-3">
               {aiHistory.length === 0 ? (
@@ -555,14 +571,17 @@ function ReviewDetail() {
               <Archive className="mr-1.5 h-4 w-4" />
               {review.archived_at ? "Desarquivar" : "Arquivar"}
             </Button>
-            <Button variant="secondary" disabled={save.isPending} onClick={() => save.mutate(undefined)}>
+            <Button
+              variant="secondary"
+              disabled={save.isPending}
+              onClick={() => save.mutate(undefined)}
+            >
               <Save className="mr-1.5 h-4 w-4" /> Salvar rascunho
             </Button>
             <Button disabled={save.isPending} onClick={() => save.mutate("concluida")}>
               Concluir avaliação
             </Button>
           </div>
-
         </div>
       </main>
     </div>
@@ -680,7 +699,9 @@ function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: a
                 className="flex items-center justify-between gap-3 rounded-lg border border-white/10 p-3"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-white">{e.description || "(sem descrição)"}</p>
+                  <p className="truncate text-sm text-white">
+                    {e.description || "(sem descrição)"}
+                  </p>
                   <p className="text-xs text-slate-500">
                     {e.evidence_type}
                     {e.os ? ` · OS ${e.os}` : ""}
@@ -715,6 +736,10 @@ function MeetingCard({ reviewId, meeting }: { reviewId: string; meeting: any | n
     supervisorNotes: meeting?.supervisor_notes ?? "",
     newInformationPresented: Boolean(meeting?.new_information_presented),
     newInformation: meeting?.new_information ?? "",
+    feedbackRealized: Boolean(meeting?.feedback_realized),
+    agreementStatus: meeting?.agreement_status ?? "",
+    agreedActions: meeting?.agreed_actions ?? "",
+    nextReviewDate: meeting?.next_review_date ?? "",
   });
 
   const save = useMutation({
@@ -770,6 +795,45 @@ function MeetingCard({ reviewId, meeting }: { reviewId: string; meeting: any | n
             </Select>
           </div>
         </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex items-center gap-3 rounded-lg border border-white/10 p-3">
+            <Switch
+              checked={state.feedbackRealized}
+              onCheckedChange={(value) => setState({ ...state, feedbackRealized: value })}
+            />
+            <Label className="text-sm text-slate-300">Feedback realizado</Label>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Posicionamento do colaborador</Label>
+            <Select
+              value={state.agreementStatus || "nao_informado"}
+              onValueChange={(value) =>
+                setState({
+                  ...state,
+                  agreementStatus: value === "nao_informado" ? "" : value,
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nao_informado">Não informado</SelectItem>
+                <SelectItem value="concordou">Concordou</SelectItem>
+                <SelectItem value="concordou_parcialmente">Concordou parcialmente</SelectItem>
+                <SelectItem value="discordou">Discordou</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Próxima avaliação</Label>
+            <Input
+              type="date"
+              value={state.nextReviewDate}
+              onChange={(e) => setState({ ...state, nextReviewDate: e.target.value })}
+            />
+          </div>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Comentários do colaborador</Label>
@@ -788,14 +852,20 @@ function MeetingCard({ reviewId, meeting }: { reviewId: string; meeting: any | n
             />
           </div>
         </div>
+        <div className="space-y-1.5">
+          <Label>Ações/PDI acordados</Label>
+          <Textarea
+            rows={2}
+            value={state.agreedActions}
+            onChange={(e) => setState({ ...state, agreedActions: e.target.value })}
+          />
+        </div>
         <div className="flex items-center gap-3">
           <Switch
             checked={state.newInformationPresented}
             onCheckedChange={(v) => setState({ ...state, newInformationPresented: v })}
           />
-          <Label className="text-sm text-slate-300">
-            O colaborador apresentou informação nova
-          </Label>
+          <Label className="text-sm text-slate-300">O colaborador apresentou informação nova</Label>
         </div>
         {state.newInformationPresented ? (
           <Textarea

@@ -28,7 +28,6 @@ export interface ReviewListItem {
   next_review_date?: string | null;
 }
 
-
 async function assertAccess(context: { supabase: unknown; userId: string }) {
   const { data, error } = await db(context.supabase).rpc("has_technical_feedback_access", {
     _user_id: context.userId,
@@ -173,31 +172,50 @@ export const getTechnicalReview = createServerFn({ method: "GET" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!review) throw new Error("Avaliação não encontrada.");
-    const [{ data: items }, { data: ai }, { data: evidences }, { data: meetings }, { data: followups }] =
-      await Promise.all([
-        client.from("technical_employee_review_items").select("*").eq("review_id", data.id),
-        client
-          .from("technical_employee_review_ai")
-          .select("*")
-          .eq("review_id", data.id)
-          .order("created_at", { ascending: false }),
-        client
-          .from("technical_employee_review_evidences")
-          .select("*")
-          .eq("review_id", data.id)
-          .order("created_at", { ascending: false }),
-        client
-          .from("technical_employee_review_meetings")
-          .select("*")
-          .eq("review_id", data.id)
-          .order("created_at", { ascending: true })
-          .limit(1),
-        client
-          .from("technical_employee_review_followups")
-          .select("*")
-          .eq("review_id", data.id)
-          .order("followup_date", { ascending: true }),
-      ]);
+    const [
+      { data: items },
+      { data: ai },
+      { data: evidences },
+      { data: meetings },
+      { data: followups },
+      { data: notes },
+      { data: pdiActions },
+    ] = await Promise.all([
+      client.from("technical_employee_review_items").select("*").eq("review_id", data.id),
+      client
+        .from("technical_employee_review_ai")
+        .select("*")
+        .eq("review_id", data.id)
+        .order("created_at", { ascending: false }),
+      client
+        .from("technical_employee_review_evidences")
+        .select("*")
+        .eq("review_id", data.id)
+        .order("created_at", { ascending: false }),
+      client
+        .from("technical_employee_review_meetings")
+        .select("*")
+        .eq("review_id", data.id)
+        .order("created_at", { ascending: true })
+        .limit(1),
+      client
+        .from("technical_employee_review_followups")
+        .select("*")
+        .eq("review_id", data.id)
+        .order("followup_date", { ascending: true }),
+      client
+        .from("technical_employee_notes")
+        .select("*")
+        .eq("employee_id", review.employee_id)
+        .gte("occurred_at", `${review.period_start}T00:00:00Z`)
+        .lte("occurred_at", `${review.period_end}T23:59:59Z`)
+        .order("occurred_at", { ascending: false }),
+      client
+        .from("technical_employee_pdi_actions")
+        .select("*")
+        .eq("review_id", data.id)
+        .order("created_at", { ascending: true }),
+    ]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: employee } = await supabaseAdmin
       .from("profiles")
@@ -216,6 +234,8 @@ export const getTechnicalReview = createServerFn({ method: "GET" })
       evidences: (evidences ?? []) as any[],
       meeting: (((meetings ?? []) as any[])[0] ?? null) as any,
       followups: (followups ?? []) as any[],
+      notes: (notes ?? []) as any[],
+      pdiActions: (pdiActions ?? []) as any[],
       evaluatorName: (evaluator?.full_name as string) || "",
       employee: {
         full_name: (employee?.full_name as string) || "(sem nome)",
@@ -223,7 +243,6 @@ export const getTechnicalReview = createServerFn({ method: "GET" })
       },
     };
   });
-
 
 export interface SaveReviewInput {
   id: string;
@@ -330,11 +349,11 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       id: string;
-      type: "gerencial" | "solides" | "conversa" | "plano";
+      type: "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao";
       tom?: "direto" | "equilibrado" | "acolhedor";
     }) => {
       if (!data?.id) throw new Error("Avaliação inválida.");
-      if (!["gerencial", "solides", "conversa", "plano"].includes(data.type))
+      if (!["gerencial", "solides", "conversa", "plano", "copiloto", "revisao"].includes(data.type))
         throw new Error("Tipo de análise inválido.");
       return data;
     },
@@ -348,10 +367,18 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .maybeSingle();
     if (!review) throw new Error("Avaliação não encontrada.");
-    const [{ data: items }, { data: evidences }] = await Promise.all([
-      client.from("technical_employee_review_items").select("*").eq("review_id", data.id),
-      client.from("technical_employee_review_evidences").select("*").eq("review_id", data.id),
-    ]);
+    const [{ data: items }, { data: evidences }, { data: notes }, { data: pdiActions }] =
+      await Promise.all([
+        client.from("technical_employee_review_items").select("*").eq("review_id", data.id),
+        client.from("technical_employee_review_evidences").select("*").eq("review_id", data.id),
+        client
+          .from("technical_employee_notes")
+          .select("occurred_at, note_type, category, note_text, ai_suggested_competencies, status")
+          .eq("employee_id", review.employee_id)
+          .gte("occurred_at", `${review.period_start}T00:00:00Z`)
+          .lte("occurred_at", `${review.period_end}T23:59:59Z`),
+        client.from("technical_employee_pdi_actions").select("*").eq("review_id", data.id),
+      ]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: employee } = await supabaseAdmin
       .from("profiles")
@@ -383,10 +410,32 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
         os: e.os ?? null,
         descricao: e.description ?? null,
       })),
+      anotacoes_confirmadas: ((notes ?? []) as any[])
+        .filter((n) => n.status === "confirmada" || n.status === "utilizada")
+        .map((n) => ({
+          data: n.occurred_at,
+          tipo: n.note_type,
+          categoria: n.category ?? null,
+          texto: n.note_text,
+          competencias: Array.isArray(n.ai_suggested_competencies)
+            ? n.ai_suggested_competencies
+            : [],
+        })),
+      anotacoes_em_rascunho: ((notes ?? []) as any[]).filter((n) => n.status === "rascunho").length,
+      pdi_atual: ((pdiActions ?? []) as any[]).map((p) => ({
+        objetivo: p.objective,
+        acao: p.agreed_action,
+        indicador: p.indicator,
+        prazo: p.due_date ?? null,
+        apoio_gestao: p.management_support ?? null,
+        status: p.status,
+      })),
       avaliacao_anterior: await (async () => {
         const { data: prev } = await client
           .from("technical_employee_reviews")
-          .select("period_start, period_end, final_score")
+          .select(
+            "id, period_start, period_end, final_score, strengths_notes, development_notes, development_goal, development_action, development_metric",
+          )
           .eq("employee_id", review.employee_id)
           .lt("period_end", review.period_start)
           .order("period_end", { ascending: false })
@@ -396,11 +445,17 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
           ? {
               periodo: `${prev.period_start} a ${prev.period_end}`,
               nota_geral: prev.final_score as number | null,
+              pontos_fortes: prev.strengths_notes,
+              desenvolvimento: prev.development_notes,
+              pdi_anterior: {
+                objetivo: prev.development_goal,
+                acao: prev.development_action,
+                indicador: prev.development_metric,
+              },
             }
           : null;
       })(),
       tom: data.tom,
-
     };
 
     const { generateReviewAi } = await import("@/lib/technical-review-ai.server");
@@ -450,7 +505,10 @@ export const listTechnicalFeedbackAccess = createServerFn({ method: "GET" })
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
       .select("id, full_name, email")
-      .in("id", rows.map((r) => r.user_id));
+      .in(
+        "id",
+        rows.map((r) => r.user_id),
+      );
     const map = new Map((profiles ?? []).map((p) => [p.id, p]));
     return rows.map((r) => ({
       id: r.id as string,
@@ -488,16 +546,14 @@ export const setTechnicalFeedbackAccess = createServerFn({ method: "POST" })
       throw new Error("Usuário de outro provedor.");
 
     if (data.allow) {
-      const { error } = await db(supabaseAdmin)
-        .from("technical_feedback_access")
-        .upsert(
-          {
-            provider_id: target.provider_id,
-            user_id: data.userId,
-            granted_by: context.userId,
-          },
-          { onConflict: "provider_id,user_id" },
-        );
+      const { error } = await db(supabaseAdmin).from("technical_feedback_access").upsert(
+        {
+          provider_id: target.provider_id,
+          user_id: data.userId,
+          granted_by: context.userId,
+        },
+        { onConflict: "provider_id,user_id" },
+      );
       if (error) throw new Error(error.message);
     } else {
       const { error } = await db(supabaseAdmin)
@@ -542,7 +598,9 @@ export const listReviewCandidateChecklists = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await db(supabaseAdmin)
       .from("checklists")
-      .select("id, tipo, os, cliente, cidade, status, numero_publico, rmap_code, intervention_code, created_at")
+      .select(
+        "id, tipo, os, cliente, cidade, status, numero_publico, rmap_code, intervention_code, created_at",
+      )
       .eq("provider_id", review.provider_id)
       .eq("tecnico_id", review.employee_id)
       .gte("created_at", `${review.period_start}T00:00:00Z`)
@@ -622,6 +680,10 @@ export interface MeetingInput {
   supervisorNotes?: string | null;
   newInformationPresented?: boolean;
   newInformation?: string | null;
+  feedbackRealized?: boolean;
+  agreementStatus?: string | null;
+  agreedActions?: string | null;
+  nextReviewDate?: string | null;
 }
 
 /** Registra (ou atualiza) a conversa de feedback com o colaborador. */
@@ -644,6 +706,10 @@ export const saveReviewMeeting = createServerFn({ method: "POST" })
       supervisor_notes: data.supervisorNotes || null,
       new_information_presented: Boolean(data.newInformationPresented),
       new_information: data.newInformation || null,
+      feedback_realized: Boolean(data.feedbackRealized),
+      agreement_status: data.agreementStatus || null,
+      agreed_actions: data.agreedActions || null,
+      next_review_date: data.nextReviewDate || null,
       created_by: context.userId,
     };
     const { data: existing } = await client
@@ -769,4 +835,279 @@ export const getEmployeeReviewHistory = createServerFn({ method: "POST" })
       .limit(50);
     if (error) throw new Error(error.message);
     return (rows ?? []) as any[];
+  });
+
+/* ---------- Anotações mensais privadas ---------- */
+
+const NOTE_TYPES = [
+  "positivo",
+  "atencao",
+  "desenvolvimento",
+  "destaque",
+  "tecnico",
+  "atendimento",
+  "comunicacao",
+  "operacional",
+] as const;
+const NOTE_STATUSES = ["rascunho", "confirmada", "utilizada", "arquivada"] as const;
+
+export const saveTechnicalEmployeeNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      reviewId?: string | null;
+      employeeId?: string | null;
+      noteId?: string | null;
+      occurredAt: string;
+      noteText: string;
+      noteType: (typeof NOTE_TYPES)[number];
+      category?: string | null;
+      status: (typeof NOTE_STATUSES)[number];
+      checklistId?: string | null;
+      serviceOrder?: string | null;
+    }) => {
+      if (!data.reviewId && !data.employeeId) throw new Error("Selecione o colaborador.");
+      if (!data.noteText || data.noteText.trim().length < 3)
+        throw new Error("Escreva uma anotação com pelo menos 3 caracteres.");
+      if (!NOTE_TYPES.includes(data.noteType)) throw new Error("Tipo de anotação inválido.");
+      if (!NOTE_STATUSES.includes(data.status)) throw new Error("Status de anotação inválido.");
+      if (!data.occurredAt || Number.isNaN(new Date(data.occurredAt).getTime()))
+        throw new Error("Data da anotação inválida.");
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    let providerId: string;
+    let employeeId: string;
+    if (data.reviewId) {
+      const review = await loadReview(context, data.reviewId);
+      providerId = review.provider_id;
+      employeeId = review.employee_id;
+    } else {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: me }, { data: employee }] = await Promise.all([
+        supabaseAdmin.from("profiles").select("provider_id").eq("id", context.userId).maybeSingle(),
+        supabaseAdmin
+          .from("profiles")
+          .select("provider_id")
+          .eq("id", data.employeeId)
+          .maybeSingle(),
+      ]);
+      if (!me?.provider_id || employee?.provider_id !== me.provider_id)
+        throw new Error("Colaborador fora do seu provedor.");
+      if (data.employeeId === context.userId)
+        throw new Error("Não registre anotações sobre si mesmo.");
+      providerId = me.provider_id as string;
+      employeeId = data.employeeId as string;
+    }
+    const occurredAt = new Date(data.occurredAt).toISOString();
+    const competence = occurredAt.slice(0, 7);
+    const payload = {
+      provider_id: providerId,
+      employee_id: employeeId,
+      author_user_id: context.userId,
+      occurred_at: occurredAt,
+      competence,
+      note_text: data.noteText.trim(),
+      note_type: data.noteType,
+      category: data.category?.trim() || null,
+      status: data.status,
+      linked_review_id: data.status === "utilizada" ? data.reviewId || null : null,
+      checklist_id: data.checklistId || null,
+      service_order: data.serviceOrder?.trim() || null,
+    };
+    const client = db(context.supabase);
+    if (data.noteId) {
+      const { data: saved, error } = await client
+        .from("technical_employee_notes")
+        .update(payload)
+        .eq("id", data.noteId)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return saved as any;
+    }
+    const { data: saved, error } = await client
+      .from("technical_employee_notes")
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return saved as any;
+  });
+
+export const listMonthlyTechnicalEmployeeNotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { competence: string; employeeId?: string | null }) => {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(data.competence)) throw new Error("Competência inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    let query = db(context.supabase)
+      .from("technical_employee_notes")
+      .select("*")
+      .eq("competence", data.competence)
+      .order("occurred_at", { ascending: false });
+    if (data.employeeId) query = query.eq("employee_id", data.employeeId);
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+    const list = (rows ?? []) as any[];
+    if (!list.length) return [];
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", Array.from(new Set(list.map((row) => row.employee_id))));
+    const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
+    return list.map((row) => ({
+      ...row,
+      employee_name: names.get(row.employee_id) || "(sem nome)",
+    }));
+  });
+
+export const deleteTechnicalEmployeeNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { noteId: string }) => {
+    if (!data.noteId) throw new Error("Anotação inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { error } = await db(context.supabase)
+      .from("technical_employee_notes")
+      .delete()
+      .eq("id", data.noteId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const analyzeTechnicalEmployeeNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { noteId: string }) => {
+    if (!data.noteId) throw new Error("Anotação inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const client = db(context.supabase);
+    const { data: note, error: noteError } = await client
+      .from("technical_employee_notes")
+      .select("id, note_text")
+      .eq("id", data.noteId)
+      .maybeSingle();
+    if (noteError) throw new Error(noteError.message);
+    if (!note) throw new Error("Anotação não encontrada.");
+    const { analyzeTechnicalEmployeeNote: analyze } =
+      await import("@/lib/technical-review-ai.server");
+    const result = await analyze(String(note.note_text));
+    const { data: saved, error } = await client
+      .from("technical_employee_notes")
+      .update({
+        ai_suggested_type: result.suggestedType,
+        ai_suggested_category: result.suggestedCategory || null,
+        ai_suggested_competencies: result.competencies,
+        ai_professional_text: result.professionalText || null,
+        ai_analyzed_at: new Date().toISOString(),
+      })
+      .eq("id", data.noteId)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return saved as any;
+  });
+
+/* ---------- PDI estruturado ---------- */
+
+const PDI_STATUSES = [
+  "nao_iniciado",
+  "em_andamento",
+  "cumprido",
+  "parcialmente_cumprido",
+  "nao_cumprido",
+  "cancelado",
+] as const;
+
+export const saveTechnicalPdiAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      reviewId: string;
+      actionId?: string | null;
+      objective: string;
+      agreedAction: string;
+      indicator: string;
+      dueDate?: string | null;
+      managementSupport?: string | null;
+      status: (typeof PDI_STATUSES)[number];
+      followupComment?: string | null;
+      source?: "manual" | "ia";
+    }) => {
+      if (!data.reviewId) throw new Error("Avaliação inválida.");
+      if (!data.objective?.trim() || !data.agreedAction?.trim() || !data.indicator?.trim())
+        throw new Error("Informe objetivo, ação combinada e indicador.");
+      if (!PDI_STATUSES.includes(data.status)) throw new Error("Status do PDI inválido.");
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const review = await loadReview(context, data.reviewId);
+    const client = db(context.supabase);
+    if (!data.actionId) {
+      const { count, error: countError } = await client
+        .from("technical_employee_pdi_actions")
+        .select("id", { count: "exact", head: true })
+        .eq("review_id", data.reviewId);
+      if (countError) throw new Error(countError.message);
+      if ((count ?? 0) >= 4) throw new Error("O PDI pode ter no máximo 4 ações prioritárias.");
+    }
+    const payload = {
+      review_id: data.reviewId,
+      provider_id: review.provider_id,
+      employee_id: review.employee_id,
+      evaluator_user_id: context.userId,
+      objective: data.objective.trim(),
+      agreed_action: data.agreedAction.trim(),
+      indicator: data.indicator.trim(),
+      due_date: data.dueDate || null,
+      management_support: data.managementSupport?.trim() || null,
+      status: data.status,
+      followup_comment: data.followupComment?.trim() || null,
+      source: data.source ?? "manual",
+    };
+    if (data.actionId) {
+      const { data: saved, error } = await client
+        .from("technical_employee_pdi_actions")
+        .update(payload)
+        .eq("id", data.actionId)
+        .select("*")
+        .single();
+      if (error) throw new Error(error.message);
+      return saved as any;
+    }
+    const { data: saved, error } = await client
+      .from("technical_employee_pdi_actions")
+      .insert(payload)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return saved as any;
+  });
+
+export const deleteTechnicalPdiAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { actionId: string }) => {
+    if (!data.actionId) throw new Error("Ação de PDI inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    await assertAccess(context);
+    const { error } = await db(context.supabase)
+      .from("technical_employee_pdi_actions")
+      .delete()
+      .eq("id", data.actionId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

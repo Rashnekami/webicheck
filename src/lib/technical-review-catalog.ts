@@ -5,12 +5,7 @@
  */
 
 export type ReviewCategory =
-  | "tecnica"
-  | "recorrencia"
-  | "evidencias"
-  | "produtividade"
-  | "postura"
-  | "comunicacao";
+  "tecnica" | "recorrencia" | "evidencias" | "produtividade" | "postura" | "comunicacao";
 
 export interface ReviewItemDef {
   key: string;
@@ -113,7 +108,11 @@ export const REVIEW_GROUPS: ReviewGroupDef[] = [
     notesColumn: "communication_notes",
     items: [
       { key: "com_cliente", label: "Atendimento e orientação ao cliente" },
-      { key: "com_equipe", label: "Comunicação com NOC, supervisão e equipe" },
+      { key: "com_equipe", label: "Comunicação técnica e interpessoal" },
+      {
+        key: "com_proativa",
+        label: "Comunicação proativa de atrasos, impedimentos e riscos",
+      },
       { key: "com_feedback", label: "Receptividade a feedback" },
     ],
   },
