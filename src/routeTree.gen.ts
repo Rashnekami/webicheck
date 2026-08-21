@@ -24,6 +24,7 @@ import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authentica
 import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
 import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
+import { Route as AuthenticatedProdutividadeRouteImport } from './routes/_authenticated/produtividade'
 import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedMinhaContaRouteImport } from './routes/_authenticated/minha-conta'
@@ -124,6 +125,12 @@ const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
   path: '/provedor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProdutividadeRoute =
+  AuthenticatedProdutividadeRouteImport.update({
+    id: '/produtividade',
+    path: '/produtividade',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPlataformaRoute = AuthenticatedPlataformaRouteImport.update({
   id: '/plataforma',
   path: '/plataforma',
@@ -278,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
+  '/produtividade': typeof AuthenticatedProdutividadeRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/seguranca': typeof AuthenticatedSegurancaRoute
@@ -318,6 +326,7 @@ export interface FileRoutesByTo {
   '/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
+  '/produtividade': typeof AuthenticatedProdutividadeRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/seguranca': typeof AuthenticatedSegurancaRoute
@@ -360,6 +369,7 @@ export interface FileRoutesById {
   '/_authenticated/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
+  '/_authenticated/produtividade': typeof AuthenticatedProdutividadeRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/_authenticated/seguranca': typeof AuthenticatedSegurancaRoute
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/painel'
     | '/plataforma'
+    | '/produtividade'
     | '/provedor'
     | '/remapeamentos'
     | '/seguranca'
@@ -442,6 +453,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/painel'
     | '/plataforma'
+    | '/produtividade'
     | '/provedor'
     | '/remapeamentos'
     | '/seguranca'
@@ -483,6 +495,7 @@ export interface FileRouteTypes {
     | '/_authenticated/minha-conta'
     | '/_authenticated/painel'
     | '/_authenticated/plataforma'
+    | '/_authenticated/produtividade'
     | '/_authenticated/provedor'
     | '/_authenticated/remapeamentos'
     | '/_authenticated/seguranca'
@@ -634,6 +647,13 @@ declare module '@tanstack/react-router' {
       path: '/provedor'
       fullPath: '/provedor'
       preLoaderRoute: typeof AuthenticatedProvedorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/produtividade': {
+      id: '/_authenticated/produtividade'
+      path: '/produtividade'
+      fullPath: '/produtividade'
+      preLoaderRoute: typeof AuthenticatedProdutividadeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/plataforma': {
@@ -817,6 +837,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMinhaContaRoute: typeof AuthenticatedMinhaContaRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
+  AuthenticatedProdutividadeRoute: typeof AuthenticatedProdutividadeRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
   AuthenticatedRemapeamentosRoute: typeof AuthenticatedRemapeamentosRoute
   AuthenticatedSegurancaRoute: typeof AuthenticatedSegurancaRoute
@@ -842,6 +863,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMinhaContaRoute: AuthenticatedMinhaContaRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
+  AuthenticatedProdutividadeRoute: AuthenticatedProdutividadeRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
   AuthenticatedRemapeamentosRoute: AuthenticatedRemapeamentosRoute,
   AuthenticatedSegurancaRoute: AuthenticatedSegurancaRoute,

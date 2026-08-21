@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   NotebookPen,
   Plus,
+  BarChart3,
   ScanSearch,
   ShieldAlert,
   Sparkles,
@@ -161,6 +162,11 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/produtividade">
+                <BarChart3 className="mr-1.5 h-4 w-4" /> Produtividade (Zumme)
+              </Link>
+            </Button>
             <Button size="sm" variant="outline" asChild>
               <Link to="/auditoria-checklists">
                 <ScanSearch className="mr-1.5 h-4 w-4" /> Analisar checklists com IA

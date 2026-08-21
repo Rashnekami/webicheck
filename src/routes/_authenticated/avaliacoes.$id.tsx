@@ -56,6 +56,13 @@ import {
   overallScore,
   scoreLabel,
 } from "@/lib/technical-review-catalog";
+import {
+  REVIEW_GROUPS_V2,
+  groupAverageV2,
+  overallScoreV2,
+  reviewProgress,
+  scoreLabelV2,
+} from "@/lib/technical-review-catalog-v2";
 
 export const Route = createFileRoute("/_authenticated/avaliacoes/$id")({
   head: () => ({
@@ -110,6 +117,19 @@ function ReviewDetail() {
   const draftRestored = useRef(false);
   const hydrated = useRef(false);
 
+  // A escala e o catalogo sao os da epoca da avaliacao. Avaliacao antiga
+  // (scale_version 1) continua sendo lida e renderizada em 1-5; nada e convertido.
+  const scaleVersion = Number(query.data?.review?.scale_version ?? 1) >= 2 ? 2 : 1;
+  const isV2 = scaleVersion === 2;
+  const groups = isV2 ? REVIEW_GROUPS_V2 : REVIEW_GROUPS;
+  const scaleValues = isV2
+    ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    : [1, 2, 3, 4, 5];
+  const avgOf = (group: any) =>
+    isV2 ? groupAverageV2(group, scores) : groupAverage(group, scores);
+  const labelOf = (v: number | null) => (isV2 ? scoreLabelV2(v) : scoreLabel(v));
+  const progress = isV2 ? reviewProgress(scores, itemNotes) : null;
+
   useEffect(() => {
     const data = query.data;
     if (!data) return;
@@ -124,7 +144,9 @@ function ReviewDetail() {
     setScores(s);
     setItemNotes(n);
     const g: Record<string, string> = {};
-    for (const group of REVIEW_GROUPS) g[group.category] = data.review[group.notesColumn] ?? "";
+    const hydrateGroups =
+      Number(data.review?.scale_version ?? 1) >= 2 ? REVIEW_GROUPS_V2 : REVIEW_GROUPS;
+    for (const group of hydrateGroups) g[group.category] = data.review[group.notesColumn] ?? "";
     setGroupNotes(g);
     setForm({
       employee_role: data.review.employee_role ?? "",
@@ -346,8 +368,37 @@ function ReviewDetail() {
           </CardContent>
         </Card>
 
-        {REVIEW_GROUPS.map((group) => {
-          const avg = groupAverage(group, scores);
+        {progress && (
+          <Card className="border-cyan-500/40">
+            <CardContent className="space-y-2 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-white">
+                  {progress.scored} de {progress.totalItems} itens pontuados ·{" "}
+                  {progress.withObservation} com observação
+                </p>
+                {progress.nudges.length > 0 && (
+                  <Badge variant="destructive">
+                    {progress.nudges.length} sem justificativa
+                  </Badge>
+                )}
+              </div>
+              {progress.nudges.length === 0 ? (
+                <p className="text-xs text-slate-400">
+                  Toda nota extrema está justificada. É isso que sustenta a conversa quando o
+                  técnico perguntar &quot;por quê?&quot;.
+                </p>
+              ) : (
+                <p className="text-xs text-amber-400">
+                  Notas de 1 a 4 e de 9 a 10 pedem uma observação com o fato — data, cliente ou
+                  O.S. Sem o exemplo, a nota vira opinião e o reconhecimento vira elogio vazio.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {groups.map((group) => {
+          const avg = avgOf(group);
           return (
             <Card key={group.category}>
               <CardContent className="space-y-4 p-5">
@@ -355,19 +406,29 @@ function ReviewDetail() {
                   <div>
                     <h2 className="font-semibold text-white">{group.title}</h2>
                     <p className="text-xs text-slate-400">
-                      Peso {Math.round(group.weight * 100)}% · {scoreLabel(avg)}
+                      Peso {Math.round(group.weight * 100)}% · {labelOf(avg)}
                     </p>
                   </div>
                   <p className="text-xl font-bold text-cyan-300">{formatScore(avg)}</p>
                 </div>
                 <Separator />
                 <div className="space-y-4">
-                  {group.items.map((item) => (
+                  {group.items.map((item) => {
+                    const score = scores[item.key];
+                    const hasNote = Boolean((itemNotes[item.key] ?? "").trim());
+                    const needsNote =
+                      isV2 && typeof score === "number" && (score <= 4 || score >= 9) && !hasNote;
+                    return (
                     <div key={item.key} className="space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm text-slate-200">{item.label}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-slate-200">{item.label}</p>
+                          {"help" in item && item.help && (
+                            <p className="mt-0.5 text-xs text-slate-500">{item.help}</p>
+                          )}
+                        </div>
                         <div className="flex gap-1 overflow-x-auto">
-                          {[1, 2, 3, 4, 5].map((n) => (
+                          {scaleValues.map((n) => (
                             <Button
                               key={n}
                               type="button"
@@ -391,10 +452,18 @@ function ReviewDetail() {
                       <Input
                         value={itemNotes[item.key] ?? ""}
                         onChange={(e) => setItemNotes({ ...itemNotes, [item.key]: e.target.value })}
-                        placeholder="Observação factual (opcional)"
+                        placeholder={
+                          needsNote
+                            ? score <= 4
+                              ? "Justifique: que fato levou a essa nota? (data, cliente, O.S.)"
+                              : "Qual foi o caso concreto? É o que o técnico leva da conversa."
+                            : "Observação factual (opcional)"
+                        }
+                        className={needsNote ? "border-amber-500 focus-visible:ring-amber-500" : ""}
                       />
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <Textarea
                   value={groupNotes[group.category] ?? ""}

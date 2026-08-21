@@ -7,6 +7,11 @@ import {
   overallScore,
   type ScoreMap,
 } from "@/lib/technical-review-catalog";
+import {
+  REVIEW_GROUPS_V2,
+  groupAverageV2,
+  overallScoreV2,
+} from "@/lib/technical-review-catalog-v2";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyDb = { from: (table: string) => any; rpc: (fn: string, args?: any) => any };
@@ -143,6 +148,9 @@ export const createTechnicalReview = createServerFn({ method: "POST" })
         employee_city: employee?.city ?? null,
         period_start: data.periodStart,
         period_end: data.periodEnd,
+        // Avaliacoes novas nascem na escala 1-10 com o catalogo v2. As antigas
+        // ficam com o default 1 e continuam sendo lidas em 1-5, sem conversao.
+        scale_version: 2,
       })
       .select("id")
       .single();
@@ -278,6 +286,15 @@ export const saveTechnicalReview = createServerFn({ method: "POST" })
     const client = db(context.supabase);
     const scores = (data.scores ?? {}) as ScoreMap;
 
+    // A escala e a da avaliacao, nunca a mais nova: reabrir uma avaliacao
+    // antiga nao pode recalcular a nota dela numa escala diferente.
+    const { data: reviewRow } = await db(context.supabase)
+      .from("technical_employee_reviews")
+      .select("scale_version")
+      .eq("id", data.id)
+      .maybeSingle();
+    const isV2 = Number((reviewRow as any)?.scale_version ?? 1) >= 2;
+
     const patch: Record<string, unknown> = {
       strengths_notes: data.strengths_notes ?? null,
       development_notes: data.development_notes ?? null,
@@ -288,10 +305,15 @@ export const saveTechnicalReview = createServerFn({ method: "POST" })
       development_due_date: data.development_due_date || null,
       next_review_date: data.next_review_date || null,
       employee_role: data.employee_role ?? null,
-      final_score: overallScore(scores),
+      final_score: isV2 ? overallScoreV2(scores) : overallScore(scores),
     };
-    for (const group of REVIEW_GROUPS) {
-      patch[group.scoreColumn] = groupAverage(group, scores);
+    // "Execucao" e "Qualidade" do catalogo v2 dividem technical_score; o loop
+    // grava a media do ultimo grupo que usa a coluna, e a nota geral e sempre
+    // calculada a partir dos itens, nao das colunas.
+    for (const group of isV2 ? REVIEW_GROUPS_V2 : REVIEW_GROUPS) {
+      patch[group.scoreColumn] = isV2
+        ? groupAverageV2(group as never, scores)
+        : groupAverage(group as never, scores);
       patch[group.notesColumn] = data.groupNotes?.[group.category] ?? null;
     }
     if (data.status) {
