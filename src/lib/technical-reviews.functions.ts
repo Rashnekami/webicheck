@@ -344,16 +344,80 @@ export const deleteTechnicalReview = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Fatos da auditoria de checklists que o supervisor CONFIRMOU no período.
+ * Só entram os confirmados: apontamento pendente ou rejeitado nunca vira texto
+ * de feedback. Falha aqui não pode derrubar a geração — devolve lista vazia.
+ */
+async function loadConfirmedAuditFacts(
+  employeeId: string,
+  periodStart: string,
+  periodEnd: string,
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as any;
+    const { data: analyses } = await admin
+      .from("checklist_ai_analyses")
+      .select("id, checklist_id, checklist_tipo")
+      .eq("employee_id", employeeId)
+      .eq("is_current", true)
+      .gte("competence", periodStart.slice(0, 7))
+      .lte("competence", periodEnd.slice(0, 7));
+    if (!analyses?.length) return [];
+
+    const byId = new Map<string, any>(analyses.map((a: any) => [a.id, a]));
+    const { data: findings } = await admin
+      .from("checklist_ai_findings")
+      .select("analysis_id, kind, reclassified_kind, description, supervisor_note")
+      .in(
+        "analysis_id",
+        analyses.map((a: any) => a.id),
+      )
+      .eq("review_status", "confirmado");
+    if (!findings?.length) return [];
+
+    const { data: checklists } = await admin
+      .from("checklists")
+      .select("id, cliente, cidade, finalizado_em")
+      .in(
+        "id",
+        analyses.map((a: any) => a.checklist_id),
+      );
+    const checklistById = new Map<string, any>((checklists ?? []).map((c: any) => [c.id, c]));
+
+    return (findings as any[]).map((f) => {
+      const analysis = byId.get(f.analysis_id);
+      const checklist = checklistById.get(analysis?.checklist_id);
+      return {
+        tipo: (analysis?.checklist_tipo as string) ?? "",
+        data: checklist?.finalizado_em ? String(checklist.finalizado_em).slice(0, 10) : null,
+        cliente: (checklist?.cliente as string | null) ?? null,
+        cidade: (checklist?.cidade as string | null) ?? null,
+        classificacao: (f.reclassified_kind as string | null) ?? (f.kind as string),
+        fato: f.description as string,
+        observacao_supervisor: (f.supervisor_note as string | null) ?? null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export const runTechnicalReviewAi = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       id: string;
-      type: "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao";
+      type: "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao" | "carta";
       tom?: "direto" | "equilibrado" | "acolhedor";
     }) => {
       if (!data?.id) throw new Error("Avaliação inválida.");
-      if (!["gerencial", "solides", "conversa", "plano", "copiloto", "revisao"].includes(data.type))
+      if (
+        !["gerencial", "solides", "conversa", "plano", "copiloto", "revisao", "carta"].includes(
+          data.type,
+        )
+      )
         throw new Error("Tipo de análise inválido.");
       return data;
     },
@@ -379,6 +443,21 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
           .lte("occurred_at", `${review.period_end}T23:59:59Z`),
         client.from("technical_employee_pdi_actions").select("*").eq("review_id", data.id),
       ]);
+
+    // Registro da conversa anterior e fatos confirmados na auditoria dos
+    // checklists. Ambos alimentam a carta de feedback sem alterar a avaliação.
+    const [{ data: meeting }, confirmedFacts] = await Promise.all([
+      client
+        .from("technical_employee_review_meetings")
+        .select(
+          "employee_reaction, employee_comments, supervisor_notes, agreement_status, agreed_actions",
+        )
+        .eq("review_id", data.id)
+        .order("meeting_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      loadConfirmedAuditFacts(review.employee_id, review.period_start, review.period_end),
+    ]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: employee } = await supabaseAdmin
       .from("profiles")
@@ -455,6 +534,16 @@ export const runTechnicalReviewAi = createServerFn({ method: "POST" })
             }
           : null;
       })(),
+      fatos_auditoria: confirmedFacts,
+      conversa: meeting
+        ? {
+            reacao: (meeting.employee_reaction as string | null) ?? null,
+            comentarios_do_tecnico: (meeting.employee_comments as string | null) ?? null,
+            concordancia: (meeting.agreement_status as string | null) ?? null,
+            acoes_combinadas: (meeting.agreed_actions as string | null) ?? null,
+            notas_do_supervisor: (meeting.supervisor_notes as string | null) ?? null,
+          }
+        : null,
       tom: data.tom,
     };
 
@@ -886,6 +975,9 @@ export const saveTechnicalEmployeeNote = createServerFn({ method: "POST" })
       employeeId = review.employee_id;
     } else {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      // Sem employeeId não há a quem vincular a anotação; checar antes de
+      // consultar evita passar undefined para o filtro do PostgREST.
+      if (!data.employeeId) throw new Error("Informe o colaborador da anotação.");
       const [{ data: me }, { data: employee }] = await Promise.all([
         supabaseAdmin.from("profiles").select("provider_id").eq("id", context.userId).maybeSingle(),
         supabaseAdmin

@@ -3,7 +3,14 @@
  */
 import { runAiPrompt } from "@/lib/ai-providers.server";
 
-export type ReviewAiType = "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao";
+export type ReviewAiType =
+  | "gerencial"
+  | "solides"
+  | "conversa"
+  | "plano"
+  | "copiloto"
+  | "revisao"
+  | "carta";
 
 export interface ReviewAiInput {
   colaborador: string;
@@ -34,6 +41,24 @@ export interface ReviewAiInput {
     status: string;
   }>;
   avaliacao_anterior?: Record<string, unknown> | null;
+  /** Fatos confirmados pelo supervisor na auditoria dos checklists. */
+  fatos_auditoria?: Array<{
+    tipo: string;
+    data: string | null;
+    cliente: string | null;
+    cidade: string | null;
+    classificacao: string;
+    fato: string;
+    observacao_supervisor: string | null;
+  }>;
+  /** Registro da conversa: a voz do próprio técnico. */
+  conversa?: {
+    reacao: string | null;
+    comentarios_do_tecnico: string | null;
+    concordancia: string | null;
+    acoes_combinadas: string | null;
+    notas_do_supervisor: string | null;
+  } | null;
   tom?: "direto" | "equilibrado" | "acolhedor";
 }
 
@@ -92,6 +117,43 @@ metas ausentes; cálculo/itens não avaliados; e diferença entre comunicação 
 comunicação proativa operacional. Produza apenas alertas para revisão e confirmações, sem alterar dados.
 Responda em JSON: {"alertas":["..."],"confirmacoes":["..."],"recomendacao":"..."}`;
   }
+  if (type === "carta") {
+    return `${common}
+Escreva a carta de feedback que o supervisor vai entregar ao colaborador. É um texto
+para a pessoa ler, não um formulário. Tom ${tom}, primeira pessoa do supervisor,
+segunda pessoa para o colaborador, tratando-o pelo primeiro nome.
+
+Estrutura obrigatória, nesta ordem, sem títulos numerados e sem markdown:
+1. Abertura curta reconhecendo a conversa.
+2. Reconhecimento. Use os fatos de "fatos_auditoria" e "anotacoes_confirmadas"
+   classificados como positivos. CADA elogio precisa vir com o caso concreto que o
+   sustenta: data, cliente ou tipo de atendimento. Se não houver fato registrado,
+   escreva o reconhecimento a partir de "pontos_fortes" e NÃO invente exemplo.
+3. Pontos de desenvolvimento. Mesma regra: o fato específico primeiro, o pedido depois.
+   Quando houver contagem (ex.: 6 de 37 atendimentos), use o número.
+4. O que ficou combinado: as ações de "pdi_atual" com prazo. Se houver curso indicado,
+   apresente como o caminho combinado, nunca como punição por nota baixa.
+5. "O que você me trouxe": o que está em "conversa". Inclua discordância e pedidos do
+   colaborador, com as palavras dele. Omita esta parte inteira se "conversa" for nula.
+6. "Sobre minha atuação como gestor": os compromissos do supervisor, tirados de
+   "apoio_gestao" das ações de PDI e de "conversa". Omita se não houver nenhum.
+7. Fechamento curto, sem promessa que o supervisor não fez.
+
+Regras específicas desta carta:
+- Elogie e critique COMPORTAMENTO e RESULTADO, nunca traço de personalidade.
+  Proibido: "dedicado", "leal", "responsável", "esforçado", "comprometido",
+  "desatento", "relaxado", "irresponsável", "falta de conhecimento".
+  Em vez de "você é dedicado", escreva o que ele fez que mostra isso.
+- Nada de sanduíche: não amorteça a crítica entre dois elogios.
+- No máximo 3 reconhecimentos e no máximo 2 pontos de desenvolvimento. Escolha os de
+  maior impacto e recorrência; deixar de fora é melhor que diluir.
+- Não cite nota, percentual de avaliação nem escala. A carta fala de fatos e acordos.
+- Não invente fato, data, cliente, curso, equipamento ou promessa que não esteja nos dados.
+- Não mencione advertência, punição, promoção ou desligamento.
+- Texto corrido em parágrafos curtos, sem bullet, pronto para imprimir e entregar.
+
+Responda em JSON: {"carta": "..."}`;
+  }
   return `${common}
 Faça uma análise gerencial técnica: leitura geral do desempenho, riscos operacionais,
 pontos fortes, pontos de atenção e recomendação de acompanhamento.
@@ -102,6 +164,7 @@ function flatten(type: ReviewAiType, parsed: Record<string, unknown>): string {
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const list = (v: unknown) => (Array.isArray(v) ? v.map((i) => `• ${String(i)}`).join("\n") : "");
   if (type === "solides") return str(parsed.texto);
+  if (type === "carta") return str(parsed.carta);
   if (type === "conversa") return str(parsed.roteiro);
   if (type === "plano") {
     const actions = Array.isArray(parsed.acoes) ? parsed.acoes : [];
