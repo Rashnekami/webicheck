@@ -1566,6 +1566,166 @@ export type Database = {
           },
         ]
       }
+      technical_employee_notes: {
+        Row: {
+          ai_analyzed_at: string | null
+          ai_professional_text: string | null
+          ai_suggested_category: string | null
+          ai_suggested_competencies: Json
+          ai_suggested_type: string | null
+          author_user_id: string
+          category: string | null
+          checklist_id: string | null
+          competence: string
+          created_at: string
+          employee_id: string
+          id: string
+          linked_review_id: string | null
+          note_text: string
+          note_type: string
+          occurred_at: string
+          provider_id: string
+          service_order: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_analyzed_at?: string | null
+          ai_professional_text?: string | null
+          ai_suggested_category?: string | null
+          ai_suggested_competencies?: Json
+          ai_suggested_type?: string | null
+          author_user_id: string
+          category?: string | null
+          checklist_id?: string | null
+          competence: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          linked_review_id?: string | null
+          note_text: string
+          note_type?: string
+          occurred_at?: string
+          provider_id: string
+          service_order?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_analyzed_at?: string | null
+          ai_professional_text?: string | null
+          ai_suggested_category?: string | null
+          ai_suggested_competencies?: Json
+          ai_suggested_type?: string | null
+          author_user_id?: string
+          category?: string | null
+          checklist_id?: string | null
+          competence?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          linked_review_id?: string | null
+          note_text?: string
+          note_type?: string
+          occurred_at?: string
+          provider_id?: string
+          service_order?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_notes_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_employee_notes_linked_review_id_fkey"
+            columns: ["linked_review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_employee_notes_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_employee_pdi_actions: {
+        Row: {
+          agreed_action: string
+          created_at: string
+          due_date: string | null
+          employee_id: string
+          evaluator_user_id: string
+          followup_comment: string | null
+          id: string
+          indicator: string
+          management_support: string | null
+          objective: string
+          provider_id: string
+          review_id: string
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agreed_action: string
+          created_at?: string
+          due_date?: string | null
+          employee_id: string
+          evaluator_user_id: string
+          followup_comment?: string | null
+          id?: string
+          indicator: string
+          management_support?: string | null
+          objective: string
+          provider_id: string
+          review_id: string
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agreed_action?: string
+          created_at?: string
+          due_date?: string | null
+          employee_id?: string
+          evaluator_user_id?: string
+          followup_comment?: string | null
+          id?: string
+          indicator?: string
+          management_support?: string | null
+          objective?: string
+          provider_id?: string
+          review_id?: string
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_employee_pdi_actions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_employee_pdi_actions_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "technical_employee_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       technical_employee_review_ai: {
         Row: {
           analysis_type: string
@@ -1784,41 +1944,53 @@ export type Database = {
       }
       technical_employee_review_meetings: {
         Row: {
+          agreed_actions: string | null
+          agreement_status: string | null
           created_at: string
           created_by: string | null
           employee_comments: string | null
           employee_reaction: string | null
+          feedback_realized: boolean
           id: string
           meeting_date: string
           meeting_place: string | null
           new_information: string | null
           new_information_presented: boolean
+          next_review_date: string | null
           review_id: string
           supervisor_notes: string | null
         }
         Insert: {
+          agreed_actions?: string | null
+          agreement_status?: string | null
           created_at?: string
           created_by?: string | null
           employee_comments?: string | null
           employee_reaction?: string | null
+          feedback_realized?: boolean
           id?: string
           meeting_date?: string
           meeting_place?: string | null
           new_information?: string | null
           new_information_presented?: boolean
+          next_review_date?: string | null
           review_id: string
           supervisor_notes?: string | null
         }
         Update: {
+          agreed_actions?: string | null
+          agreement_status?: string | null
           created_at?: string
           created_by?: string | null
           employee_comments?: string | null
           employee_reaction?: string | null
+          feedback_realized?: boolean
           id?: string
           meeting_date?: string
           meeting_place?: string | null
           new_information?: string | null
           new_information_presented?: boolean
+          next_review_date?: string | null
           review_id?: string
           supervisor_notes?: string | null
         }
