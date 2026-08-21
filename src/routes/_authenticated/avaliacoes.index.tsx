@@ -2,7 +2,15 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, NotebookPen, Plus, ShieldAlert, Sparkles, UsersRound } from "lucide-react";
+import {
+  ArrowLeft,
+  NotebookPen,
+  Plus,
+  ScanSearch,
+  ShieldAlert,
+  Sparkles,
+  UsersRound,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -152,7 +160,13 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
               </p>
             </div>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/auditoria-checklists">
+                <ScanSearch className="mr-1.5 h-4 w-4" /> Analisar checklists com IA
+              </Link>
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="bg-gradient-to-r from-cyan-500 to-blue-600 text-white">
                 <Plus className="mr-1.5 h-4 w-4" /> Nova avaliação
@@ -207,7 +221,8 @@ function AvaliacoesContent({ canManage }: { canManage: boolean }) {
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
       </header>
 
