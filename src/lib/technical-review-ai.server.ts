@@ -83,8 +83,89 @@ function prompts(type: ReviewAiType, payload: ReviewAiInput): string {
 
   if (type === "solides") {
     return `${common}
-Escreva um texto pronto para ser colado no campo de feedback do sistema Sólides (RH),
-com 2 a 4 parágrafos curtos, tom ${tom}, sem tópicos e sem markdown.
+Escreva o registro de feedback que o supervisor vai colar no campo do sistema Sólides.
+
+Quem escreve é o supervisor, depois de ter conversado e acompanhado a pessoa durante o
+período. Não é um relatório sobre o colaborador: é o supervisor registrando o que
+combinou com ele. Escreva como uma pessoa escreve, não como um sistema.
+
+REGISTRO DE LINGUAGEM
+Frases como estas são o alvo:
+"De forma geral, sua adaptação à equipe foi muito boa."
+"Para o próximo período, quero desenvolver contigo principalmente a parte de troubleshooting."
+"Outro ponto que precisamos melhorar é a organização dos materiais."
+"Nossa expectativa para o próximo ciclo será acompanhar..."
+Alterne entre chamar a pessoa pelo nome e falar direto com ela ("você", "contigo").
+Pode ter a proximidade de uma conversa profissional, mas continua sendo registro de RH.
+
+PROIBIDO — são as marcas de texto gerado por máquina:
+- "apresentou desempenho consistente", "foi identificada a necessidade de aprimorar",
+  "demonstrou aderência", "evidenciou oportunidades de melhoria", "de modo geral,
+  observa-se", "no que tange", "no tocante a", "supracitado".
+- Um parágrafo por grupo de nota, ou percorrer as categorias na ordem da avaliação.
+- Citar nota, número, percentual, escala ou nome de competência do catálogo.
+- Lista, bullet, título, markdown ou numeração.
+- Elogio vazio sem nada por trás, e excesso de elogio.
+- Julgamento de personalidade, diagnóstico psicológico, ameaça, ou qualquer menção a
+  advertência, promoção ou desligamento.
+
+COMO CONSTRUIR A NARRATIVA (sem títulos no texto final)
+1. Visão geral do período: como foi o desempenho e a adaptação.
+2. Os pontos positivos que realmente importam — 2 ou 3, não todos os que existem.
+   Escolha por impacto, não por nota alta.
+3. Os pontos de desenvolvimento — 2 a 4, priorizados. Apresente com clareza, sem tom de
+   advertência. Depois de nomear cada um, explique o que significa na prática.
+4. Quando houver evidência, ligue o comportamento à consequência operacional. Sem
+   evidência, NÃO afirme causa: use "pode estar relacionado", "merece acompanhamento",
+   "precisamos observar", "será um indicador importante no próximo período".
+5. Comunicação e postura, quando houver observação a respeito: nunca de forma agressiva.
+6. Fechamento olhando para o próximo ciclo: responda o que será acompanhado na próxima
+   avaliação. Reconheça potencial quando os dados sustentarem.
+
+OBSERVAÇÃO INFORMAL DO SUPERVISOR
+Se a avaliação trouxer registro coloquial, entenda o significado e traduza para
+linguagem profissional em vez de repetir literalmente. Exemplo: "falta malícia com
+alguns clientes" vira leitura de cenário, discernimento operacional, saber quando
+aprofundar questionamentos e validar as informações antes de decidir. Nunca reproduza a
+expressão informal quando ela puder soar como julgamento da pessoa.
+
+AS NOTAS
+Servem para você entender prioridade e relevância — nota alta indica ponto forte, nota
+baixa indica ponto a desenvolver. Elas NÃO podem aparecer no texto. Fale de
+comportamentos, fatos e expectativas.
+
+DADOS AUSENTES
+Item sem dado não é problema e não vira crítica. Simplesmente não use aquele indicador.
+Só se for realmente relevante, escreva que não houve dado suficiente no período e que
+será acompanhado. N/A nunca é zero, nunca é deficiência.
+
+HISTÓRICO
+Havendo avaliação anterior, use o que foi combinado antes. Com evolução comprovada:
+"Em relação ao período anterior, houve evolução em...". Sem evolução: "Este continua
+sendo um ponto que precisamos acompanhar." Com piora: "Este indicador apresentou piora
+no período e precisa receber maior atenção no próximo ciclo." Não invente evolução
+apenas porque a nota mudou.
+
+TAMANHO E TOM
+De 5 a 8 parágrafos curtos, tom ${tom}. O supervisor precisa revisar rápido, copiar,
+colar no Sólides e usar o mesmo conteúdo como base da conversa.
+
+O texto abaixo é referência de ESTILO e RITMO, não modelo a ser copiado. Não reaproveite
+as frases nem a mesma sequência de assuntos: cada avaliação tem prioridades próprias, e
+dois textos não podem sair parecidos.
+---
+"Dominy, de forma geral, sua adaptação à equipe e aos métodos de trabalho da Webifibra
+foi muito boa. Você demonstra comprometimento, proatividade para resolver as situações e
+tem um ponto que considero muito positivo: recebe bem orientações e feedbacks.
+Para o próximo período, quero desenvolver contigo principalmente a parte de
+troubleshooting. A ideia é aprofundar o diagnóstico antes de concluir um atendimento,
+buscando entender se realmente resolvemos a causa e não apenas o sintoma. Isso também
+está relacionado ao índice de retorno no mesmo cliente, que precisamos acompanhar."
+---
+
+Não crie frase positiva que os dados não sustentem, e não suavize problema relevante a
+ponto de ele perder o sentido. Ser humano sem deixar de ser objetivo.
+
 Responda em JSON: {"texto": "..."}`;
   }
   if (type === "conversa") {
