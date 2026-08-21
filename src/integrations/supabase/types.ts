@@ -2376,6 +2376,144 @@ export type Database = {
           },
         ]
       }
+      zumme_productivity_breakdown: {
+        Row: {
+          category: string
+          created_at: string
+          entry_id: string
+          id: string
+          kind: string
+          label: string
+          percent: number | null
+          quantity: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          entry_id: string
+          id?: string
+          kind: string
+          label: string
+          percent?: number | null
+          quantity: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          entry_id?: string
+          id?: string
+          kind?: string
+          label?: string
+          percent?: number | null
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zumme_productivity_breakdown_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "zumme_productivity_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zumme_productivity_entries: {
+        Row: {
+          avg_completion_minutes: number | null
+          avg_completion_raw: string | null
+          avg_per_day: number | null
+          cities: string[]
+          competence: string
+          created_at: string
+          employee_id: string | null
+          entered_by: string
+          id: string
+          notes: string | null
+          provider_id: string
+          source: string
+          source_name: string
+          total_os: number
+          updated_at: string
+        }
+        Insert: {
+          avg_completion_minutes?: number | null
+          avg_completion_raw?: string | null
+          avg_per_day?: number | null
+          cities?: string[]
+          competence: string
+          created_at?: string
+          employee_id?: string | null
+          entered_by: string
+          id?: string
+          notes?: string | null
+          provider_id: string
+          source?: string
+          source_name: string
+          total_os: number
+          updated_at?: string
+        }
+        Update: {
+          avg_completion_minutes?: number | null
+          avg_completion_raw?: string | null
+          avg_per_day?: number | null
+          cities?: string[]
+          competence?: string
+          created_at?: string
+          employee_id?: string | null
+          entered_by?: string
+          id?: string
+          notes?: string | null
+          provider_id?: string
+          source?: string
+          source_name?: string
+          total_os?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zumme_productivity_entries_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      zumme_technician_aliases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          provider_id: string
+          zumme_name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          provider_id: string
+          zumme_name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          provider_id?: string
+          zumme_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zumme_technician_aliases_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       cto_reference_latest: {
@@ -2506,6 +2644,7 @@ export type Database = {
       }
       norm_city: { Args: { _city: string }; Returns: string }
       owns_technical_review: { Args: { _review_id: string }; Returns: boolean }
+      owns_zumme_entry: { Args: { _entry_id: string }; Returns: boolean }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
       purge_old_security_logs: { Args: never; Returns: undefined }
       review_checklist: {
