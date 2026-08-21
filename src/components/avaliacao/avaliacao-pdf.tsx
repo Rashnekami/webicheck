@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 
 import {
   REVIEW_GROUPS,
@@ -141,6 +141,8 @@ export interface AvaliacaoPdfInput {
   finalScore: number | null;
   /** Análises geradas pela IA (technical_employee_review_ai). */
   ai?: any[];
+  /** Prints e fotos anexados à avaliação, já com URL assinada resolvida. */
+  evidenceImages?: { id: string; url: string; name?: string | null; caption?: string | null }[];
 }
 
 const FOLLOWUP_LABEL: Record<string, string> = {
@@ -177,6 +179,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 
 function AvaliacaoDocument(input: AvaliacaoPdfInput) {
   const { review, employee, scores, items, evidences, meeting, followups, finalScore } = input;
+  const evidenceImages = input.evidenceImages;
   const generated = new Date().toLocaleString("pt-BR");
   const ai = (input.ai ?? []).slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
   const latestAi = new Map<string, any>();
@@ -349,19 +352,40 @@ function AvaliacaoDocument(input: AvaliacaoPdfInput) {
             <View style={{ flexDirection: "row" }}>
               <Text style={{ ...s.th, width: "18%" }}>TIPO</Text>
               <Text style={{ ...s.th, width: "16%" }}>OS / CÓDIGO</Text>
-              <Text style={{ ...s.th, width: "50%" }}>DESCRIÇÃO</Text>
-              <Text style={{ ...s.th, width: "16%" }}>REGISTRO</Text>
+              <Text style={{ ...s.th, width: "36%" }}>DESCRIÇÃO</Text>
+              <Text style={{ ...s.th, width: "18%" }}>ANEXO</Text>
+              <Text style={{ ...s.th, width: "12%" }}>REGISTRO</Text>
             </View>
             {evidences.map((e) => (
               <View key={e.id} style={{ flexDirection: "row" }} wrap={false}>
                 <Text style={{ ...s.td, width: "18%" }}>{e.evidence_type}</Text>
                 <Text style={{ ...s.td, width: "16%" }}>{e.os || "—"}</Text>
-                <Text style={{ ...s.td, width: "50%" }}>{e.description || "—"}</Text>
-                <Text style={{ ...s.td, width: "16%", color: C.muted }}>
+                <Text style={{ ...s.td, width: "36%" }}>{e.description || "—"}</Text>
+                <Text style={{ ...s.td, width: "18%", color: C.muted }}>
+                  {e.display_name || "—"}
+                </Text>
+                <Text style={{ ...s.td, width: "12%", color: C.muted }}>
                   {e.created_at ? new Date(e.created_at).toLocaleDateString("pt-BR") : "—"}
                 </Text>
               </View>
             ))}
+          </View>
+        ) : null}
+
+        {evidenceImages && evidenceImages.length > 0 ? (
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>EVIDÊNCIAS ANEXADAS NO PERÍODO</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {evidenceImages.map((img) => (
+                <View key={img.id} style={{ width: "48%" }} wrap={false}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image src={img.url} style={{ width: "100%", borderRadius: 3 }} />
+                  <Text style={{ ...s.td, color: C.muted, fontSize: 7 }}>
+                    {img.caption || img.name || ""}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
 

@@ -766,6 +766,124 @@ export const addReviewEvidence = createServerFn({ method: "POST" })
     return saved as any;
   });
 
+const REVIEW_EVIDENCE_BUCKET = "review-evidences";
+const EVIDENCE_ALLOWED_MIME = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
+const EVIDENCE_MAX_BYTES = 8 * 1024 * 1024;
+
+/** Assinaturas reais — o MIME declarado pelo cliente não prova nada. */
+function evidenceContentMatches(mime: string, b: Uint8Array): boolean {
+  if (b.byteLength < 12) return false;
+  if (mime === "image/png")
+    return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  if (mime === "image/jpeg") return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  if (mime === "image/webp")
+    return (
+      b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50
+    );
+  if (mime === "application/pdf")
+    return b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+  return false;
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const clean = b64.includes(",") ? b64.slice(b64.indexOf(",") + 1) : b64;
+  const bin = atob(clean);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Anexa uma evidência do período que não veio de checklist: print do Zumme,
+ * foto, documento. Fica vinculada à avaliação e entra no PDF.
+ */
+export const uploadReviewEvidenceFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      id: string;
+      name: string;
+      mime: string;
+      dataBase64: string;
+      description?: string;
+      occurredOn?: string | null;
+    }) => {
+      if (!data?.id) throw new Error("Avaliação inválida.");
+      if (!EVIDENCE_ALLOWED_MIME.includes(data?.mime))
+        throw new Error("Formato não permitido. Use PNG, JPG, WEBP ou PDF.");
+      if (!data?.dataBase64) throw new Error("Arquivo vazio.");
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const review = await loadReview(context, data.id);
+    const bytes = base64ToBytes(data.dataBase64);
+    if (bytes.byteLength === 0) throw new Error("Arquivo vazio.");
+    if (bytes.byteLength > EVIDENCE_MAX_BYTES) throw new Error("Arquivo acima de 8 MB.");
+    if (!evidenceContentMatches(data.mime, bytes))
+      throw new Error("O conteúdo do arquivo não corresponde ao formato informado.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const safeName =
+      (data.name || "evidencia").split(/[\\/]/).pop()?.replace(/[^\p{L}\p{N}._-]+/gu, "_").slice(0, 80) ||
+      "evidencia";
+    const ext = safeName.includes(".") ? safeName.split(".").pop() : "bin";
+    const path = `${review.id}/${crypto.randomUUID()}.${(ext ?? "bin").toLowerCase().slice(0, 8)}`;
+
+    const { error: upErr } = await supabaseAdmin.storage
+      .from(REVIEW_EVIDENCE_BUCKET)
+      .upload(path, bytes, { contentType: data.mime, upsert: false });
+    if (upErr) throw new Error("Não foi possível anexar a evidência.");
+
+    const { data: created, error } = await db(context.supabase)
+      .from("technical_employee_review_evidences")
+      .insert({
+        review_id: review.id,
+        evidence_type: data.mime === "application/pdf" ? "documento" : "imagem",
+        description: data.description?.slice(0, 500) ?? null,
+        storage_path: path,
+        display_name: safeName,
+        mime_type: data.mime,
+        size_bytes: bytes.byteLength,
+        occurred_on: data.occurredOn || null,
+        created_by: context.userId,
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return created;
+  });
+
+/** URL assinada de curta duração, só depois de confirmar a posse da avaliação. */
+export const getReviewEvidenceUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { evidenceId: string }) => {
+    if (!data?.evidenceId) throw new Error("Evidência inválida.");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    // A RLS de technical_employee_review_evidences já exige owns_technical_review:
+    // se a evidência não for de uma avaliação do supervisor, não volta linha.
+    const { data: evidence } = await db(context.supabase)
+      .from("technical_employee_review_evidences")
+      .select("storage_path, mime_type, display_name")
+      .eq("id", data.evidenceId)
+      .maybeSingle();
+    if (!evidence?.storage_path) throw new Error("Evidência não encontrada.");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: signed } = await supabaseAdmin.storage
+      .from(REVIEW_EVIDENCE_BUCKET)
+      .createSignedUrl(evidence.storage_path as string, 300);
+    if (!signed?.signedUrl) throw new Error("Não foi possível abrir a evidência.");
+    return {
+      url: signed.signedUrl as string,
+      mime: evidence.mime_type as string | null,
+      name: evidence.display_name as string | null,
+    };
+  });
+
 export const removeReviewEvidence = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { evidenceId: string }) => {

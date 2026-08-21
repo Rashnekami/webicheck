@@ -35,12 +35,14 @@ import {
 } from "@/components/ui/select";
 import {
   addReviewEvidence,
+  getReviewEvidenceUrl,
   deleteReviewFollowup,
   deleteTechnicalReview,
   getEmployeeReviewHistory,
   getTechnicalReview,
   listReviewCandidateChecklists,
   removeReviewEvidence,
+  uploadReviewEvidenceFile,
   runTechnicalReviewAi,
   saveReviewFollowup,
   saveReviewMeeting,
@@ -259,7 +261,31 @@ function ReviewDetail() {
     try {
       await saveTechnicalReview({ data: { id, scores, itemNotes, groupNotes, ...form } });
       const fresh = await getTechnicalReview({ data: { id } });
+
+      // Resolve a URL assinada de cada print anexado para o PDF conseguir
+      // desenhar a imagem. Falha em uma nao pode impedir a geracao do PDF.
+      const evidenceImages = (
+        await Promise.all(
+          ((fresh.evidences ?? []) as any[])
+            .filter((e) => e.storage_path && String(e.mime_type ?? "").startsWith("image/"))
+            .map(async (e) => {
+              try {
+                const signed = await getReviewEvidenceUrl({ data: { evidenceId: e.id } });
+                return {
+                  id: e.id as string,
+                  url: signed.url,
+                  name: e.display_name as string | null,
+                  caption: e.description as string | null,
+                };
+              } catch {
+                return null;
+              }
+            }),
+        )
+      ).filter(Boolean) as { id: string; url: string; name: string | null; caption: string | null }[];
+
       await downloadAvaliacaoPdf({
+        evidenceImages,
         review: fresh.review,
         employee: fresh.employee,
         evaluatorName: fresh.evaluatorName,
@@ -679,6 +705,7 @@ const EVIDENCE_TYPES = [
 ];
 
 function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: any[] }) {
+  const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
   const [type, setType] = useState("checklist");
   const [checklistId, setChecklistId] = useState("");
@@ -712,6 +739,42 @@ function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: a
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const dataBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
+        reader.readAsDataURL(file);
+      });
+      return uploadReviewEvidenceFile({
+        data: {
+          id: reviewId,
+          name: file.name,
+          mime: file.type,
+          dataBase64,
+          description: description.trim() || undefined,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Evidência anexada.");
+      setDescription("");
+      qc.invalidateQueries({ queryKey: ["technical-review", reviewId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  async function openEvidence(evidenceId: string) {
+    try {
+      const { url } = await getReviewEvidenceUrl({ data: { evidenceId } });
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
 
   const del = useMutation({
     mutationFn: (evidenceId: string) => removeReviewEvidence({ data: { evidenceId } }),
@@ -766,9 +829,35 @@ function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: a
             placeholder="Descrição do fato observado"
           />
         </div>
-        <Button size="sm" disabled={add.isPending} onClick={() => add.mutate()}>
-          <Plus className="mr-1.5 h-4 w-4" /> Adicionar evidência
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={add.isPending} onClick={() => add.mutate()}>
+            <Plus className="mr-1.5 h-4 w-4" /> Adicionar evidência
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,application/pdf"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) upload.mutate(file);
+              e.target.value = "";
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={upload.isPending}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            {upload.isPending ? "Enviando…" : "Anexar print ou arquivo"}
+          </Button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Print do Zumme, foto, documento — evidência do período que não veio de checklist. PNG,
+          JPG, WEBP ou PDF até 8 MB. As imagens saem no PDF da avaliação.
+        </p>
         <div className="space-y-2">
           {evidences.length === 0 ? (
             <p className="text-sm text-slate-500">Nenhuma evidência registrada.</p>
@@ -785,8 +874,14 @@ function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: a
                   <p className="text-xs text-slate-500">
                     {e.evidence_type}
                     {e.os ? ` · OS ${e.os}` : ""}
+                    {e.display_name ? ` · ${e.display_name}` : ""}
                   </p>
                 </div>
+                {e.storage_path && (
+                  <Button size="sm" variant="ghost" onClick={() => openEvidence(e.id)}>
+                    Abrir
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
