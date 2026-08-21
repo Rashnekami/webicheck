@@ -437,7 +437,13 @@ export function ContinuousReviewPanel({
             </div>
             <Button
               size="sm"
-              disabled={savePdi.isPending || pdiActions.length >= 4}
+              disabled={
+                savePdi.isPending ||
+                pdiActions.length >= 4 ||
+                !pdi.objective.trim() ||
+                !pdi.agreedAction.trim() ||
+                !pdi.indicator.trim()
+              }
               onClick={() => savePdi.mutate(undefined)}
             >
               <Plus className="mr-1.5 h-4 w-4" /> Adicionar ação
