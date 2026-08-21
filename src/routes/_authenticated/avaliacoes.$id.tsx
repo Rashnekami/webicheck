@@ -72,6 +72,7 @@ export const Route = createFileRoute("/_authenticated/avaliacoes/$id")({
 });
 
 const AI_LABELS: Record<string, string> = {
+  carta: "Carta de feedback",
   gerencial: "Análise gerencial",
   solides: "Texto para o Sólides",
   conversa: "Roteiro de conversa",
@@ -191,7 +192,7 @@ function ReviewDetail() {
 
   const ai = useMutation({
     mutationFn: async (
-      type: "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao",
+      type: "gerencial" | "solides" | "conversa" | "plano" | "copiloto" | "revisao" | "carta",
     ) => {
       // A IA lê os dados gravados: salva o que está na tela antes de analisar.
       await saveTechnicalReview({ data: { id, scores, itemNotes, groupNotes, ...form } });
@@ -490,7 +491,17 @@ function ReviewDetail() {
               Salve a avaliação antes de gerar: a IA usa apenas os dados já registrados.
             </p>
             <div className="flex flex-wrap gap-2">
-              {(["gerencial", "solides", "conversa", "plano", "copiloto", "revisao"] as const).map(
+              {(
+                [
+                  "carta",
+                  "gerencial",
+                  "solides",
+                  "conversa",
+                  "plano",
+                  "copiloto",
+                  "revisao",
+                ] as const
+              ).map(
                 (type) => (
                   <Button
                     key={type}
