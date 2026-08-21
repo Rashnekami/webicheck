@@ -233,6 +233,208 @@ export type Database = {
           },
         ]
       }
+      checklist_ai_analyses: {
+        Row: {
+          analyzed_at: string | null
+          batch_id: string | null
+          checklist_id: string
+          checklist_tipo: string
+          competence: string
+          confidence: string | null
+          content_hash: string
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          error_message: string | null
+          id: string
+          is_current: boolean
+          model: string | null
+          provider_id: string
+          raw_response: Json | null
+          revision_number: number
+          rubric_version: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          analyzed_at?: string | null
+          batch_id?: string | null
+          checklist_id: string
+          checklist_tipo: string
+          competence: string
+          confidence?: string | null
+          content_hash: string
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          error_message?: string | null
+          id?: string
+          is_current?: boolean
+          model?: string | null
+          provider_id: string
+          raw_response?: Json | null
+          revision_number?: number
+          rubric_version: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          analyzed_at?: string | null
+          batch_id?: string | null
+          checklist_id?: string
+          checklist_tipo?: string
+          competence?: string
+          confidence?: string | null
+          content_hash?: string
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          error_message?: string | null
+          id?: string
+          is_current?: boolean
+          model?: string | null
+          provider_id?: string
+          raw_response?: Json | null
+          revision_number?: number
+          rubric_version?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_ai_analyses_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_ai_analyses_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_ai_findings: {
+        Row: {
+          analysis_id: string
+          category: string
+          confidence: string
+          created_at: string
+          description: string
+          id: string
+          kind: string
+          origin: string
+          reclassified_kind: string | null
+          refs: Json
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          supervisor_note: string | null
+        }
+        Insert: {
+          analysis_id: string
+          category: string
+          confidence?: string
+          created_at?: string
+          description: string
+          id?: string
+          kind: string
+          origin?: string
+          reclassified_kind?: string | null
+          refs?: Json
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          supervisor_note?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          category?: string
+          confidence?: string
+          created_at?: string
+          description?: string
+          id?: string
+          kind?: string
+          origin?: string
+          reclassified_kind?: string | null
+          refs?: Json
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          supervisor_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_ai_findings_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_ai_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_audit_batches: {
+        Row: {
+          created_at: string
+          employee_id: string | null
+          failed: number
+          filters: Json
+          finished_at: string | null
+          id: string
+          last_error: string | null
+          processed: number
+          provider_id: string
+          skipped_duplicate: number
+          started_by: string
+          status: string
+          total_checklists: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id?: string | null
+          failed?: number
+          filters?: Json
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          processed?: number
+          provider_id: string
+          skipped_duplicate?: number
+          started_by: string
+          status?: string
+          total_checklists?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string | null
+          failed?: number
+          filters?: Json
+          finished_at?: string | null
+          id?: string
+          last_error?: string | null
+          processed?: number
+          provider_id?: string
+          skipped_duplicate?: number
+          started_by?: string
+          status?: string
+          total_checklists?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_audit_batches_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_diagnostic_reports: {
         Row: {
           agent_version: string | null
@@ -2643,6 +2845,10 @@ export type Database = {
         }[]
       }
       norm_city: { Args: { _city: string }; Returns: string }
+      owns_checklist_analysis: {
+        Args: { _analysis_id: string }
+        Returns: boolean
+      }
       owns_technical_review: { Args: { _review_id: string }; Returns: boolean }
       owns_zumme_entry: { Args: { _entry_id: string }; Returns: boolean }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
