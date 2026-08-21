@@ -32,6 +32,7 @@ import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenti
 import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
+import { Route as AuthenticatedAuditoriaChecklistsRouteImport } from './routes/_authenticated/auditoria-checklists'
 import { Route as AuthenticatedMapaOpticoIndexRouteImport } from './routes/_authenticated/mapa-optico.index'
 import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
 import { Route as AuthenticatedCanalEticoIndexRouteImport } from './routes/_authenticated/canal-etico.index'
@@ -166,6 +167,12 @@ const AuthenticatedCtosRoute = AuthenticatedCtosRouteImport.update({
   path: '/ctos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAuditoriaChecklistsRoute =
+  AuthenticatedAuditoriaChecklistsRouteImport.update({
+    id: '/auditoria-checklists',
+    path: '/auditoria-checklists',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMapaOpticoIndexRoute =
   AuthenticatedMapaOpticoIndexRouteImport.update({
     id: '/mapa-optico/',
@@ -262,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/auditoria-checklists': typeof AuthenticatedAuditoriaChecklistsRoute
   '/ctos': typeof AuthenticatedCtosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
@@ -301,6 +309,7 @@ export interface FileRoutesByTo {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/auditoria-checklists': typeof AuthenticatedAuditoriaChecklistsRoute
   '/ctos': typeof AuthenticatedCtosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informativos': typeof AuthenticatedInformativosRoute
@@ -342,6 +351,7 @@ export interface FileRoutesById {
   '/autorizar-agent': typeof AutorizarAgentRoute
   '/completar-cadastro': typeof CompletarCadastroRoute
   '/trocar-senha': typeof TrocarSenhaRoute
+  '/_authenticated/auditoria-checklists': typeof AuthenticatedAuditoriaChecklistsRoute
   '/_authenticated/ctos': typeof AuthenticatedCtosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/informativos': typeof AuthenticatedInformativosRoute
@@ -383,6 +393,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/trocar-senha'
+    | '/auditoria-checklists'
     | '/ctos'
     | '/dashboard'
     | '/informativos'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/trocar-senha'
+    | '/auditoria-checklists'
     | '/ctos'
     | '/dashboard'
     | '/informativos'
@@ -462,6 +474,7 @@ export interface FileRouteTypes {
     | '/autorizar-agent'
     | '/completar-cadastro'
     | '/trocar-senha'
+    | '/_authenticated/auditoria-checklists'
     | '/_authenticated/ctos'
     | '/_authenticated/dashboard'
     | '/_authenticated/informativos'
@@ -679,6 +692,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCtosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/auditoria-checklists': {
+      id: '/_authenticated/auditoria-checklists'
+      path: '/auditoria-checklists'
+      fullPath: '/auditoria-checklists'
+      preLoaderRoute: typeof AuthenticatedAuditoriaChecklistsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/mapa-optico/': {
       id: '/_authenticated/mapa-optico/'
       path: '/mapa-optico'
@@ -788,6 +808,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAuditoriaChecklistsRoute: typeof AuthenticatedAuditoriaChecklistsRoute
   AuthenticatedCtosRoute: typeof AuthenticatedCtosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInformativosRoute: typeof AuthenticatedInformativosRoute
@@ -812,6 +833,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAuditoriaChecklistsRoute: AuthenticatedAuditoriaChecklistsRoute,
   AuthenticatedCtosRoute: AuthenticatedCtosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInformativosRoute: AuthenticatedInformativosRoute,
