@@ -462,7 +462,7 @@ function InternalLoginForm({ onForgot }: { onForgot: () => void }) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      finishLogin();
+      await finishLogin(navigate);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
