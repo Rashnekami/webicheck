@@ -114,7 +114,7 @@ function AuthPage() {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      finishLogin();
+      await finishLogin(navigate);
     });
   }, [navigate]);
 
