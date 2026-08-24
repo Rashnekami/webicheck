@@ -315,6 +315,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
 }
 
 function GoogleButton() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   async function onClick() {
     setLoading(true);
@@ -328,7 +329,8 @@ function GoogleButton() {
     }
     // Se result.redirected => o navegador vai redirecionar; se não, sessão já foi setada.
     if (!result.redirected) {
-      finishLogin();
+      await finishLogin(navigate);
+      setLoading(false);
     }
   }
   return (
