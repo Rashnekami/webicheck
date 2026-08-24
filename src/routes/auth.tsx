@@ -65,11 +65,28 @@ const SELOS = [
   { icon: Lock, label: "Dados\nProtegidos" },
 ];
 
-function finishLogin() {
+// Navegação client-side depois do login. Um window.location.assign() aqui
+// recarregava a página inteira logo após setSession(); no preview (e em
+// qualquer contexto onde a sessão ainda não terminou de ser persistida) o
+// reload acontecia antes da gravação, o app subia sem sessão e voltava
+// pra /auth — parecia "não loga com Google". Confirmamos a sessão antes
+// de sair da tela e trocamos de rota sem reload.
+async function finishLogin(navigate?: (opts: { to: string; replace?: boolean }) => void) {
   const returnTo = sessionStorage.getItem("webicheck.return_to");
   sessionStorage.removeItem("webicheck.return_to");
-  window.location.assign(returnTo?.startsWith("/") ? returnTo : "/painel");
+  const to = returnTo?.startsWith("/") ? returnTo : "/painel";
+
+  // Espera a sessão ficar disponível (setSession é assíncrono no storage).
+  for (let i = 0; i < 10; i++) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) break;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+
+  if (navigate) navigate({ to, replace: true });
+  else window.location.assign(to);
 }
+
 
 function AuthPage() {
   const navigate = useNavigate();
@@ -97,7 +114,7 @@ function AuthPage() {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      finishLogin();
+      await finishLogin(navigate);
     });
   }, [navigate]);
 
@@ -298,6 +315,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
 }
 
 function GoogleButton() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   async function onClick() {
     setLoading(true);
@@ -311,7 +329,8 @@ function GoogleButton() {
     }
     // Se result.redirected => o navegador vai redirecionar; se não, sessão já foi setada.
     if (!result.redirected) {
-      finishLogin();
+      await finishLogin(navigate);
+      setLoading(false);
     }
   }
   return (
@@ -443,7 +462,7 @@ function InternalLoginForm({ onForgot }: { onForgot: () => void }) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
-      finishLogin();
+      await finishLogin(navigate);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
