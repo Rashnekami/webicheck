@@ -2038,6 +2038,7 @@ export type Database = {
           recurrence_notes: string | null
           recurrence_score: number | null
           review_date: string
+          scale_version: number
           status: string
           strengths: Json
           strengths_notes: string | null
@@ -2078,6 +2079,7 @@ export type Database = {
           recurrence_notes?: string | null
           recurrence_score?: number | null
           review_date?: string
+          scale_version?: number
           status?: string
           strengths?: Json
           strengths_notes?: string | null
@@ -2118,6 +2120,7 @@ export type Database = {
           recurrence_notes?: string | null
           recurrence_score?: number | null
           review_date?: string
+          scale_version?: number
           status?: string
           strengths?: Json
           strengths_notes?: string | null
