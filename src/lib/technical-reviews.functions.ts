@@ -275,10 +275,14 @@ export const saveTechnicalReview = createServerFn({ method: "POST" })
     if (!data?.id) throw new Error("Avaliação inválida.");
     for (const [key, value] of Object.entries(data.scores ?? {})) {
       if (value == null) continue;
-      if (!REVIEW_ITEM_INDEX[key]) throw new Error(`Critério desconhecido: ${key}`);
-      if (!Number.isInteger(value) || value < 1 || value > 5)
-        throw new Error("As notas devem ser inteiros de 1 a 5.");
+      const isV2Item = Boolean(REVIEW_ITEM_INDEX_V2[key]);
+      if (!REVIEW_ITEM_INDEX[key] && !isV2Item)
+        throw new Error(`Critério desconhecido: ${key}`);
+      const max = isV2Item ? 10 : 5;
+      if (!Number.isInteger(value) || value < 1 || value > max)
+        throw new Error(`As notas devem ser inteiros de 1 a ${max}.`);
     }
+
     return data;
   })
   .handler(async ({ data, context }) => {
