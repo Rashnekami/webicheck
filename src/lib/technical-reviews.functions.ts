@@ -334,8 +334,10 @@ export const saveTechnicalReview = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (upErr) throw new Error(upErr.message);
 
-    const rows = Object.keys(REVIEW_ITEM_INDEX).map((key) => {
-      const { group, item } = REVIEW_ITEM_INDEX[key];
+    const index = isV2 ? (REVIEW_ITEM_INDEX_V2 as never as typeof REVIEW_ITEM_INDEX) : REVIEW_ITEM_INDEX;
+    const rows = Object.keys(index).map((key) => {
+      const { group, item } = index[key];
+
       const score = scores[key];
       return {
         review_id: data.id,
