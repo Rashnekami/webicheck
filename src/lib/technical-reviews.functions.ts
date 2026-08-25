@@ -9,9 +9,11 @@ import {
 } from "@/lib/technical-review-catalog";
 import {
   REVIEW_GROUPS_V2,
+  REVIEW_ITEM_INDEX_V2,
   groupAverageV2,
   overallScoreV2,
 } from "@/lib/technical-review-catalog-v2";
+
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyDb = { from: (table: string) => any; rpc: (fn: string, args?: any) => any };
