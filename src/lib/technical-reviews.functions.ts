@@ -9,9 +9,11 @@ import {
 } from "@/lib/technical-review-catalog";
 import {
   REVIEW_GROUPS_V2,
+  REVIEW_ITEM_INDEX_V2,
   groupAverageV2,
   overallScoreV2,
 } from "@/lib/technical-review-catalog-v2";
+
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyDb = { from: (table: string) => any; rpc: (fn: string, args?: any) => any };
@@ -275,10 +277,14 @@ export const saveTechnicalReview = createServerFn({ method: "POST" })
     if (!data?.id) throw new Error("Avaliação inválida.");
     for (const [key, value] of Object.entries(data.scores ?? {})) {
       if (value == null) continue;
-      if (!REVIEW_ITEM_INDEX[key]) throw new Error(`Critério desconhecido: ${key}`);
-      if (!Number.isInteger(value) || value < 1 || value > 5)
-        throw new Error("As notas devem ser inteiros de 1 a 5.");
+      const isV2Item = Boolean(REVIEW_ITEM_INDEX_V2[key]);
+      if (!REVIEW_ITEM_INDEX[key] && !isV2Item)
+        throw new Error(`Critério desconhecido: ${key}`);
+      const max = isV2Item ? 10 : 5;
+      if (!Number.isInteger(value) || value < 1 || value > max)
+        throw new Error(`As notas devem ser inteiros de 1 a ${max}.`);
     }
+
     return data;
   })
   .handler(async ({ data, context }) => {
@@ -328,8 +334,10 @@ export const saveTechnicalReview = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (upErr) throw new Error(upErr.message);
 
-    const rows = Object.keys(REVIEW_ITEM_INDEX).map((key) => {
-      const { group, item } = REVIEW_ITEM_INDEX[key];
+    const index = isV2 ? (REVIEW_ITEM_INDEX_V2 as never as typeof REVIEW_ITEM_INDEX) : REVIEW_ITEM_INDEX;
+    const rows = Object.keys(index).map((key) => {
+      const { group, item } = index[key];
+
       const score = scores[key];
       return {
         review_id: data.id,
