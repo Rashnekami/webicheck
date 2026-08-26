@@ -195,6 +195,8 @@ function AuthPage() {
             </p>
           </div>
 
+          <GoogleReviewLinks className="mt-5" />
+
           <div className="mt-5 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-amber-300">
               <ShieldCheck className="h-4 w-4" /> Canal de Denúncias
