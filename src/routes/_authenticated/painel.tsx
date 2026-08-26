@@ -372,6 +372,8 @@ function Painel() {
 
         <ActiveAnnouncements />
 
+        <GoogleReviewLinks />
+
         <section>
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
