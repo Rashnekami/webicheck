@@ -28,6 +28,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
+import { GoogleReviewLinks } from "@/components/google-review-links";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,

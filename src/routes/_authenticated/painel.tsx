@@ -55,6 +55,7 @@ import { listAnnouncements } from "@/lib/provider-admin.functions";
 import { getChecklistCounts } from "@/lib/checklists";
 import { getTechnicalFeedbackAccess } from "@/lib/technical-reviews.functions";
 import { getWhistleblowerAccess } from "@/lib/whistleblower-admin.functions";
+import { GoogleReviewLinks } from "@/components/google-review-links";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
