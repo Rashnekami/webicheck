@@ -180,7 +180,14 @@ function CounterproofPage() {
       ? { code: cp.code, validated_at: cp.validated_at, checklist_code: cp.checklist_code }
       : null;
   if (validatedInfo) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#020817] p-4 text-slate-100"><div className="max-w-md rounded-3xl border border-emerald-400/40 bg-[#06152d] p-7 text-center shadow-[0_0_36px_rgba(34,197,94,.15)]"><CheckCircle2 className="mx-auto h-14 w-14 text-emerald-400" /><h1 className="mt-3 text-xl font-black">Contra-Prova validada</h1><p className="mt-3 text-sm text-slate-300">Código: <b className="text-white">{validatedInfo.code}</b><br />Checklist: <b className="text-white">{validatedInfo.checklist_code}</b><br />{validatedInfo.validated_at && new Date(validatedInfo.validated_at).toLocaleString("pt-BR")}</p><p className="mt-4 text-xs text-slate-400">Você já pode fechar esta janela.</p></div></div>;
+    return (
+      <ValidatedScreen
+        info={validatedInfo}
+        city={cp.city}
+        clientName={cp.client_name}
+        askReview={kind === "installation"}
+      />
+    );
   }
   if (cp.status === "annulled") return <div className="min-h-screen bg-[#020817] p-8 text-center text-amber-300">Esta Contra-Prova foi anulada. Solicite um novo link à equipe.</div>;
 
