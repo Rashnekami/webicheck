@@ -28,6 +28,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { InstallButton } from "@/components/pwa/install-button";
+import { GoogleReviewLinks } from "@/components/google-review-links";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -194,6 +195,8 @@ function AuthPage() {
               <ShieldCheck className="h-3.5 w-3.5" /> Ambiente seguro e criptografado
             </p>
           </div>
+
+          <GoogleReviewLinks className="mt-5" />
 
           <div className="mt-5 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-amber-300">

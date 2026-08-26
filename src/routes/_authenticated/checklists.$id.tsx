@@ -640,7 +640,7 @@ function ChecklistDetail() {
 
         {row.status === "finalizado" && (
           <>
-            <CustomerCounterproofCard checklistId={id} isAdmin={!!user?.isAdmin} />
+            <CustomerCounterproofCard checklistId={id} isAdmin={!!user?.isAdmin} cidade={header.cidade} />
             <DocumentActions
               row={{ ...row, ...header, dados: data } as ChecklistRow}
               tecnicoNome={tecnicoNome}
