@@ -74,6 +74,22 @@ export function CustomerCounterproofCard({
     return `${base ?? "https://checktecnico.life"}/contra-prova/${counterproof.public_token}`;
   }, [counterproof?.public_token]);
   const whatsappUrl = useMemo(() => makeWhatsAppUrl(phone, link, counterproof?.code), [phone, link, counterproof?.code]);
+  // Avaliação no Google da unidade que atendeu — mesmo fluxo do link da
+  // contra-prova: o técnico envia direto pelo WhatsApp do cliente.
+  const reviewTarget = useMemo(() => googleReviewTargetForCity(cidade), [cidade]);
+  const reviewWhatsAppUrl = useMemo(
+    () => (reviewTarget ? googleReviewWhatsAppUrl(reviewTarget, phone, counterproof?.client_name) : null),
+    [reviewTarget, phone, counterproof?.client_name],
+  );
+  async function copyReview() {
+    if (!reviewTarget) return;
+    try {
+      await navigator.clipboard.writeText(reviewTarget.url);
+      toast.success("Link de avaliação copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o link.");
+    }
+  }
   const savePhone = useMutation({ mutationFn: async () => { if (!counterproof) throw new Error("Gere a Contra-Prova primeiro."); return registerCounterproofPhone({ data: { counterproofId: counterproof.id, phone, whatsappOpened: true } }); }, onError: (e: Error) => toast.error(e.message) });
   const evidence = useMutation({
     mutationFn: async () => {
