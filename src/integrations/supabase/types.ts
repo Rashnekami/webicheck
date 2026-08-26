@@ -190,6 +190,7 @@ export type Database = {
           created_by: string
           ends_at: string | null
           id: string
+          image_url: string | null
           message: string
           provider_id: string
           severity: string
@@ -203,6 +204,7 @@ export type Database = {
           created_by: string
           ends_at?: string | null
           id?: string
+          image_url?: string | null
           message: string
           provider_id: string
           severity?: string
@@ -216,6 +218,7 @@ export type Database = {
           created_by?: string
           ends_at?: string | null
           id?: string
+          image_url?: string | null
           message?: string
           provider_id?: string
           severity?: string
