@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { CheckCircle2, ChevronLeft, Loader2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Loader2, ShieldCheck, Star } from "lucide-react";
+import { googleReviewTargetForCity } from "@/lib/google-reviews";
 import { getPublicCounterproof, completePublicCounterproof } from "@/lib/customer-counterproof.functions";
 import {
   CUSTOMER_COUNTERPROOF_CHECKLIST_VERSION,
@@ -339,4 +340,73 @@ function CounterproofPage() {
       )}
     </div>
   </main>;
+}
+
+/**
+ * Tela final da contra-prova. Em checklists de instalação, o cliente é
+ * direcionado automaticamente para a avaliação no Google da unidade que
+ * atendeu (Telêmaco Borba, Imbaú ou Tibagi). Se a cidade não tiver unidade
+ * cadastrada, a tela apenas confirma a validação.
+ */
+function ValidatedScreen({
+  info,
+  city,
+  clientName,
+  askReview,
+}: {
+  info: { code: string; validated_at: string | null; checklist_code: string };
+  city: string | null | undefined;
+  clientName: string | null | undefined;
+  askReview: boolean;
+}) {
+  const target = askReview ? googleReviewTargetForCity(city) : null;
+  const [seconds, setSeconds] = useState(6);
+
+  useEffect(() => {
+    if (!target) return;
+    const timer = window.setInterval(() => setSeconds((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => window.clearInterval(timer);
+  }, [target]);
+
+  useEffect(() => {
+    if (!target || seconds > 0) return;
+    window.location.href = target.url;
+  }, [target, seconds]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#020817] p-4 text-slate-100">
+      <div className="max-w-md rounded-3xl border border-emerald-400/40 bg-[#06152d] p-7 text-center shadow-[0_0_36px_rgba(34,197,94,.15)]">
+        <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-400" />
+        <h1 className="mt-3 text-xl font-black">Contra-Prova validada</h1>
+        <p className="mt-3 text-sm text-slate-300">
+          Código: <b className="text-white">{info.code}</b>
+          <br />
+          Checklist: <b className="text-white">{info.checklist_code}</b>
+          <br />
+          {info.validated_at && new Date(info.validated_at).toLocaleString("pt-BR")}
+        </p>
+        {target ? (
+          <div className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/5 p-4 text-left">
+            <p className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+              <Star className="h-4 w-4 fill-amber-300 text-amber-300" /> Avalie a Webifibra {target.city}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-400">
+              {clientName?.trim() ? `${clientName.trim()}, sua ` : "Sua "}opinião leva menos de 1 minuto.
+              Você será direcionado em {seconds}s.
+            </p>
+            <Button
+              className="mt-3 w-full bg-amber-400 text-slate-900 hover:bg-amber-300"
+              onClick={() => {
+                window.location.href = target.url;
+              }}
+            >
+              Avaliar agora no Google
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-slate-400">Você já pode fechar esta janela.</p>
+        )}
+      </div>
+    </div>
+  );
 }
