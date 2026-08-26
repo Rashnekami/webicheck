@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Copy, Eye, ExternalLink, Loader2, MessageCircle, ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Copy, Eye, ExternalLink, Loader2, MessageCircle, ShieldAlert, ShieldCheck, Star } from "lucide-react";
+import { googleReviewTargetForCity, googleReviewWhatsAppUrl } from "@/lib/google-reviews";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
