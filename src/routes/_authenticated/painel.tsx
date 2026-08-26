@@ -55,7 +55,7 @@ import { listAnnouncements } from "@/lib/provider-admin.functions";
 import { getChecklistCounts } from "@/lib/checklists";
 import { getTechnicalFeedbackAccess } from "@/lib/technical-reviews.functions";
 import { getWhistleblowerAccess } from "@/lib/whistleblower-admin.functions";
-import { GoogleReviewLinks } from "@/components/google-review-links";
+import { GoogleReviewLinksInternal } from "@/components/google-review-links-internal";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -372,7 +372,7 @@ function Painel() {
 
         <ActiveAnnouncements />
 
-        <GoogleReviewLinks />
+        <GoogleReviewLinksInternal />
 
         <section>
           <div className="mb-3 flex items-end justify-between gap-3">
