@@ -37,9 +37,11 @@ function makeWhatsAppUrl(phone: string, link: string, code?: string) {
 export function CustomerCounterproofCard({
   checklistId,
   isAdmin,
+  cidade,
 }: {
   checklistId: string;
   isAdmin: boolean;
+  cidade?: string | null;
 }) {
   const qc = useQueryClient(); const [phone, setPhone] = useState("");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
