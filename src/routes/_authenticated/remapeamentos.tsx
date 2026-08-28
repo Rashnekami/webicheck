@@ -39,7 +39,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { computeSplitterStats } from "@/lib/remapeamento-fibers";
-import { listCtoCoverage } from "@/lib/cto-reference.functions";
+import { listCtoCoverage, listCtoReferencePoints } from "@/lib/cto-reference.functions";
 import type { IntervencaoData, MapAtivoTipo, RemapeamentoData } from "@/lib/checklist-schema";
 import {
   BarChart,
