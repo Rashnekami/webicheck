@@ -167,3 +167,62 @@ export const getCtoReferencePoint = createServerFn({ method: "POST" })
     if (!point || point.lat == null || point.lng == null) return null;
     return { lat: point.lat as number, lng: point.lng as number };
   });
+
+/** Todos os pontos de referência (planilha OZmap) do provedor, já marcados
+ * como remapeados ou pendentes, pra desenhar a camada de cobertura no mapa
+ * de Remapeamentos. */
+export const listCtoReferencePoints = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("provider_id, platform_admin")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (!profile?.provider_id && !profile?.platform_admin) return [];
+
+    let latestQ = supabaseAdmin.from("cto_reference_latest").select("snapshot_id, cidade");
+    if (profile.provider_id) latestQ = latestQ.eq("provider_id", profile.provider_id);
+    const { data: latest, error: latestErr } = await latestQ;
+    if (latestErr) throw new Error(latestErr.message);
+    const snapshotIds = (latest ?? [])
+      .map((s) => s.snapshot_id as string | null)
+      .filter((id): id is string => !!id);
+    if (snapshotIds.length === 0) return [];
+
+    const { data: points, error: pointsErr } = await supabaseAdmin
+      .from("cto_reference_points")
+      .select("id, cidade, nome, nome_normalizado, lat, lng")
+      .in("snapshot_id", snapshotIds)
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .limit(10000);
+    if (pointsErr) throw new Error(pointsErr.message);
+
+    let remapQ = supabaseAdmin
+      .from("checklists")
+      .select("cidade, dados")
+      .eq("tipo", "remapeamento_cto")
+      .eq("status", "finalizado")
+      .eq("is_current", true);
+    if (profile.provider_id) remapQ = remapQ.eq("provider_id", profile.provider_id);
+    const { data: remapRows } = await remapQ;
+
+    const remapKeys = new Set<string>();
+    for (const row of remapRows ?? []) {
+      const dados = row.dados as { identificacao?: { cto_codigo?: string } } | null;
+      const codigo = dados?.identificacao?.cto_codigo?.trim();
+      if (!codigo) continue;
+      remapKeys.add(`${normalizeCity(row.cidade ?? "")}|${normalizeCtoNome(codigo)}`);
+    }
+
+    return (points ?? []).map((p) => ({
+      id: p.id as string,
+      cidade: (p.cidade as string) ?? "",
+      nome: (p.nome as string) ?? "",
+      lat: p.lat as number,
+      lng: p.lng as number,
+      remapeado: remapKeys.has(`${normalizeCity((p.cidade as string) ?? "")}|${p.nome_normalizado as string}`),
+    }));
+  });
