@@ -39,7 +39,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { computeSplitterStats } from "@/lib/remapeamento-fibers";
-import { listCtoCoverage } from "@/lib/cto-reference.functions";
+import { listCtoCoverage, listCtoReferencePoints } from "@/lib/cto-reference.functions";
 import type { IntervencaoData, MapAtivoTipo, RemapeamentoData } from "@/lib/checklist-schema";
 import {
   BarChart,
@@ -427,6 +427,14 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
   // depois (o mapa ficava preso no centro padrão/fallback, sem marcador
   // nenhum, mesmo a legenda dizendo "N de N exibidos no mapa").
   const [mapReady, setMapReady] = useState(false);
+  const [showReference, setShowReference] = useState(true);
+  const referenceQuery = useQuery({
+    queryKey: ["cto-reference-points"],
+    queryFn: () => listCtoReferencePoints(),
+    staleTime: 300_000,
+  });
+  const referencePoints = referenceQuery.data ?? [];
+  const referenceRemapeadas = referencePoints.filter((p) => p.remapeado).length;
 
   const remapPoints = useMemo(
     () =>
@@ -542,6 +550,53 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
     };
   }, [points, mapReady]);
 
+  // Camada de referência: todas as CTOs/CEOs da planilha oficial (OZmap),
+  // verdes quando já remapeadas e âmbar quando ainda pendentes. Usa uma
+  // source GeoJSON (e não marcadores DOM) porque são centenas de pontos.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !showReference) return;
+
+    const geojson = {
+      type: "FeatureCollection" as const,
+      features: referencePoints.map((p) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+        properties: { nome: p.nome, cidade: p.cidade, remapeado: p.remapeado ? 1 : 0 },
+      })),
+    };
+
+    const apply = () => {
+      if (!mapRef.current) return;
+      const src = mapRef.current.getSource?.("cto-ref");
+      if (src) {
+        src.setData(geojson);
+        return;
+      }
+      mapRef.current.addSource("cto-ref", { type: "geojson", data: geojson });
+      mapRef.current.addLayer({
+        id: "cto-ref-circles",
+        type: "circle",
+        source: "cto-ref",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": ["case", ["==", ["get", "remapeado"], 1], "#22c55e", "#f59e0b"],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#0b1220",
+          "circle-opacity": 0.9,
+        },
+      });
+    };
+
+    if (map.isStyleLoaded?.()) apply();
+    map.on("styledata", apply);
+    return () => {
+      map.off?.("styledata", apply);
+      if (map.getLayer?.("cto-ref-circles")) map.removeLayer("cto-ref-circles");
+      if (map.getSource?.("cto-ref")) map.removeSource("cto-ref");
+    };
+  }, [referencePoints, mapReady, showReference]);
+
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-blue-500/30 bg-[#041126] p-4 text-sm text-slate-400">
@@ -569,11 +624,35 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
             {opt.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setShowReference((v) => !v)}
+          className={
+            "ml-auto rounded-md border px-3 py-1.5 text-xs font-semibold transition " +
+            (showReference
+              ? "border-emerald-400 bg-emerald-600/20 text-emerald-200"
+              : "border-blue-500/40 bg-[#071b3a] text-slate-300")
+          }
+        >
+          Caixas do OZmap ({referencePoints.length})
+        </button>
       </div>
       <p className="text-xs text-muted-foreground">
         {remapPoints.length} de {rows.length} remapeamentos + {napPoints.length} CTO/CEO confirmadas em
         intervenções de rede exibidas no mapa · {MAP_ATTRIBUTION_NOTE}
       </p>
+      {showReference && (
+        <p className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Remapeada ({referenceRemapeadas})
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Pendente (
+            {referencePoints.length - referenceRemapeadas})
+          </span>
+          {referenceQuery.isLoading && <span>carregando caixas…</span>}
+        </p>
+      )}
       <div ref={ref} className="h-[520px] w-full overflow-hidden rounded-xl border border-blue-500/40" />
     </div>
   );
