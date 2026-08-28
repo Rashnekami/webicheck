@@ -624,11 +624,35 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
             {opt.label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setShowReference((v) => !v)}
+          className={
+            "ml-auto rounded-md border px-3 py-1.5 text-xs font-semibold transition " +
+            (showReference
+              ? "border-emerald-400 bg-emerald-600/20 text-emerald-200"
+              : "border-blue-500/40 bg-[#071b3a] text-slate-300")
+          }
+        >
+          Caixas do OZmap ({referencePoints.length})
+        </button>
       </div>
       <p className="text-xs text-muted-foreground">
         {remapPoints.length} de {rows.length} remapeamentos + {napPoints.length} CTO/CEO confirmadas em
         intervenções de rede exibidas no mapa · {MAP_ATTRIBUTION_NOTE}
       </p>
+      {showReference && (
+        <p className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Remapeada ({referenceRemapeadas})
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Pendente (
+            {referencePoints.length - referenceRemapeadas})
+          </span>
+          {referenceQuery.isLoading && <span>carregando caixas…</span>}
+        </p>
+      )}
       <div ref={ref} className="h-[520px] w-full overflow-hidden rounded-xl border border-blue-500/40" />
     </div>
   );
