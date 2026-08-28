@@ -427,6 +427,14 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
   // depois (o mapa ficava preso no centro padrão/fallback, sem marcador
   // nenhum, mesmo a legenda dizendo "N de N exibidos no mapa").
   const [mapReady, setMapReady] = useState(false);
+  const [showReference, setShowReference] = useState(true);
+  const referenceQuery = useQuery({
+    queryKey: ["cto-reference-points"],
+    queryFn: () => listCtoReferencePoints(),
+    staleTime: 300_000,
+  });
+  const referencePoints = referenceQuery.data ?? [];
+  const referenceRemapeadas = referencePoints.filter((p) => p.remapeado).length;
 
   const remapPoints = useMemo(
     () =>
