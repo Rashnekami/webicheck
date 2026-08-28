@@ -542,6 +542,53 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
     };
   }, [points, mapReady]);
 
+  // Camada de referência: todas as CTOs/CEOs da planilha oficial (OZmap),
+  // verdes quando já remapeadas e âmbar quando ainda pendentes. Usa uma
+  // source GeoJSON (e não marcadores DOM) porque são centenas de pontos.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !showReference) return;
+
+    const geojson = {
+      type: "FeatureCollection" as const,
+      features: referencePoints.map((p) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+        properties: { nome: p.nome, cidade: p.cidade, remapeado: p.remapeado ? 1 : 0 },
+      })),
+    };
+
+    const apply = () => {
+      if (!mapRef.current) return;
+      const src = mapRef.current.getSource?.("cto-ref");
+      if (src) {
+        src.setData(geojson);
+        return;
+      }
+      mapRef.current.addSource("cto-ref", { type: "geojson", data: geojson });
+      mapRef.current.addLayer({
+        id: "cto-ref-circles",
+        type: "circle",
+        source: "cto-ref",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": ["case", ["==", ["get", "remapeado"], 1], "#22c55e", "#f59e0b"],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#0b1220",
+          "circle-opacity": 0.9,
+        },
+      });
+    };
+
+    if (map.isStyleLoaded?.()) apply();
+    map.on("styledata", apply);
+    return () => {
+      map.off?.("styledata", apply);
+      if (map.getLayer?.("cto-ref-circles")) map.removeLayer("cto-ref-circles");
+      if (map.getSource?.("cto-ref")) map.removeSource("cto-ref");
+    };
+  }, [referencePoints, mapReady, showReference]);
+
   if (!apiKey) {
     return (
       <div className="rounded-xl border border-blue-500/30 bg-[#041126] p-4 text-sm text-slate-400">
