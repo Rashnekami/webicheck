@@ -567,35 +567,46 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
     };
 
     const apply = () => {
-      if (!mapRef.current) return;
-      const src = mapRef.current.getSource?.("cto-ref");
-      if (src) {
-        src.setData(geojson);
-        return;
+      const m = mapRef.current;
+      if (!m || !m.isStyleLoaded?.()) return;
+      try {
+        const src = m.getSource?.("cto-ref") as { setData?: (d: unknown) => void } | undefined;
+        if (src?.setData) src.setData(geojson);
+        else m.addSource("cto-ref", { type: "geojson", data: geojson });
+        if (!m.getLayer?.("cto-ref-circles")) {
+          m.addLayer({
+            id: "cto-ref-circles",
+            type: "circle",
+            source: "cto-ref",
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2.5, 13, 4, 17, 7],
+              "circle-color": ["case", ["==", ["get", "remapeado"], 1], "#22c55e", "#f59e0b"],
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "#0b1220",
+              "circle-opacity": 0.9,
+            },
+          });
+        }
+      } catch {
+        /* estilo ainda trocando — o próximo evento reaplica */
       }
-      mapRef.current.addSource("cto-ref", { type: "geojson", data: geojson });
-      mapRef.current.addLayer({
-        id: "cto-ref-circles",
-        type: "circle",
-        source: "cto-ref",
-        paint: {
-          "circle-radius": 5,
-          "circle-color": ["case", ["==", ["get", "remapeado"], 1], "#22c55e", "#f59e0b"],
-          "circle-stroke-width": 1.5,
-          "circle-stroke-color": "#0b1220",
-          "circle-opacity": 0.9,
-        },
-      });
     };
 
-    if (map.isStyleLoaded?.()) apply();
+    apply();
     map.on("styledata", apply);
+    map.on("idle", apply);
     return () => {
       map.off?.("styledata", apply);
-      if (map.getLayer?.("cto-ref-circles")) map.removeLayer("cto-ref-circles");
-      if (map.getSource?.("cto-ref")) map.removeSource("cto-ref");
+      map.off?.("idle", apply);
+      try {
+        if (map.getLayer?.("cto-ref-circles")) map.removeLayer("cto-ref-circles");
+        if (map.getSource?.("cto-ref")) map.removeSource("cto-ref");
+      } catch {
+        /* mapa já destruído */
+      }
     };
   }, [referencePoints, mapReady, showReference]);
+
 
   if (!apiKey) {
     return (

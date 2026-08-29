@@ -191,14 +191,25 @@ export const listCtoReferencePoints = createServerFn({ method: "GET" })
       .filter((id): id is string => !!id);
     if (snapshotIds.length === 0) return [];
 
-    const { data: points, error: pointsErr } = await supabaseAdmin
-      .from("cto_reference_points")
-      .select("id, cidade, nome, nome_normalizado, lat, lng")
-      .in("snapshot_id", snapshotIds)
-      .not("lat", "is", null)
-      .not("lng", "is", null)
-      .limit(10000);
-    if (pointsErr) throw new Error(pointsErr.message);
+    // PostgREST limita a resposta a 1000 linhas, então paginamos por range —
+    // sem isso o mapa mostrava só as primeiras 1000 caixas.
+    type RefRow = { id: string; cidade: string | null; nome: string | null; nome_normalizado: string; lat: number; lng: number };
+    const points: RefRow[] = [];
+    const PAGE = 1000;
+    for (let from = 0; from < 20000; from += PAGE) {
+      const { data: page, error: pointsErr } = await supabaseAdmin
+        .from("cto_reference_points")
+        .select("id, cidade, nome, nome_normalizado, lat, lng")
+        .in("snapshot_id", snapshotIds)
+        .not("lat", "is", null)
+        .not("lng", "is", null)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (pointsErr) throw new Error(pointsErr.message);
+      points.push(...((page ?? []) as RefRow[]));
+      if (!page || page.length < PAGE) break;
+    }
+
 
     let remapQ = supabaseAdmin
       .from("checklists")
