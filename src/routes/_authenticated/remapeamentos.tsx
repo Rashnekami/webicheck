@@ -428,6 +428,7 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
   // nenhum, mesmo a legenda dizendo "N de N exibidos no mapa").
   const [mapReady, setMapReady] = useState(false);
   const [showReference, setShowReference] = useState(true);
+  const [referenceLayerReady, setReferenceLayerReady] = useState(false);
   const referenceQuery = useQuery({
     queryKey: ["cto-reference-points"],
     queryFn: () => listCtoReferencePoints(),
@@ -556,6 +557,7 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || !showReference) return;
+    setReferenceLayerReady(false);
 
     const geojson = {
       type: "FeatureCollection" as const,
@@ -568,7 +570,7 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
 
     const apply = () => {
       const m = mapRef.current;
-      if (!m || !m.isStyleLoaded?.()) return;
+      if (!m || !m.isStyleLoaded?.() || referencePoints.length === 0) return;
       try {
         const src = m.getSource?.("cto-ref") as { setData?: (d: unknown) => void } | undefined;
         if (src?.setData) src.setData(geojson);
@@ -579,23 +581,30 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
             type: "circle",
             source: "cto-ref",
             paint: {
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2.5, 13, 4, 17, 7],
-              "circle-color": ["case", ["==", ["get", "remapeado"], 1], "#22c55e", "#f59e0b"],
-              "circle-stroke-width": 1,
-              "circle-stroke-color": "#0b1220",
-              "circle-opacity": 0.9,
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 13, 6, 17, 9],
+              "circle-color": ["case", ["==", ["get", "remapeado"], 1], "#22c55e", "#facc15"],
+              "circle-stroke-width": 2,
+              "circle-stroke-color": "#111827",
+              "circle-opacity": 1,
             },
           });
         }
-      } catch {
-        /* estilo ainda trocando — o próximo evento reaplica */
+        // A camada deve ficar acima inclusive do raster de rótulos do mapa híbrido.
+        m.moveLayer?.("cto-ref-circles");
+        setReferenceLayerReady(true);
+      } catch (error) {
+        console.error("Falha ao desenhar as caixas oficiais no mapa", error);
       }
     };
 
     apply();
+    map.on("load", apply);
+    map.on("style.load", apply);
     map.on("styledata", apply);
     map.on("idle", apply);
     return () => {
+      map.off?.("load", apply);
+      map.off?.("style.load", apply);
       map.off?.("styledata", apply);
       map.off?.("idle", apply);
       try {
@@ -606,6 +615,25 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
       }
     };
   }, [referencePoints, mapReady, showReference]);
+
+  // Enquadra também as caixas da planilha oficial. Antes, o fitBounds usava
+  // somente os pins vermelhos e deixava a maior parte das CTOs fora da tela.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !showReference || referencePoints.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const maplibre = await import("maplibre-gl");
+      if (cancelled || !mapRef.current) return;
+      const bounds = new maplibre.LngLatBounds();
+      for (const point of referencePoints) bounds.extend([point.lng, point.lat]);
+      for (const point of points) bounds.extend([point.pos.lng, point.pos.lat]);
+      mapRef.current.fitBounds(bounds, { padding: 48, maxZoom: 16, duration: 0 });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, points, referencePoints, showReference]);
 
 
   if (!apiKey) {
@@ -647,6 +675,11 @@ function RemapMap({ rows, napPoints }: { rows: RemapRow[]; napPoints: NapPoint[]
         >
           Caixas do OZmap ({referencePoints.length})
         </button>
+        {showReference && referencePoints.length > 0 && (
+          <span className={referenceLayerReady ? "text-emerald-300 text-xs" : "text-amber-300 text-xs"}>
+            {referenceLayerReady ? "Visíveis no mapa" : "Carregando caixas…"}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {remapPoints.length} de {rows.length} remapeamentos + {napPoints.length} CTO/CEO confirmadas em
