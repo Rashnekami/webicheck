@@ -24,6 +24,7 @@ import {
   QrCode,
   Radio,
   ShieldCheck,
+  StickyNote,
   UserRound,
   Wifi,
 } from "lucide-react";
@@ -66,6 +67,14 @@ const SELOS = [
   { icon: Lock, label: "Dados\nProtegidos" },
 ];
 
+type EntryModule = "checktecnico" | "postit";
+
+function intendedLoginPath() {
+  const returnTo = sessionStorage.getItem("webicheck.return_to");
+  if (returnTo?.startsWith("/")) return returnTo;
+  return sessionStorage.getItem("webicheck.entry_module") === "postit" ? "/postit" : "/painel";
+}
+
 // Navegação client-side depois do login. Um window.location.assign() aqui
 // recarregava a página inteira logo após setSession(); no preview (e em
 // qualquer contexto onde a sessão ainda não terminou de ser persistida) o
@@ -73,9 +82,9 @@ const SELOS = [
 // pra /auth — parecia "não loga com Google". Confirmamos a sessão antes
 // de sair da tela e trocamos de rota sem reload.
 async function finishLogin(navigate?: (opts: { to: string; replace?: boolean }) => void) {
-  const returnTo = sessionStorage.getItem("webicheck.return_to");
+  const to = intendedLoginPath();
   sessionStorage.removeItem("webicheck.return_to");
-  const to = returnTo?.startsWith("/") ? returnTo : "/painel";
+  sessionStorage.removeItem("webicheck.entry_module");
 
   // Espera a sessão ficar disponível (setSession é assíncrono no storage).
   for (let i = 0; i < 10; i++) {
@@ -88,11 +97,18 @@ async function finishLogin(navigate?: (opts: { to: string; replace?: boolean }) 
   else window.location.assign(to);
 }
 
-
 function AuthPage() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState<"login" | "forgot">("login");
+  const [entryModule, setEntryModule] = useState<EntryModule>(() =>
+    sessionStorage.getItem("webicheck.entry_module") === "postit" ? "postit" : "checktecnico",
+  );
+
+  function selectEntryModule(module: EntryModule) {
+    setEntryModule(module);
+    sessionStorage.setItem("webicheck.entry_module", module);
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -102,7 +118,7 @@ function AuthPage() {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active, city")
+        .select("active, city, provider_id")
         .eq("id", data.session.user.id)
         .maybeSingle();
       if (!profile?.active) {
@@ -111,7 +127,9 @@ function AuthPage() {
         setChecking(false);
         return;
       }
-      if (!profile.city?.trim()) {
+      const target = intendedLoginPath();
+      const enteringPostit = target.startsWith("/postit");
+      if (!profile.provider_id || (!enteringPostit && !profile.city?.trim())) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }
@@ -178,6 +196,54 @@ function AuthPage() {
             <div className="mt-5">
               {view === "login" ? (
                 <>
+                  <div className="mb-5 grid grid-cols-2 gap-2" aria-label="Escolha o painel">
+                    <button
+                      type="button"
+                      onClick={() => selectEntryModule("checktecnico")}
+                      className={
+                        "rounded-xl border p-3 text-left transition " +
+                        (entryModule === "checktecnico"
+                          ? "border-sky-400/60 bg-sky-400/10 shadow-md shadow-sky-500/10"
+                          : "border-white/10 bg-white/[.03] hover:border-white/20")
+                      }
+                    >
+                      <ClipboardCheck
+                        className={
+                          "h-5 w-5 " +
+                          (entryModule === "checktecnico" ? "text-sky-300" : "text-slate-500")
+                        }
+                      />
+                      <span className="mt-2 block text-sm font-semibold text-white">
+                        CheckTecnico
+                      </span>
+                      <span className="mt-0.5 block text-[10px] text-slate-500">
+                        Operação técnica
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectEntryModule("postit")}
+                      className={
+                        "rounded-xl border p-3 text-left transition " +
+                        (entryModule === "postit"
+                          ? "border-amber-300/60 bg-amber-300/10 shadow-md shadow-amber-400/10"
+                          : "border-white/10 bg-white/[.03] hover:border-white/20")
+                      }
+                    >
+                      <StickyNote
+                        className={
+                          "h-5 w-5 " +
+                          (entryModule === "postit" ? "text-amber-300" : "text-slate-500")
+                        }
+                      />
+                      <span className="mt-2 block text-sm font-semibold text-white">
+                        Postit<span className="text-amber-300">!</span>
+                      </span>
+                      <span className="mt-0.5 block text-[10px] text-slate-500">
+                        Reuniões e prazos
+                      </span>
+                    </button>
+                  </div>
                   <InternalLoginForm onForgot={() => setView("forgot")} />
                   <div className="my-5 flex items-center gap-3">
                     <span className="h-px flex-1 bg-white/10" />
@@ -203,8 +269,8 @@ function AuthPage() {
               <ShieldCheck className="h-4 w-4" /> Canal de Denúncias
             </p>
             <p className="mt-1 text-xs leading-relaxed text-slate-400">
-              Espaço seguro e confidencial para relatar condutas inadequadas. Você pode registrar sua denúncia de
-              forma totalmente anônima, sem precisar entrar na plataforma.
+              Espaço seguro e confidencial para relatar condutas inadequadas. Você pode registrar
+              sua denúncia de forma totalmente anônima, sem precisar entrar na plataforma.
             </p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Button
@@ -249,11 +315,9 @@ function AuthPage() {
             ))}
           </ul>
 
-
           <p className="mt-6 text-center text-xs text-slate-500">
             © {new Date().getFullYear()} CheckTecnico — uso interno
           </p>
-
         </section>
       </div>
     </div>
@@ -453,7 +517,7 @@ function InternalLoginForm({ onForgot }: { onForgot: () => void }) {
       }
       const { data: profile } = await supabase
         .from("profiles")
-        .select("active, city")
+        .select("active, city, provider_id")
         .eq("id", session.user.id)
         .maybeSingle();
       if (!profile?.active) {
@@ -461,7 +525,9 @@ function InternalLoginForm({ onForgot }: { onForgot: () => void }) {
         toast.error("Seu acesso está inativo.");
         return;
       }
-      if (!profile.city?.trim()) {
+      const target = intendedLoginPath();
+      const enteringPostit = target.startsWith("/postit");
+      if (!profile.provider_id || (!enteringPostit && !profile.city?.trim())) {
         navigate({ to: "/completar-cadastro", replace: true });
         return;
       }

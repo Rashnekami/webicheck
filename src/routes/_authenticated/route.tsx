@@ -28,7 +28,7 @@ async function fetchMustChangePassword(userId: string): Promise<boolean> {
 // errado, então se o componente chegou a montar é porque já passou.
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     if (typeof window === "undefined") return;
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
@@ -41,7 +41,11 @@ export const Route = createFileRoute("/_authenticated")({
       await supabase.auth.signOut();
       throw redirect({ to: "/auth" });
     }
-    if (!profile.provider_id || !profile.cities_configured_at) {
+    // O Postit! também atende Financeiro, RH, Marketing e Diretoria. Essas
+    // pessoas precisam estar ligadas a um provedor, mas não necessariamente
+    // possuir cidade/região técnica configurada.
+    const enteringPostit = location.pathname.startsWith("/postit");
+    if (!profile.provider_id || (!enteringPostit && !profile.cities_configured_at)) {
       throw redirect({ to: "/completar-cadastro" });
     }
     if (await fetchMustChangePassword(data.user.id)) {

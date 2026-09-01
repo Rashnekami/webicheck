@@ -9,60 +9,55 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
-import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
-import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DenunciaIndexRouteImport } from './routes/denuncia.index'
-import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
-import { Route as DenunciaAcompanharRouteImport } from './routes/denuncia.acompanhar'
-import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
-import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
-import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
-import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
-import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
-import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
-import { Route as AuthenticatedProdutividadeRouteImport } from './routes/_authenticated/produtividade'
-import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
-import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
-import { Route as AuthenticatedMinhaContaRouteImport } from './routes/_authenticated/minha-conta'
-import { Route as AuthenticatedIntervencoesRouteImport } from './routes/_authenticated/intervencoes'
-import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
-import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AutorizarAgentRouteImport } from './routes/autorizar-agent'
+import { Route as CompletarCadastroRouteImport } from './routes/completar-cadastro'
+import { Route as TrocarSenhaRouteImport } from './routes/trocar-senha'
 import { Route as AuthenticatedAuditoriaChecklistsRouteImport } from './routes/_authenticated/auditoria-checklists'
-import { Route as AuthenticatedMapaOpticoIndexRouteImport } from './routes/_authenticated/mapa-optico.index'
-import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
-import { Route as AuthenticatedCanalEticoIndexRouteImport } from './routes/_authenticated/canal-etico.index'
+import { Route as AuthenticatedCtosRouteImport } from './routes/_authenticated/ctos'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedInformativosRouteImport } from './routes/_authenticated/informativos'
+import { Route as AuthenticatedIntegracoesRouteImport } from './routes/_authenticated/integracoes'
+import { Route as AuthenticatedIntervencoesRouteImport } from './routes/_authenticated/intervencoes'
+import { Route as AuthenticatedMinhaContaRouteImport } from './routes/_authenticated/minha-conta'
+import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
+import { Route as AuthenticatedPlataformaRouteImport } from './routes/_authenticated/plataforma'
+import { Route as AuthenticatedPostitRouteImport } from './routes/_authenticated/postit'
+import { Route as AuthenticatedProdutividadeRouteImport } from './routes/_authenticated/produtividade'
+import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
+import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
+import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
+import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
+import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
+import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
+import { Route as DenunciaIndexRouteImport } from './routes/denuncia.index'
+import { Route as DenunciaAcompanharRouteImport } from './routes/denuncia.acompanhar'
+import { Route as ValidarTokenRouteImport } from './routes/validar.$token'
 import { Route as AuthenticatedAvaliacoesIndexRouteImport } from './routes/_authenticated/avaliacoes.index'
-import { Route as DenunciaValidarCodigoRouteImport } from './routes/denuncia.validar.$codigo'
-import { Route as AuthenticatedMapaOpticoCeoIdRouteImport } from './routes/_authenticated/mapa-optico.$ceoId'
-import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
-import { Route as AuthenticatedCanalEticoIdRouteImport } from './routes/_authenticated/canal-etico.$id'
 import { Route as AuthenticatedAvaliacoesIdRouteImport } from './routes/_authenticated/avaliacoes.$id'
-import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
-import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
-import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
-import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
-import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
+import { Route as AuthenticatedCanalEticoIndexRouteImport } from './routes/_authenticated/canal-etico.index'
+import { Route as AuthenticatedCanalEticoIdRouteImport } from './routes/_authenticated/canal-etico.$id'
+import { Route as AuthenticatedChecklistsIndexRouteImport } from './routes/_authenticated/checklists.index'
+import { Route as AuthenticatedChecklistsIdRouteImport } from './routes/_authenticated/checklists.$id'
+import { Route as AuthenticatedMapaOpticoIndexRouteImport } from './routes/_authenticated/mapa-optico.index'
+import { Route as AuthenticatedMapaOpticoCeoIdRouteImport } from './routes/_authenticated/mapa-optico.$ceoId'
+import { Route as DenunciaValidarCodigoRouteImport } from './routes/denuncia.validar.$codigo'
 import { Route as ApiPublicAuthLoginInternalRouteImport } from './routes/api/public/auth/login-internal'
+import { Route as ApiPublicWebiDiagnosticDeviceStartRouteImport } from './routes/api/public/webi-diagnostic/device-start'
+import { Route as ApiPublicWebiDiagnosticDeviceTokenRouteImport } from './routes/api/public/webi-diagnostic/device-token'
+import { Route as ApiPublicWebiDiagnosticMyChecklistsRouteImport } from './routes/api/public/webi-diagnostic/my-checklists'
+import { Route as ApiPublicWebiDiagnosticResolveChecklistRouteImport } from './routes/api/public/webi-diagnostic/resolve-checklist'
+import { Route as ApiPublicWebiDiagnosticUploadReportRouteImport } from './routes/api/public/webi-diagnostic/upload-report'
 
-const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
-  id: '/trocar-senha',
-  path: '/trocar-senha',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
-  id: '/completar-cadastro',
-  path: '/completar-cadastro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AutorizarAgentRoute = AutorizarAgentRouteImport.update({
-  id: '/autorizar-agent',
-  path: '/autorizar-agent',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -70,86 +65,41 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const AutorizarAgentRoute = AutorizarAgentRouteImport.update({
+  id: '/autorizar-agent',
+  path: '/autorizar-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CompletarCadastroRoute = CompletarCadastroRouteImport.update({
+  id: '/completar-cadastro',
+  path: '/completar-cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DenunciaIndexRoute = DenunciaIndexRouteImport.update({
-  id: '/denuncia/',
-  path: '/denuncia/',
+const TrocarSenhaRoute = TrocarSenhaRouteImport.update({
+  id: '/trocar-senha',
+  path: '/trocar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ValidarTokenRoute = ValidarTokenRouteImport.update({
-  id: '/validar/$token',
-  path: '/validar/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DenunciaAcompanharRoute = DenunciaAcompanharRouteImport.update({
-  id: '/denuncia/acompanhar',
-  path: '/denuncia/acompanhar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContraProvaTokenRoute = ContraProvaTokenRouteImport.update({
-  id: '/contra-prova/$token',
-  path: '/contra-prova/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
-  id: '/trocas-ont',
-  path: '/trocas-ont',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSegurancaRoute = AuthenticatedSegurancaRouteImport.update({
-  id: '/seguranca',
-  path: '/seguranca',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedRemapeamentosRoute =
-  AuthenticatedRemapeamentosRouteImport.update({
-    id: '/remapeamentos',
-    path: '/remapeamentos',
+const AuthenticatedAuditoriaChecklistsRoute =
+  AuthenticatedAuditoriaChecklistsRouteImport.update({
+    id: '/auditoria-checklists',
+    path: '/auditoria-checklists',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
-  id: '/provedor',
-  path: '/provedor',
+const AuthenticatedCtosRoute = AuthenticatedCtosRouteImport.update({
+  id: '/ctos',
+  path: '/ctos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedProdutividadeRoute =
-  AuthenticatedProdutividadeRouteImport.update({
-    id: '/produtividade',
-    path: '/produtividade',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPlataformaRoute = AuthenticatedPlataformaRouteImport.update({
-  id: '/plataforma',
-  path: '/plataforma',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
-  id: '/painel',
-  path: '/painel',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedMinhaContaRoute = AuthenticatedMinhaContaRouteImport.update({
-  id: '/minha-conta',
-  path: '/minha-conta',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedIntervencoesRoute =
-  AuthenticatedIntervencoesRouteImport.update({
-    id: '/intervencoes',
-    path: '/intervencoes',
+const AuthenticatedInformativosRoute =
+  AuthenticatedInformativosRouteImport.update({
+    id: '/informativos',
+    path: '/informativos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedIntegracoesRoute =
@@ -158,73 +108,88 @@ const AuthenticatedIntegracoesRoute =
     path: '/integracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedInformativosRoute =
-  AuthenticatedInformativosRouteImport.update({
-    id: '/informativos',
-    path: '/informativos',
+const AuthenticatedIntervencoesRoute =
+  AuthenticatedIntervencoesRouteImport.update({
+    id: '/intervencoes',
+    path: '/intervencoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedMinhaContaRoute = AuthenticatedMinhaContaRouteImport.update({
+  id: '/minha-conta',
+  path: '/minha-conta',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCtosRoute = AuthenticatedCtosRouteImport.update({
-  id: '/ctos',
-  path: '/ctos',
+const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
+  id: '/painel',
+  path: '/painel',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAuditoriaChecklistsRoute =
-  AuthenticatedAuditoriaChecklistsRouteImport.update({
-    id: '/auditoria-checklists',
-    path: '/auditoria-checklists',
+const AuthenticatedPlataformaRoute = AuthenticatedPlataformaRouteImport.update({
+  id: '/plataforma',
+  path: '/plataforma',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPostitRoute = AuthenticatedPostitRouteImport.update({
+  id: '/postit',
+  path: '/postit',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProdutividadeRoute =
+  AuthenticatedProdutividadeRouteImport.update({
+    id: '/produtividade',
+    path: '/produtividade',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedMapaOpticoIndexRoute =
-  AuthenticatedMapaOpticoIndexRouteImport.update({
-    id: '/mapa-optico/',
-    path: '/mapa-optico/',
+const AuthenticatedProvedorRoute = AuthenticatedProvedorRouteImport.update({
+  id: '/provedor',
+  path: '/provedor',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRemapeamentosRoute =
+  AuthenticatedRemapeamentosRouteImport.update({
+    id: '/remapeamentos',
+    path: '/remapeamentos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedChecklistsIndexRoute =
-  AuthenticatedChecklistsIndexRouteImport.update({
-    id: '/checklists/',
-    path: '/checklists/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCanalEticoIndexRoute =
-  AuthenticatedCanalEticoIndexRouteImport.update({
-    id: '/canal-etico/',
-    path: '/canal-etico/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
+const AuthenticatedSegurancaRoute = AuthenticatedSegurancaRouteImport.update({
+  id: '/seguranca',
+  path: '/seguranca',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
+  id: '/trocas-ont',
+  path: '/trocas-ont',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ContraProvaTokenRoute = ContraProvaTokenRouteImport.update({
+  id: '/contra-prova/$token',
+  path: '/contra-prova/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DenunciaIndexRoute = DenunciaIndexRouteImport.update({
+  id: '/denuncia/',
+  path: '/denuncia/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DenunciaAcompanharRoute = DenunciaAcompanharRouteImport.update({
+  id: '/denuncia/acompanhar',
+  path: '/denuncia/acompanhar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ValidarTokenRoute = ValidarTokenRouteImport.update({
+  id: '/validar/$token',
+  path: '/validar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAvaliacoesIndexRoute =
   AuthenticatedAvaliacoesIndexRouteImport.update({
     id: '/avaliacoes/',
     path: '/avaliacoes/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const DenunciaValidarCodigoRoute = DenunciaValidarCodigoRouteImport.update({
-  id: '/denuncia/validar/$codigo',
-  path: '/denuncia/validar/$codigo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedMapaOpticoCeoIdRoute =
-  AuthenticatedMapaOpticoCeoIdRouteImport.update({
-    id: '/mapa-optico/$ceoId',
-    path: '/mapa-optico/$ceoId',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedChecklistsIdRoute =
-  AuthenticatedChecklistsIdRouteImport.update({
-    id: '/checklists/$id',
-    path: '/checklists/$id',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedCanalEticoIdRoute =
-  AuthenticatedCanalEticoIdRouteImport.update({
-    id: '/canal-etico/$id',
-    path: '/canal-etico/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAvaliacoesIdRoute =
@@ -233,28 +198,51 @@ const AuthenticatedAvaliacoesIdRoute =
     path: '/avaliacoes/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicWebiDiagnosticUploadReportRoute =
-  ApiPublicWebiDiagnosticUploadReportRouteImport.update({
-    id: '/api/public/webi-diagnostic/upload-report',
-    path: '/api/public/webi-diagnostic/upload-report',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedCanalEticoIndexRoute =
+  AuthenticatedCanalEticoIndexRouteImport.update({
+    id: '/canal-etico/',
+    path: '/canal-etico/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicWebiDiagnosticResolveChecklistRoute =
-  ApiPublicWebiDiagnosticResolveChecklistRouteImport.update({
-    id: '/api/public/webi-diagnostic/resolve-checklist',
-    path: '/api/public/webi-diagnostic/resolve-checklist',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedCanalEticoIdRoute =
+  AuthenticatedCanalEticoIdRouteImport.update({
+    id: '/canal-etico/$id',
+    path: '/canal-etico/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicWebiDiagnosticMyChecklistsRoute =
-  ApiPublicWebiDiagnosticMyChecklistsRouteImport.update({
-    id: '/api/public/webi-diagnostic/my-checklists',
-    path: '/api/public/webi-diagnostic/my-checklists',
-    getParentRoute: () => rootRouteImport,
+const AuthenticatedChecklistsIndexRoute =
+  AuthenticatedChecklistsIndexRouteImport.update({
+    id: '/checklists/',
+    path: '/checklists/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicWebiDiagnosticDeviceTokenRoute =
-  ApiPublicWebiDiagnosticDeviceTokenRouteImport.update({
-    id: '/api/public/webi-diagnostic/device-token',
-    path: '/api/public/webi-diagnostic/device-token',
+const AuthenticatedChecklistsIdRoute =
+  AuthenticatedChecklistsIdRouteImport.update({
+    id: '/checklists/$id',
+    path: '/checklists/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMapaOpticoIndexRoute =
+  AuthenticatedMapaOpticoIndexRouteImport.update({
+    id: '/mapa-optico/',
+    path: '/mapa-optico/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedMapaOpticoCeoIdRoute =
+  AuthenticatedMapaOpticoCeoIdRouteImport.update({
+    id: '/mapa-optico/$ceoId',
+    path: '/mapa-optico/$ceoId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const DenunciaValidarCodigoRoute = DenunciaValidarCodigoRouteImport.update({
+  id: '/denuncia/validar/$codigo',
+  path: '/denuncia/validar/$codigo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicAuthLoginInternalRoute =
+  ApiPublicAuthLoginInternalRouteImport.update({
+    id: '/api/public/auth/login-internal',
+    path: '/api/public/auth/login-internal',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicWebiDiagnosticDeviceStartRoute =
@@ -263,10 +251,28 @@ const ApiPublicWebiDiagnosticDeviceStartRoute =
     path: '/api/public/webi-diagnostic/device-start',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicAuthLoginInternalRoute =
-  ApiPublicAuthLoginInternalRouteImport.update({
-    id: '/api/public/auth/login-internal',
-    path: '/api/public/auth/login-internal',
+const ApiPublicWebiDiagnosticDeviceTokenRoute =
+  ApiPublicWebiDiagnosticDeviceTokenRouteImport.update({
+    id: '/api/public/webi-diagnostic/device-token',
+    path: '/api/public/webi-diagnostic/device-token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticMyChecklistsRoute =
+  ApiPublicWebiDiagnosticMyChecklistsRouteImport.update({
+    id: '/api/public/webi-diagnostic/my-checklists',
+    path: '/api/public/webi-diagnostic/my-checklists',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticResolveChecklistRoute =
+  ApiPublicWebiDiagnosticResolveChecklistRouteImport.update({
+    id: '/api/public/webi-diagnostic/resolve-checklist',
+    path: '/api/public/webi-diagnostic/resolve-checklist',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebiDiagnosticUploadReportRoute =
+  ApiPublicWebiDiagnosticUploadReportRouteImport.update({
+    id: '/api/public/webi-diagnostic/upload-report',
+    path: '/api/public/webi-diagnostic/upload-report',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
+  '/postit': typeof AuthenticatedPostitRoute
   '/produtividade': typeof AuthenticatedProdutividadeRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
@@ -326,6 +333,7 @@ export interface FileRoutesByTo {
   '/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/plataforma': typeof AuthenticatedPlataformaRoute
+  '/postit': typeof AuthenticatedPostitRoute
   '/produtividade': typeof AuthenticatedProdutividadeRoute
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
@@ -369,6 +377,7 @@ export interface FileRoutesById {
   '/_authenticated/minha-conta': typeof AuthenticatedMinhaContaRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/plataforma': typeof AuthenticatedPlataformaRoute
+  '/_authenticated/postit': typeof AuthenticatedPostitRoute
   '/_authenticated/produtividade': typeof AuthenticatedProdutividadeRoute
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/remapeamentos': typeof AuthenticatedRemapeamentosRoute
@@ -412,6 +421,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/painel'
     | '/plataforma'
+    | '/postit'
     | '/produtividade'
     | '/provedor'
     | '/remapeamentos'
@@ -453,6 +463,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/painel'
     | '/plataforma'
+    | '/postit'
     | '/produtividade'
     | '/provedor'
     | '/remapeamentos'
@@ -495,6 +506,7 @@ export interface FileRouteTypes {
     | '/_authenticated/minha-conta'
     | '/_authenticated/painel'
     | '/_authenticated/plataforma'
+    | '/_authenticated/postit'
     | '/_authenticated/produtividade'
     | '/_authenticated/provedor'
     | '/_authenticated/remapeamentos'
@@ -544,32 +556,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/trocar-senha': {
-      id: '/trocar-senha'
-      path: '/trocar-senha'
-      fullPath: '/trocar-senha'
-      preLoaderRoute: typeof TrocarSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/completar-cadastro': {
-      id: '/completar-cadastro'
-      path: '/completar-cadastro'
-      fullPath: '/completar-cadastro'
-      preLoaderRoute: typeof CompletarCadastroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/autorizar-agent': {
-      id: '/autorizar-agent'
-      path: '/autorizar-agent'
-      fullPath: '/autorizar-agent'
-      preLoaderRoute: typeof AutorizarAgentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -579,130 +570,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/denuncia/': {
-      id: '/denuncia/'
-      path: '/denuncia'
-      fullPath: '/denuncia/'
-      preLoaderRoute: typeof DenunciaIndexRouteImport
+    '/autorizar-agent': {
+      id: '/autorizar-agent'
+      path: '/autorizar-agent'
+      fullPath: '/autorizar-agent'
+      preLoaderRoute: typeof AutorizarAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/validar/$token': {
-      id: '/validar/$token'
-      path: '/validar/$token'
-      fullPath: '/validar/$token'
-      preLoaderRoute: typeof ValidarTokenRouteImport
+    '/completar-cadastro': {
+      id: '/completar-cadastro'
+      path: '/completar-cadastro'
+      fullPath: '/completar-cadastro'
+      preLoaderRoute: typeof CompletarCadastroRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/denuncia/acompanhar': {
-      id: '/denuncia/acompanhar'
-      path: '/denuncia/acompanhar'
-      fullPath: '/denuncia/acompanhar'
-      preLoaderRoute: typeof DenunciaAcompanharRouteImport
+    '/trocar-senha': {
+      id: '/trocar-senha'
+      path: '/trocar-senha'
+      fullPath: '/trocar-senha'
+      preLoaderRoute: typeof TrocarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contra-prova/$token': {
-      id: '/contra-prova/$token'
-      path: '/contra-prova/$token'
-      fullPath: '/contra-prova/$token'
-      preLoaderRoute: typeof ContraProvaTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/usuarios': {
-      id: '/_authenticated/usuarios'
-      path: '/usuarios'
-      fullPath: '/usuarios'
-      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/trocas-ont': {
-      id: '/_authenticated/trocas-ont'
-      path: '/trocas-ont'
-      fullPath: '/trocas-ont'
-      preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/seguranca': {
-      id: '/_authenticated/seguranca'
-      path: '/seguranca'
-      fullPath: '/seguranca'
-      preLoaderRoute: typeof AuthenticatedSegurancaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/remapeamentos': {
-      id: '/_authenticated/remapeamentos'
-      path: '/remapeamentos'
-      fullPath: '/remapeamentos'
-      preLoaderRoute: typeof AuthenticatedRemapeamentosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/provedor': {
-      id: '/_authenticated/provedor'
-      path: '/provedor'
-      fullPath: '/provedor'
-      preLoaderRoute: typeof AuthenticatedProvedorRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/produtividade': {
-      id: '/_authenticated/produtividade'
-      path: '/produtividade'
-      fullPath: '/produtividade'
-      preLoaderRoute: typeof AuthenticatedProdutividadeRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/plataforma': {
-      id: '/_authenticated/plataforma'
-      path: '/plataforma'
-      fullPath: '/plataforma'
-      preLoaderRoute: typeof AuthenticatedPlataformaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/painel': {
-      id: '/_authenticated/painel'
-      path: '/painel'
-      fullPath: '/painel'
-      preLoaderRoute: typeof AuthenticatedPainelRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/minha-conta': {
-      id: '/_authenticated/minha-conta'
-      path: '/minha-conta'
-      fullPath: '/minha-conta'
-      preLoaderRoute: typeof AuthenticatedMinhaContaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/intervencoes': {
-      id: '/_authenticated/intervencoes'
-      path: '/intervencoes'
-      fullPath: '/intervencoes'
-      preLoaderRoute: typeof AuthenticatedIntervencoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/integracoes': {
-      id: '/_authenticated/integracoes'
-      path: '/integracoes'
-      fullPath: '/integracoes'
-      preLoaderRoute: typeof AuthenticatedIntegracoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/informativos': {
-      id: '/_authenticated/informativos'
-      path: '/informativos'
-      fullPath: '/informativos'
-      preLoaderRoute: typeof AuthenticatedInformativosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+    '/_authenticated/auditoria-checklists': {
+      id: '/_authenticated/auditoria-checklists'
+      path: '/auditoria-checklists'
+      fullPath: '/auditoria-checklists'
+      preLoaderRoute: typeof AuthenticatedAuditoriaChecklistsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/ctos': {
@@ -712,67 +612,137 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCtosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/auditoria-checklists': {
-      id: '/_authenticated/auditoria-checklists'
-      path: '/auditoria-checklists'
-      fullPath: '/auditoria-checklists'
-      preLoaderRoute: typeof AuthenticatedAuditoriaChecklistsRouteImport
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/mapa-optico/': {
-      id: '/_authenticated/mapa-optico/'
-      path: '/mapa-optico'
-      fullPath: '/mapa-optico/'
-      preLoaderRoute: typeof AuthenticatedMapaOpticoIndexRouteImport
+    '/_authenticated/informativos': {
+      id: '/_authenticated/informativos'
+      path: '/informativos'
+      fullPath: '/informativos'
+      preLoaderRoute: typeof AuthenticatedInformativosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/checklists/': {
-      id: '/_authenticated/checklists/'
-      path: '/checklists'
-      fullPath: '/checklists/'
-      preLoaderRoute: typeof AuthenticatedChecklistsIndexRouteImport
+    '/_authenticated/integracoes': {
+      id: '/_authenticated/integracoes'
+      path: '/integracoes'
+      fullPath: '/integracoes'
+      preLoaderRoute: typeof AuthenticatedIntegracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/canal-etico/': {
-      id: '/_authenticated/canal-etico/'
-      path: '/canal-etico'
-      fullPath: '/canal-etico/'
-      preLoaderRoute: typeof AuthenticatedCanalEticoIndexRouteImport
+    '/_authenticated/intervencoes': {
+      id: '/_authenticated/intervencoes'
+      path: '/intervencoes'
+      fullPath: '/intervencoes'
+      preLoaderRoute: typeof AuthenticatedIntervencoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/minha-conta': {
+      id: '/_authenticated/minha-conta'
+      path: '/minha-conta'
+      fullPath: '/minha-conta'
+      preLoaderRoute: typeof AuthenticatedMinhaContaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/painel': {
+      id: '/_authenticated/painel'
+      path: '/painel'
+      fullPath: '/painel'
+      preLoaderRoute: typeof AuthenticatedPainelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/plataforma': {
+      id: '/_authenticated/plataforma'
+      path: '/plataforma'
+      fullPath: '/plataforma'
+      preLoaderRoute: typeof AuthenticatedPlataformaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/postit': {
+      id: '/_authenticated/postit'
+      path: '/postit'
+      fullPath: '/postit'
+      preLoaderRoute: typeof AuthenticatedPostitRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/produtividade': {
+      id: '/_authenticated/produtividade'
+      path: '/produtividade'
+      fullPath: '/produtividade'
+      preLoaderRoute: typeof AuthenticatedProdutividadeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/provedor': {
+      id: '/_authenticated/provedor'
+      path: '/provedor'
+      fullPath: '/provedor'
+      preLoaderRoute: typeof AuthenticatedProvedorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/remapeamentos': {
+      id: '/_authenticated/remapeamentos'
+      path: '/remapeamentos'
+      fullPath: '/remapeamentos'
+      preLoaderRoute: typeof AuthenticatedRemapeamentosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/seguranca': {
+      id: '/_authenticated/seguranca'
+      path: '/seguranca'
+      fullPath: '/seguranca'
+      preLoaderRoute: typeof AuthenticatedSegurancaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/trocas-ont': {
+      id: '/_authenticated/trocas-ont'
+      path: '/trocas-ont'
+      fullPath: '/trocas-ont'
+      preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/usuarios': {
+      id: '/_authenticated/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/contra-prova/$token': {
+      id: '/contra-prova/$token'
+      path: '/contra-prova/$token'
+      fullPath: '/contra-prova/$token'
+      preLoaderRoute: typeof ContraProvaTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/denuncia/': {
+      id: '/denuncia/'
+      path: '/denuncia'
+      fullPath: '/denuncia/'
+      preLoaderRoute: typeof DenunciaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/denuncia/acompanhar': {
+      id: '/denuncia/acompanhar'
+      path: '/denuncia/acompanhar'
+      fullPath: '/denuncia/acompanhar'
+      preLoaderRoute: typeof DenunciaAcompanharRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/validar/$token': {
+      id: '/validar/$token'
+      path: '/validar/$token'
+      fullPath: '/validar/$token'
+      preLoaderRoute: typeof ValidarTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/avaliacoes/': {
       id: '/_authenticated/avaliacoes/'
       path: '/avaliacoes'
       fullPath: '/avaliacoes/'
       preLoaderRoute: typeof AuthenticatedAvaliacoesIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/denuncia/validar/$codigo': {
-      id: '/denuncia/validar/$codigo'
-      path: '/denuncia/validar/$codigo'
-      fullPath: '/denuncia/validar/$codigo'
-      preLoaderRoute: typeof DenunciaValidarCodigoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/mapa-optico/$ceoId': {
-      id: '/_authenticated/mapa-optico/$ceoId'
-      path: '/mapa-optico/$ceoId'
-      fullPath: '/mapa-optico/$ceoId'
-      preLoaderRoute: typeof AuthenticatedMapaOpticoCeoIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/checklists/$id': {
-      id: '/_authenticated/checklists/$id'
-      path: '/checklists/$id'
-      fullPath: '/checklists/$id'
-      preLoaderRoute: typeof AuthenticatedChecklistsIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/canal-etico/$id': {
-      id: '/_authenticated/canal-etico/$id'
-      path: '/canal-etico/$id'
-      fullPath: '/canal-etico/$id'
-      preLoaderRoute: typeof AuthenticatedCanalEticoIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/avaliacoes/$id': {
@@ -782,32 +752,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAvaliacoesIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/webi-diagnostic/upload-report': {
-      id: '/api/public/webi-diagnostic/upload-report'
-      path: '/api/public/webi-diagnostic/upload-report'
-      fullPath: '/api/public/webi-diagnostic/upload-report'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticUploadReportRouteImport
+    '/_authenticated/canal-etico/': {
+      id: '/_authenticated/canal-etico/'
+      path: '/canal-etico'
+      fullPath: '/canal-etico/'
+      preLoaderRoute: typeof AuthenticatedCanalEticoIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/canal-etico/$id': {
+      id: '/_authenticated/canal-etico/$id'
+      path: '/canal-etico/$id'
+      fullPath: '/canal-etico/$id'
+      preLoaderRoute: typeof AuthenticatedCanalEticoIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklists/': {
+      id: '/_authenticated/checklists/'
+      path: '/checklists'
+      fullPath: '/checklists/'
+      preLoaderRoute: typeof AuthenticatedChecklistsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checklists/$id': {
+      id: '/_authenticated/checklists/$id'
+      path: '/checklists/$id'
+      fullPath: '/checklists/$id'
+      preLoaderRoute: typeof AuthenticatedChecklistsIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mapa-optico/': {
+      id: '/_authenticated/mapa-optico/'
+      path: '/mapa-optico'
+      fullPath: '/mapa-optico/'
+      preLoaderRoute: typeof AuthenticatedMapaOpticoIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mapa-optico/$ceoId': {
+      id: '/_authenticated/mapa-optico/$ceoId'
+      path: '/mapa-optico/$ceoId'
+      fullPath: '/mapa-optico/$ceoId'
+      preLoaderRoute: typeof AuthenticatedMapaOpticoCeoIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/denuncia/validar/$codigo': {
+      id: '/denuncia/validar/$codigo'
+      path: '/denuncia/validar/$codigo'
+      fullPath: '/denuncia/validar/$codigo'
+      preLoaderRoute: typeof DenunciaValidarCodigoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/webi-diagnostic/resolve-checklist': {
-      id: '/api/public/webi-diagnostic/resolve-checklist'
-      path: '/api/public/webi-diagnostic/resolve-checklist'
-      fullPath: '/api/public/webi-diagnostic/resolve-checklist'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webi-diagnostic/my-checklists': {
-      id: '/api/public/webi-diagnostic/my-checklists'
-      path: '/api/public/webi-diagnostic/my-checklists'
-      fullPath: '/api/public/webi-diagnostic/my-checklists'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webi-diagnostic/device-token': {
-      id: '/api/public/webi-diagnostic/device-token'
-      path: '/api/public/webi-diagnostic/device-token'
-      fullPath: '/api/public/webi-diagnostic/device-token'
-      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRouteImport
+    '/api/public/auth/login-internal': {
+      id: '/api/public/auth/login-internal'
+      path: '/api/public/auth/login-internal'
+      fullPath: '/api/public/auth/login-internal'
+      preLoaderRoute: typeof ApiPublicAuthLoginInternalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/webi-diagnostic/device-start': {
@@ -817,11 +815,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceStartRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/auth/login-internal': {
-      id: '/api/public/auth/login-internal'
-      path: '/api/public/auth/login-internal'
-      fullPath: '/api/public/auth/login-internal'
-      preLoaderRoute: typeof ApiPublicAuthLoginInternalRouteImport
+    '/api/public/webi-diagnostic/device-token': {
+      id: '/api/public/webi-diagnostic/device-token'
+      path: '/api/public/webi-diagnostic/device-token'
+      fullPath: '/api/public/webi-diagnostic/device-token'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticDeviceTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/my-checklists': {
+      id: '/api/public/webi-diagnostic/my-checklists'
+      path: '/api/public/webi-diagnostic/my-checklists'
+      fullPath: '/api/public/webi-diagnostic/my-checklists'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticMyChecklistsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/resolve-checklist': {
+      id: '/api/public/webi-diagnostic/resolve-checklist'
+      path: '/api/public/webi-diagnostic/resolve-checklist'
+      fullPath: '/api/public/webi-diagnostic/resolve-checklist'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticResolveChecklistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webi-diagnostic/upload-report': {
+      id: '/api/public/webi-diagnostic/upload-report'
+      path: '/api/public/webi-diagnostic/upload-report'
+      fullPath: '/api/public/webi-diagnostic/upload-report'
+      preLoaderRoute: typeof ApiPublicWebiDiagnosticUploadReportRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -837,6 +856,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMinhaContaRoute: typeof AuthenticatedMinhaContaRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedPlataformaRoute: typeof AuthenticatedPlataformaRoute
+  AuthenticatedPostitRoute: typeof AuthenticatedPostitRoute
   AuthenticatedProdutividadeRoute: typeof AuthenticatedProdutividadeRoute
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
   AuthenticatedRemapeamentosRoute: typeof AuthenticatedRemapeamentosRoute
@@ -863,6 +883,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMinhaContaRoute: AuthenticatedMinhaContaRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedPlataformaRoute: AuthenticatedPlataformaRoute,
+  AuthenticatedPostitRoute: AuthenticatedPostitRoute,
   AuthenticatedProdutividadeRoute: AuthenticatedProdutividadeRoute,
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
   AuthenticatedRemapeamentosRoute: AuthenticatedRemapeamentosRoute,

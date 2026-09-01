@@ -24,6 +24,7 @@ import {
   KeyRound,
   Menu,
   GraduationCap,
+  StickyNote,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -56,6 +57,7 @@ import { getChecklistCounts } from "@/lib/checklists";
 import { getTechnicalFeedbackAccess } from "@/lib/technical-reviews.functions";
 import { getWhistleblowerAccess } from "@/lib/whistleblower-admin.functions";
 import { GoogleReviewLinksInternal } from "@/components/google-review-links-internal";
+import { getPostitAccess } from "@/lib/postit.functions";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -206,6 +208,12 @@ function Painel() {
   const feedbackAccess = useQuery({
     queryKey: ["technical-feedback-access"],
     queryFn: () => getTechnicalFeedbackAccess(),
+    enabled: !!user,
+    staleTime: 300_000,
+  });
+  const postitAccess = useQuery({
+    queryKey: ["postit-access"],
+    queryFn: () => getPostitAccess(),
     enabled: !!user,
     staleTime: 300_000,
   });
@@ -507,6 +515,14 @@ function Painel() {
                       icon={GraduationCap}
                       title="Avaliação Técnica Interna"
                       description="Módulo privado de avaliação técnica e feedback com apoio de IA."
+                    />
+                  )}
+                  {(postitAccess.data?.hasAccess || postitAccess.data?.canBootstrap) && (
+                    <HomeNavCard
+                      to="/postit"
+                      icon={StickyNote}
+                      title="Postit!"
+                      description="Compromissos das reuniões GR, três prazos e escalonamento para gestores."
                     />
                   )}
                   <HomeNavCard
