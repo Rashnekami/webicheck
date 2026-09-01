@@ -1322,6 +1322,657 @@ export type Database = {
           },
         ]
       }
+      postit_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_url: string
+          id: string
+          kind: string
+          mime_type: string | null
+          postit_id: string
+          provider_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_url: string
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          postit_id: string
+          provider_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          kind?: string
+          mime_type?: string | null
+          postit_id?: string
+          provider_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_attachments_postit_id_fkey"
+            columns: ["postit_id"]
+            isOneToOne: false
+            referencedRelation: "postit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_attachments_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_code_counters: {
+        Row: {
+          code_year: number
+          last_value: number
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          code_year: number
+          last_value?: number
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          code_year?: number
+          last_value?: number
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_code_counters_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_comments: {
+        Row: {
+          author_user_id: string
+          body: string
+          created_at: string
+          id: string
+          postit_id: string
+          provider_id: string
+        }
+        Insert: {
+          author_user_id: string
+          body: string
+          created_at?: string
+          id?: string
+          postit_id: string
+          provider_id: string
+        }
+        Update: {
+          author_user_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          postit_id?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_comments_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_comments_postit_id_fkey"
+            columns: ["postit_id"]
+            isOneToOne: false
+            referencedRelation: "postit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_comments_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_deadline_history: {
+        Row: {
+          created_at: string
+          id: string
+          new_due_date: string
+          postit_id: string
+          previous_due_date: string | null
+          provider_id: string
+          reason: string
+          requested_by: string
+          sequence: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          new_due_date: string
+          postit_id: string
+          previous_due_date?: string | null
+          provider_id: string
+          reason: string
+          requested_by: string
+          sequence: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          new_due_date?: string
+          postit_id?: string
+          previous_due_date?: string | null
+          provider_id?: string
+          reason?: string
+          requested_by?: string
+          sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_deadline_history_postit_id_fkey"
+            columns: ["postit_id"]
+            isOneToOne: false
+            referencedRelation: "postit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_deadline_history_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_deadline_history_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_departments: {
+        Row: {
+          active: boolean
+          color: string
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_departments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_departments_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          meeting_id: string | null
+          postit_id: string | null
+          provider_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          meeting_id?: string | null
+          postit_id?: string | null
+          provider_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          meeting_id?: string | null
+          postit_id?: string | null
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_events_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "postit_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_events_postit_id_fkey"
+            columns: ["postit_id"]
+            isOneToOne: false
+            referencedRelation: "postit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_events_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_items: {
+        Row: {
+          cancelled_at: string | null
+          code: string
+          completion_evidence_url: string | null
+          completion_note: string | null
+          completion_submitted_at: string | null
+          created_at: string
+          creator_user_id: string
+          current_due_date: string
+          department_id: string
+          description: string
+          escalation_level: number
+          extension_count: number
+          id: string
+          initial_due_date: string
+          manager_user_id: string | null
+          meeting_id: string | null
+          priority: Database["public"]["Enums"]["postit_priority"]
+          provider_id: string
+          responsible_user_id: string
+          status: Database["public"]["Enums"]["postit_status"]
+          title: string
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          code: string
+          completion_evidence_url?: string | null
+          completion_note?: string | null
+          completion_submitted_at?: string | null
+          created_at?: string
+          creator_user_id: string
+          current_due_date: string
+          department_id: string
+          description: string
+          escalation_level?: number
+          extension_count?: number
+          id?: string
+          initial_due_date: string
+          manager_user_id?: string | null
+          meeting_id?: string | null
+          priority?: Database["public"]["Enums"]["postit_priority"]
+          provider_id: string
+          responsible_user_id: string
+          status?: Database["public"]["Enums"]["postit_status"]
+          title: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          code?: string
+          completion_evidence_url?: string | null
+          completion_note?: string | null
+          completion_submitted_at?: string | null
+          created_at?: string
+          creator_user_id?: string
+          current_due_date?: string
+          department_id?: string
+          description?: string
+          escalation_level?: number
+          extension_count?: number
+          id?: string
+          initial_due_date?: string
+          manager_user_id?: string | null
+          meeting_id?: string | null
+          priority?: Database["public"]["Enums"]["postit_priority"]
+          provider_id?: string
+          responsible_user_id?: string
+          status?: Database["public"]["Enums"]["postit_status"]
+          title?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_items_creator_user_id_fkey"
+            columns: ["creator_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_manager_user_id_fkey"
+            columns: ["manager_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "postit_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_responsible_user_id_fkey"
+            columns: ["responsible_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_meetings: {
+        Row: {
+          created_at: string
+          created_by: string
+          department_id: string | null
+          ended_at: string | null
+          id: string
+          meeting_type: string
+          notes: string | null
+          provider_id: string
+          scheduled_at: string
+          started_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          department_id?: string | null
+          ended_at?: string | null
+          id?: string
+          meeting_type?: string
+          notes?: string | null
+          provider_id: string
+          scheduled_at: string
+          started_at?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          department_id?: string | null
+          ended_at?: string | null
+          id?: string
+          meeting_type?: string
+          notes?: string | null
+          provider_id?: string
+          scheduled_at?: string
+          started_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_meetings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_meetings_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_meetings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_members: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          department_id: string | null
+          id: string
+          provider_id: string
+          role: Database["public"]["Enums"]["postit_member_role"]
+          supervisor_user_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          department_id?: string | null
+          id?: string
+          provider_id: string
+          role?: Database["public"]["Enums"]["postit_member_role"]
+          supervisor_user_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          department_id?: string | null
+          id?: string
+          provider_id?: string
+          role?: Database["public"]["Enums"]["postit_member_role"]
+          supervisor_user_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_members_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_members_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_members_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_members_supervisor_user_id_fkey"
+            columns: ["supervisor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_notifications: {
+        Row: {
+          created_at: string
+          dedupe_key: string | null
+          id: string
+          meeting_id: string | null
+          message: string
+          notification_type: string
+          postit_id: string | null
+          provider_id: string
+          read_at: string | null
+          recipient_user_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          meeting_id?: string | null
+          message: string
+          notification_type: string
+          postit_id?: string | null
+          provider_id: string
+          read_at?: string | null
+          recipient_user_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          meeting_id?: string | null
+          message?: string
+          notification_type?: string
+          postit_id?: string | null
+          provider_id?: string
+          read_at?: string | null
+          recipient_user_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_notifications_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "postit_meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_notifications_postit_id_fkey"
+            columns: ["postit_id"]
+            isOneToOne: false
+            referencedRelation: "postit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_notifications_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_notifications_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active: boolean
@@ -3029,6 +3680,14 @@ export type Database = {
       }
       owns_technical_review: { Args: { _review_id: string }; Returns: boolean }
       owns_zumme_entry: { Args: { _entry_id: string }; Returns: boolean }
+      postit_can_manage: {
+        Args: { _provider_id: string; _user_id: string }
+        Returns: boolean
+      }
+      postit_has_access: {
+        Args: { _provider_id: string; _user_id: string }
+        Returns: boolean
+      }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
       purge_old_security_logs: { Args: never; Returns: undefined }
       review_checklist: {
@@ -3084,6 +3743,16 @@ export type Database = {
         | "antes"
         | "depois"
         | "sinal_fibra"
+      postit_member_role: "member" | "leader" | "manager" | "director" | "admin"
+      postit_priority: "low" | "normal" | "high" | "critical"
+      postit_status:
+        | "open"
+        | "in_progress"
+        | "overdue"
+        | "awaiting_validation"
+        | "completed"
+        | "escalated"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3231,6 +3900,17 @@ export const Constants = {
         "antes",
         "depois",
         "sinal_fibra",
+      ],
+      postit_member_role: ["member", "leader", "manager", "director", "admin"],
+      postit_priority: ["low", "normal", "high", "critical"],
+      postit_status: [
+        "open",
+        "in_progress",
+        "overdue",
+        "awaiting_validation",
+        "completed",
+        "escalated",
+        "cancelled",
       ],
     },
   },
