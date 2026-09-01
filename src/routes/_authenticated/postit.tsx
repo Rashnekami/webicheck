@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -134,15 +134,26 @@ function formatDateTime(date?: string | null) {
 
 function PostitPage() {
   const qc = useQueryClient();
+  const activationAttempted = useRef(false);
   const access = useQuery({ queryKey: ["postit-access"], queryFn: () => getPostitAccess() });
   const activate = useMutation({
     mutationFn: () => bootstrapPostit(),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["postit-access"] });
+    onSuccess: async (result) => {
+      qc.setQueryData(["postit-access"], result.access);
+      await qc.invalidateQueries({ queryKey: ["postit-workspace"] });
       toast.success("Postit! ativado com os setores iniciais.");
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  const shouldActivate = Boolean(
+    access.data?.hasAccess && access.data.canBootstrap && !access.data.memberRole,
+  );
+  useEffect(() => {
+    if (!shouldActivate || activationAttempted.current) return;
+    activationAttempted.current = true;
+    activate.mutate();
+  }, [activate, shouldActivate]);
 
   if (access.isLoading) {
     return <LoadingPage label="Abrindo o Postit!" />;
@@ -165,24 +176,32 @@ function PostitPage() {
       />
     );
   }
-  if (access.data.canBootstrap && !access.data.memberRole) {
-    return (
-      <ModuleMessage
-        icon={StickyNote}
-        title="Ativar o Postit! neste provedor"
-        description="A ativação cria os setores iniciais e cadastra você como administrador do módulo."
-        action={
-          <Button onClick={() => activate.mutate()} disabled={activate.isPending}>
-            {activate.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="mr-2 h-4 w-4" />
-            )}
-            Criar estrutura inicial
-          </Button>
-        }
-      />
-    );
+  if (shouldActivate) {
+    if (activate.isError) {
+      return (
+        <ModuleMessage
+          icon={ShieldAlert}
+          title="Não foi possível ativar o Postit!"
+          description={
+            activate.error instanceof Error
+              ? activate.error.message
+              : "A ativação não foi confirmada pelo banco de dados."
+          }
+          action={
+            <Button
+              onClick={() => {
+                activate.reset();
+                activate.mutate();
+              }}
+              disabled={activate.isPending}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" /> Tentar ativar novamente
+            </Button>
+          }
+        />
+      );
+    }
+    return <LoadingPage label="Ativando o Postit! neste provedor" />;
   }
   return <PostitWorkspacePage />;
 }

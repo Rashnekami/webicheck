@@ -72,7 +72,10 @@ type EntryModule = "checktecnico" | "postit";
 function intendedLoginPath() {
   const returnTo = sessionStorage.getItem("webicheck.return_to");
   if (returnTo?.startsWith("/")) return returnTo;
-  return sessionStorage.getItem("webicheck.entry_module") === "postit" ? "/postit" : "/painel";
+  const entryModule =
+    sessionStorage.getItem("webicheck.entry_module") ||
+    localStorage.getItem("webicheck.entry_module");
+  return entryModule === "postit" ? "/postit" : "/painel";
 }
 
 // Navegação client-side depois do login. Um window.location.assign() aqui
@@ -85,6 +88,7 @@ async function finishLogin(navigate?: (opts: { to: string; replace?: boolean }) 
   const to = intendedLoginPath();
   sessionStorage.removeItem("webicheck.return_to");
   sessionStorage.removeItem("webicheck.entry_module");
+  localStorage.removeItem("webicheck.entry_module");
 
   // Espera a sessão ficar disponível (setSession é assíncrono no storage).
   for (let i = 0; i < 10; i++) {
@@ -102,12 +106,18 @@ function AuthPage() {
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState<"login" | "forgot">("login");
   const [entryModule, setEntryModule] = useState<EntryModule>(() =>
-    sessionStorage.getItem("webicheck.entry_module") === "postit" ? "postit" : "checktecnico",
+    (sessionStorage.getItem("webicheck.entry_module") ||
+      localStorage.getItem("webicheck.entry_module")) === "postit"
+      ? "postit"
+      : "checktecnico",
   );
 
   function selectEntryModule(module: EntryModule) {
     setEntryModule(module);
     sessionStorage.setItem("webicheck.entry_module", module);
+    // O retorno do Google pode reconstruir o contexto de navegação. O
+    // localStorage preserva a escolha até finishLogin concluir o redirecionamento.
+    localStorage.setItem("webicheck.entry_module", module);
   }
 
   useEffect(() => {

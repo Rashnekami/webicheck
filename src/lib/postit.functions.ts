@@ -148,7 +148,7 @@ async function insertEvent(
   eventType: string,
   options: { postitId?: string; meetingId?: string; details?: Record<string, unknown> } = {},
 ) {
-  await client.from("postit_events").insert({
+  const { error } = await client.from("postit_events").insert({
     provider_id: context.providerId,
     postit_id: options.postitId ?? null,
     meeting_id: options.meetingId ?? null,
@@ -156,6 +156,7 @@ async function insertEvent(
     event_type: eventType,
     details: options.details ?? {},
   });
+  if (error) throw new Error(`Falha ao registrar histórico do Postit!: ${error.message}`);
 }
 
 async function notify(
@@ -182,7 +183,7 @@ async function notify(
       .maybeSingle();
     if (existing) return;
   }
-  await client.from("postit_notifications").insert({
+  const { error } = await client.from("postit_notifications").insert({
     provider_id: input.providerId,
     recipient_user_id: input.recipientUserId,
     postit_id: input.postitId ?? null,
@@ -192,6 +193,7 @@ async function notify(
     message: input.message,
     dedupe_key: input.dedupeKey ?? null,
   });
+  if (error) throw new Error(`Falha ao criar notificação do Postit!: ${error.message}`);
 }
 
 async function syncOverdueItems(context: AccessContext & { providerId: string }, client: AnyDb) {
@@ -273,38 +275,50 @@ export const bootstrapPostit = createServerFn({ method: "POST" })
       ["Agenda", "#2dd4bf"],
       ["Diretoria", "#facc15"],
     ];
-    for (const [name, color] of defaults) {
-      const { data: exists } = await client
-        .from("postit_departments")
-        .select("id")
-        .eq("provider_id", access.providerId)
-        .eq("name", name)
-        .maybeSingle();
-      if (!exists) {
-        await client.from("postit_departments").insert({
-          provider_id: access.providerId,
-          name,
-          color,
-          created_by: context.userId,
-        });
-      }
-    }
-    await client.from("postit_members").upsert(
-      {
+    const { error: departmentsError } = await client.from("postit_departments").upsert(
+      defaults.map(([name, color]) => ({
         provider_id: access.providerId,
-        user_id: context.userId,
-        role: "admin",
-        active: true,
+        name,
+        color,
         created_by: context.userId,
-      },
-      { onConflict: "provider_id,user_id" },
+        active: true,
+      })),
+      { onConflict: "provider_id,name", ignoreDuplicates: true },
     );
+    if (departmentsError) {
+      throw new Error(`Não foi possível criar os setores do Postit!: ${departmentsError.message}`);
+    }
+
+    const { data: member, error: memberError } = await client
+      .from("postit_members")
+      .upsert(
+        {
+          provider_id: access.providerId,
+          user_id: context.userId,
+          role: "admin",
+          active: true,
+          created_by: context.userId,
+        },
+        { onConflict: "provider_id,user_id" },
+      )
+      .select("role, active")
+      .single();
+    if (memberError || !member?.active || member.role !== "admin") {
+      throw new Error(
+        `Não foi possível cadastrar o administrador do Postit!: ${memberError?.message || "cadastro não confirmado"}`,
+      );
+    }
     await insertEvent(
       client,
       access as AccessContext & { providerId: string },
       "module_bootstrapped",
     );
-    return { ok: true };
+    const confirmed = await getAccessContext(context.userId);
+    if (!confirmed.hasAccess || confirmed.memberRole !== "admin") {
+      throw new Error("A ativação foi gravada, mas o acesso ao Postit! não pôde ser confirmado.");
+    }
+    const { userId: _userId, ...confirmedAccess } = confirmed;
+    return { ok: true, access: confirmedAccess };
   });
 
 export const getPostitWorkspace = createServerFn({ method: "GET" })
