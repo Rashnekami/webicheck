@@ -1406,8 +1406,12 @@ function PostitDetailDialog({
     refresh();
   };
   const actionError = (error: Error) => toast.error(error.message);
+  const itemId = () => {
+    if (!item) throw new Error("Post-it não encontrado.");
+    return item.id;
+  };
   const start = useMutation({
-    mutationFn: () => startPostitItem({ data: { postitId: item.id } }),
+    mutationFn: () => startPostitItem({ data: { postitId: itemId() } }),
     onSuccess: () => {
       toast.success("Post-it colocado em andamento.");
       done();
@@ -1415,7 +1419,7 @@ function PostitDetailDialog({
     onError: actionError,
   });
   const extend = useMutation({
-    mutationFn: () => extendPostitDeadline({ data: { postitId: item.id, newDueDate, reason } }),
+    mutationFn: () => extendPostitDeadline({ data: { postitId: itemId(), newDueDate, reason } }),
     onSuccess: () => {
       toast.success("Novo prazo registrado no histórico.");
       done();
@@ -1424,7 +1428,7 @@ function PostitDetailDialog({
   });
   const submit = useMutation({
     mutationFn: () =>
-      submitPostitCompletion({ data: { postitId: item.id, note: completionNote, evidenceUrl } }),
+      submitPostitCompletion({ data: { postitId: itemId(), note: completionNote, evidenceUrl } }),
     onSuccess: () => {
       toast.success("Conclusão enviada para validação.");
       done();
@@ -1433,7 +1437,7 @@ function PostitDetailDialog({
   });
   const validate = useMutation({
     mutationFn: (approved: boolean) =>
-      validatePostitCompletion({ data: { postitId: item.id, approved, note: reason } }),
+      validatePostitCompletion({ data: { postitId: itemId(), approved, note: reason } }),
     onSuccess: (_, approved) => {
       toast.success(approved ? "Conclusão aprovada." : "Post-it devolvido ao responsável.");
       done();
@@ -1441,7 +1445,7 @@ function PostitDetailDialog({
     onError: actionError,
   });
   const addComment = useMutation({
-    mutationFn: () => addPostitComment({ data: { postitId: item.id, body: comment } }),
+    mutationFn: () => addPostitComment({ data: { postitId: itemId(), body: comment } }),
     onSuccess: () => {
       setComment("");
       refresh();
