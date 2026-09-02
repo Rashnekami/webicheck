@@ -49,3 +49,33 @@ export const getMyAuthStatus = createServerFn({ method: "GET" })
       .maybeSingle();
     return { must_change_password: Boolean((data as { must_change_password?: boolean } | null)?.must_change_password) };
   });
+
+// Define o e-mail pessoal obrigatório do usuário (primeiro acesso).
+// Não altera o e-mail sintético usado pelo login interno — apenas
+// registra o contato real em profiles.contact_email.
+export const setMyContactEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { email: string }) => {
+    const email = data.email?.trim().toLowerCase() ?? "";
+    if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) throw new Error("Informe um e-mail válido.");
+    return { email };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: taken } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .ilike("contact_email", data.email)
+      .neq("id", context.userId)
+      .maybeSingle();
+    if (taken) throw new Error("Este e-mail já está vinculado a outro usuário.");
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        contact_email: data.email,
+        contact_email_set_at: new Date().toISOString(),
+      } as never)
+      .eq("id", context.userId);
+    if (error) throw new Error("Não foi possível salvar o e-mail.");
+    return { ok: true };
+  });

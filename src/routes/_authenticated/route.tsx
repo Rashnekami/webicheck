@@ -34,7 +34,7 @@ export const Route = createFileRoute("/_authenticated")({
     if (error || !data.user) throw redirect({ to: "/auth" });
     const { data: profile } = await supabase
       .from("profiles")
-      .select("active, city, provider_id, platform_admin, cities_configured_at")
+      .select("active, city, provider_id, platform_admin, cities_configured_at, contact_email")
       .eq("id", data.user.id)
       .maybeSingle();
     if (!profile?.active) {
@@ -46,9 +46,14 @@ export const Route = createFileRoute("/_authenticated")({
     // possuir cidade/região técnica configurada.
     const postitAccountPath =
       location.pathname.startsWith("/postit") || location.pathname === "/minha-conta";
-    if (!profile.provider_id || (!postitAccountPath && !profile.cities_configured_at)) {
+    if (
+      !profile.provider_id ||
+      !(profile as { contact_email?: string | null }).contact_email ||
+      (!postitAccountPath && !profile.cities_configured_at)
+    ) {
       throw redirect({ to: "/completar-cadastro" });
     }
+
     if (await fetchMustChangePassword(data.user.id)) {
       throw redirect({ to: "/trocar-senha" });
     }
