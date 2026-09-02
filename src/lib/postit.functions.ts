@@ -218,7 +218,7 @@ async function getAssignablePersonIds(
     }
   }
   if (["leader", "manager"].includes(access.memberRole ?? "")) allowed.add(access.personId);
-  return allIds.filter((id) => allowed.has(id));
+  return allIds.filter((id: string) => allowed.has(id));
 }
 
 function nextTuesdayAtNine() {
@@ -1107,7 +1107,7 @@ async function getItemAssigneePeople(client: AnyDb, providerId: string, postitId
     .in("id", personIds);
   if (peopleError) throw new Error(peopleError.message);
   return personIds
-    .map((id) => (people ?? []).find((person: any) => person.id === id))
+    .map((id: string) => (people ?? []).find((person: any) => person.id === id))
     .filter(Boolean);
 }
 

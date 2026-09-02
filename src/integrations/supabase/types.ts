@@ -1322,6 +1322,65 @@ export type Database = {
           },
         ]
       }
+      postit_assignees: {
+        Row: {
+          assigned_by: string
+          assignment_order: number
+          created_at: string
+          id: string
+          person_id: string
+          postit_id: string
+          provider_id: string
+        }
+        Insert: {
+          assigned_by: string
+          assignment_order?: number
+          created_at?: string
+          id?: string
+          person_id: string
+          postit_id: string
+          provider_id: string
+        }
+        Update: {
+          assigned_by?: string
+          assignment_order?: number
+          created_at?: string
+          id?: string
+          person_id?: string
+          postit_id?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_assignees_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_assignees_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_assignees_postit_id_fkey"
+            columns: ["postit_id"]
+            isOneToOne: false
+            referencedRelation: "postit_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_assignees_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       postit_attachments: {
         Row: {
           created_at: string
@@ -1634,6 +1693,7 @@ export type Database = {
           completion_note: string | null
           completion_submitted_at: string | null
           created_at: string
+          creator_person_id: string | null
           creator_user_id: string
           current_due_date: string
           department_id: string
@@ -1642,11 +1702,15 @@ export type Database = {
           extension_count: number
           id: string
           initial_due_date: string
+          manager_person_id: string | null
           manager_user_id: string | null
           meeting_id: string | null
+          primary_assignee_person_id: string | null
           priority: Database["public"]["Enums"]["postit_priority"]
           provider_id: string
-          responsible_user_id: string
+          responsible_user_id: string | null
+          review_meeting_id: string | null
+          source_type: string
           status: Database["public"]["Enums"]["postit_status"]
           title: string
           updated_at: string
@@ -1660,6 +1724,7 @@ export type Database = {
           completion_note?: string | null
           completion_submitted_at?: string | null
           created_at?: string
+          creator_person_id?: string | null
           creator_user_id: string
           current_due_date: string
           department_id: string
@@ -1668,11 +1733,15 @@ export type Database = {
           extension_count?: number
           id?: string
           initial_due_date: string
+          manager_person_id?: string | null
           manager_user_id?: string | null
           meeting_id?: string | null
+          primary_assignee_person_id?: string | null
           priority?: Database["public"]["Enums"]["postit_priority"]
           provider_id: string
-          responsible_user_id: string
+          responsible_user_id?: string | null
+          review_meeting_id?: string | null
+          source_type?: string
           status?: Database["public"]["Enums"]["postit_status"]
           title: string
           updated_at?: string
@@ -1686,6 +1755,7 @@ export type Database = {
           completion_note?: string | null
           completion_submitted_at?: string | null
           created_at?: string
+          creator_person_id?: string | null
           creator_user_id?: string
           current_due_date?: string
           department_id?: string
@@ -1694,11 +1764,15 @@ export type Database = {
           extension_count?: number
           id?: string
           initial_due_date?: string
+          manager_person_id?: string | null
           manager_user_id?: string | null
           meeting_id?: string | null
+          primary_assignee_person_id?: string | null
           priority?: Database["public"]["Enums"]["postit_priority"]
           provider_id?: string
-          responsible_user_id?: string
+          responsible_user_id?: string | null
+          review_meeting_id?: string | null
+          source_type?: string
           status?: Database["public"]["Enums"]["postit_status"]
           title?: string
           updated_at?: string
@@ -1706,6 +1780,13 @@ export type Database = {
           validated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "postit_items_creator_person_id_fkey"
+            columns: ["creator_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "postit_items_creator_user_id_fkey"
             columns: ["creator_user_id"]
@@ -1718,6 +1799,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_manager_person_id_fkey"
+            columns: ["manager_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
             referencedColumns: ["id"]
           },
           {
@@ -1735,6 +1823,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "postit_items_primary_assignee_person_id_fkey"
+            columns: ["primary_assignee_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "postit_items_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
@@ -1746,6 +1841,13 @@ export type Database = {
             columns: ["responsible_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_review_meeting_id_fkey"
+            columns: ["review_meeting_id"]
+            isOneToOne: false
+            referencedRelation: "postit_meetings"
             referencedColumns: ["id"]
           },
           {
@@ -1767,6 +1869,7 @@ export type Database = {
           meeting_type: string
           notes: string | null
           provider_id: string
+          review_meeting_id: string | null
           scheduled_at: string
           started_at: string | null
           status: string
@@ -1782,6 +1885,7 @@ export type Database = {
           meeting_type?: string
           notes?: string | null
           provider_id: string
+          review_meeting_id?: string | null
           scheduled_at: string
           started_at?: string | null
           status?: string
@@ -1797,6 +1901,7 @@ export type Database = {
           meeting_type?: string
           notes?: string | null
           provider_id?: string
+          review_meeting_id?: string | null
           scheduled_at?: string
           started_at?: string | null
           status?: string
@@ -1823,6 +1928,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_meetings_review_meeting_id_fkey"
+            columns: ["review_meeting_id"]
+            isOneToOne: false
+            referencedRelation: "postit_meetings"
             referencedColumns: ["id"]
           },
         ]
@@ -1969,6 +2081,136 @@ export type Database = {
             columns: ["recipient_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_people: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          department_id: string | null
+          email: string | null
+          full_name: string
+          id: string
+          position_title: string
+          provider_id: string
+          role: Database["public"]["Enums"]["postit_member_role"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          department_id?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          position_title?: string
+          provider_id: string
+          role?: Database["public"]["Enums"]["postit_member_role"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          department_id?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          position_title?: string
+          provider_id?: string
+          role?: Database["public"]["Enums"]["postit_member_role"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_people_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_people_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_people_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_people_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_reporting_lines: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          leader_person_id: string
+          provider_id: string
+          subordinate_person_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          leader_person_id: string
+          provider_id: string
+          subordinate_person_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          leader_person_id?: string
+          provider_id?: string
+          subordinate_person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_reporting_lines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_reporting_lines_leader_person_id_fkey"
+            columns: ["leader_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_reporting_lines_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_reporting_lines_subordinate_person_id_fkey"
+            columns: ["subordinate_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
             referencedColumns: ["id"]
           },
         ]
@@ -3684,9 +3926,17 @@ export type Database = {
         Args: { _provider_id: string; _user_id: string }
         Returns: boolean
       }
+      postit_can_see_item: {
+        Args: { _postit_id: string; _provider_id: string; _user_id: string }
+        Returns: boolean
+      }
       postit_has_access: {
         Args: { _provider_id: string; _user_id: string }
         Returns: boolean
+      }
+      postit_person_id_for_user: {
+        Args: { _provider_id: string; _user_id: string }
+        Returns: string
       }
       provider_is_active: { Args: { _provider_id: string }; Returns: boolean }
       purge_old_security_logs: { Args: never; Returns: undefined }
