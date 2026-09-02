@@ -218,7 +218,7 @@ async function getAssignablePersonIds(
     }
   }
   if (["leader", "manager"].includes(access.memberRole ?? "")) allowed.add(access.personId);
-  return allIds.filter((id) => allowed.has(id));
+  return allIds.filter((id: string) => allowed.has(id));
 }
 
 function nextTuesdayAtNine() {
