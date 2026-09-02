@@ -46,13 +46,21 @@ export const Route = createFileRoute("/_authenticated")({
     // possuir cidade/região técnica configurada.
     const postitAccountPath =
       location.pathname.startsWith("/postit") || location.pathname === "/minha-conta";
+    // Contas criadas por login social (Google) já possuem e-mail real
+    // verificado no auth — não faz sentido pedir e-mail de novo.
+    const authEmail = data.user.email ?? "";
+    const hasRealAuthEmail =
+      authEmail.includes("@") && !authEmail.endsWith(".webicheck.local");
+    const hasEmail =
+      Boolean((profile as { contact_email?: string | null }).contact_email) || hasRealAuthEmail;
     if (
       !profile.provider_id ||
-      !(profile as { contact_email?: string | null }).contact_email ||
+      !hasEmail ||
       (!postitAccountPath && !profile.cities_configured_at)
     ) {
       throw redirect({ to: "/completar-cadastro" });
     }
+
 
     if (await fetchMustChangePassword(data.user.id)) {
       throw redirect({ to: "/trocar-senha" });
