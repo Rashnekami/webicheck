@@ -68,7 +68,7 @@ import {
   getPostitWorkspace,
   markPostitNotificationsRead,
   savePostitDepartment,
-  savePostitMember,
+  savePostitPerson,
   startPostitItem,
   submitPostitCompletion,
   validatePostitCompletion,
@@ -94,9 +94,9 @@ export const Route = createFileRoute("/_authenticated/postit")({
 });
 
 const ROLE_LABELS: Record<PostitMemberRole, string> = {
-  member: "Membro",
+  member: "Colaborador",
   leader: "Líder",
-  manager: "Gerente",
+  manager: "Gestor / Supervisor",
   director: "Diretoria",
   admin: "Administrador",
 };
@@ -493,42 +493,56 @@ function DashboardPanel({
         />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_.9fr]">
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-500">
-                Prioridades
-              </p>
-              <h3 className="mt-1 text-xl font-bold text-white">Pendências que exigem atenção</h3>
-            </div>
-          </div>
-          {active.length ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {active
-                .slice()
-                .sort((a, b) => a.current_due_date.localeCompare(b.current_due_date))
-                .slice(0, 6)
-                .map((item) => (
+      <section className="space-y-9">
+        {departments
+          .map((department) => ({
+            department,
+            items: active
+              .filter((item) => item.department_id === department.id)
+              .sort((a, b) => a.current_due_date.localeCompare(b.current_due_date)),
+          }))
+          .filter((group) => group.items.length)
+          .map(({ department, items }) => (
+            <div key={department.id}>
+              <div className="mb-4 flex items-center gap-3">
+                <span
+                  className="h-10 w-2 rounded-full shadow-lg"
+                  style={{ backgroundColor: department.color }}
+                />
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-500">
+                    Pendências por setor
+                  </p>
+                  <h3 className="mt-1 text-xl font-bold text-white">
+                    {department.name}{" "}
+                    <span className="text-sm font-medium text-slate-500">({items.length})</span>
+                  </h3>
+                </div>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {items.map((item) => (
                   <PostitCard
                     key={item.id}
                     item={item}
                     departmentName={departmentName(data, item.department_id)}
                     departmentColor={departmentColor(data, item.department_id)}
-                    responsibleName={profileName(data, item.responsible_user_id)}
+                    responsibleName={itemAssigneeNames(data, item.id)}
                     onClick={() => openItem(item.id)}
                   />
                 ))}
+              </div>
             </div>
-          ) : (
-            <EmptyState
-              title="Nenhuma pendência aberta"
-              description="Os próximos compromissos aparecerão aqui."
-            />
-          )}
-        </div>
+          ))}
+        {!active.length ? (
+          <EmptyState
+            title="Nenhuma pendência aberta"
+            description="Os próximos compromissos aparecerão aqui separados por setor."
+          />
+        ) : null}
+      </section>
 
-        <Card className="h-fit border-white/10 bg-slate-950/55">
+      <section>
+        <Card className="border-white/10 bg-slate-950/55">
           <CardContent className="p-5 sm:p-6">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-300/10 text-amber-300">
@@ -582,7 +596,7 @@ function ItemsPanel({ data, openItem }: { data: PostitWorkspace; openItem: (id: 
     return data.items.filter((item) => {
       if (filter !== "all" && item.status !== filter) return false;
       if (!needle) return true;
-      return `${item.code} ${item.title} ${item.description} ${profileName(data, item.responsible_user_id)}`
+      return `${item.code} ${item.title} ${item.description} ${itemAssigneeNames(data, item.id)}`
         .toLowerCase()
         .includes(needle);
     });
@@ -632,7 +646,7 @@ function ItemsPanel({ data, openItem }: { data: PostitWorkspace; openItem: (id: 
               item={item}
               departmentName={departmentName(data, item.department_id)}
               departmentColor={departmentColor(data, item.department_id)}
-              responsibleName={profileName(data, item.responsible_user_id)}
+              responsibleName={itemAssigneeNames(data, item.id)}
               onClick={() => openItem(item.id)}
             />
           ))}
@@ -670,12 +684,16 @@ function NewPostitDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const [responsibleUserId, setResponsibleUserId] = useState("");
+  const [primaryPersonId, setPrimaryPersonId] = useState("");
+  const [secondaryPersonId, setSecondaryPersonId] = useState("none");
   const [meetingId, setMeetingId] = useState("none");
+  const [sourceType, setSourceType] = useState<
+    "meeting" | "sector" | "managerial" | "sporadic" | "standalone"
+  >("standalone");
   const [dueDate, setDueDate] = useState(defaultDueDate());
   const [priority, setPriority] = useState<PostitPriority>("normal");
-  const activeMembers = data.members.filter(
-    (member) => member.active && (!departmentId || member.department_id === departmentId),
+  const activePeople = data.people.filter(
+    (person) => person.active && data.assignablePersonIds.includes(person.id),
   );
   const create = useMutation({
     mutationFn: () =>
@@ -684,8 +702,11 @@ function NewPostitDialog({
           title,
           description,
           departmentId,
-          responsibleUserId,
-          meetingId: meetingId === "none" ? null : meetingId,
+          assigneePersonIds: [primaryPersonId, secondaryPersonId].filter(
+            (personId) => personId && personId !== "none",
+          ),
+          meetingId: sourceType === "meeting" && meetingId !== "none" ? meetingId : null,
+          sourceType,
           dueDate,
           priority,
         },
@@ -694,7 +715,8 @@ function NewPostitDialog({
       toast.success(`${result.code} criado e enviado ao responsável.`);
       setTitle("");
       setDescription("");
-      setResponsibleUserId("");
+      setPrimaryPersonId("");
+      setSecondaryPersonId("none");
       onOpenChange(false);
       refresh();
     },
@@ -737,7 +759,8 @@ function NewPostitDialog({
                 value={departmentId}
                 onValueChange={(value) => {
                   setDepartmentId(value);
-                  setResponsibleUserId("");
+                  setPrimaryPersonId("");
+                  setSecondaryPersonId("none");
                 }}
               >
                 <SelectTrigger>
@@ -755,21 +778,45 @@ function NewPostitDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Responsável</Label>
+              <Label>Responsável principal</Label>
               <Select
-                value={responsibleUserId}
-                onValueChange={setResponsibleUserId}
-                disabled={!departmentId}
+                value={primaryPersonId}
+                onValueChange={(value) => {
+                  setPrimaryPersonId(value);
+                  if (secondaryPersonId === value) setSecondaryPersonId("none");
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a pessoa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeMembers.map((member) => (
-                    <SelectItem key={member.user_id} value={member.user_id}>
-                      {profileName(data, member.user_id)}
+                  {activePeople.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>
+                      {person.full_name} · {person.position_title}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Segundo responsável (opcional)</Label>
+              <Select
+                value={secondaryPersonId}
+                onValueChange={setSecondaryPersonId}
+                disabled={!primaryPersonId}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Somente uma pessoa</SelectItem>
+                  {activePeople
+                    .filter((person) => person.id !== primaryPersonId)
+                    .map((person) => (
+                      <SelectItem key={person.id} value={person.id}>
+                        {person.full_name} · {person.position_title}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -799,23 +846,53 @@ function NewPostitDialog({
               </Select>
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Reunião de origem</Label>
-            <Select value={meetingId} onValueChange={setMeetingId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Criado fora de uma reunião</SelectItem>
-                {data.meetings
-                  .filter((meeting) => meeting.status !== "cancelled")
-                  .map((meeting) => (
-                    <SelectItem key={meeting.id} value={meeting.id}>
-                      {meeting.title} · {formatDateTime(meeting.scheduled_at)}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Origem do post-it</Label>
+              <Select
+                value={sourceType}
+                onValueChange={(value) => {
+                  setSourceType(
+                    value as "meeting" | "sector" | "managerial" | "sporadic" | "standalone",
+                  );
+                  if (value !== "meeting") setMeetingId("none");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standalone">Avulso</SelectItem>
+                  <SelectItem value="sporadic">Esporádico → próxima GR</SelectItem>
+                  <SelectItem value="meeting">Reunião já cadastrada</SelectItem>
+                </SelectContent>
+              </Select>
+              {sourceType === "sporadic" ? (
+                <p className="text-xs text-amber-200/75">
+                  Entrará automaticamente na pauta da próxima terça-feira, às 9h.
+                </p>
+              ) : null}
+            </div>
+            {sourceType === "meeting" ? (
+              <div className="space-y-1.5">
+                <Label>Reunião de origem</Label>
+                <Select value={meetingId} onValueChange={setMeetingId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Selecione uma reunião</SelectItem>
+                    {data.meetings
+                      .filter((meeting) => meeting.status !== "cancelled")
+                      .map((meeting) => (
+                        <SelectItem key={meeting.id} value={meeting.id}>
+                          {meeting.title} · {formatDateTime(meeting.scheduled_at)}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
           </div>
         </div>
         <DialogFooter>
@@ -843,7 +920,7 @@ function NewPostitDialog({
 function MeetingsPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => void }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [meetingType, setMeetingType] = useState<"general" | "sector">("sector");
+  const [meetingType, setMeetingType] = useState<"managerial" | "sector" | "sporadic">("sector");
   const [departmentId, setDepartmentId] = useState("");
   const [scheduledAt, setScheduledAt] = useState(asDateTimeLocal());
   const create = useMutation({
@@ -911,14 +988,17 @@ function MeetingsPanel({ data, refresh }: { data: PostitWorkspace; refresh: () =
                     <Label>Tipo</Label>
                     <Select
                       value={meetingType}
-                      onValueChange={(value) => setMeetingType(value as "general" | "sector")}
+                      onValueChange={(value) =>
+                        setMeetingType(value as "managerial" | "sector" | "sporadic")
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="sector">GR do setor</SelectItem>
-                        <SelectItem value="general">GR Geral</SelectItem>
+                        <SelectItem value="managerial">GR Gerencial</SelectItem>
+                        <SelectItem value="sporadic">Reunião esporádica</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -978,14 +1058,16 @@ function MeetingsPanel({ data, refresh }: { data: PostitWorkspace; refresh: () =
                       <Badge
                         variant="outline"
                         className={
-                          meeting.meeting_type === "general"
+                          ["general", "managerial"].includes(meeting.meeting_type)
                             ? "border-amber-300/30 text-amber-200"
                             : "border-sky-300/30 text-sky-200"
                         }
                       >
-                        {meeting.meeting_type === "general"
-                          ? "GR Geral"
-                          : departmentName(data, meeting.department_id)}
+                        {["general", "managerial"].includes(meeting.meeting_type)
+                          ? "GR Gerencial"
+                          : meeting.meeting_type === "sporadic"
+                            ? "Esporádica"
+                            : departmentName(data, meeting.department_id)}
                       </Badge>
                       <h3 className="mt-3 text-lg font-bold text-white">{meeting.title}</h3>
                       <p className="mt-1 flex items-center gap-2 text-sm text-slate-400">
@@ -1041,13 +1123,61 @@ function MeetingsPanel({ data, refresh }: { data: PostitWorkspace; refresh: () =
 
 function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => void }) {
   const [departmentOpen, setDepartmentOpen] = useState(false);
-  const [memberOpen, setMemberOpen] = useState(false);
+  const [personOpen, setPersonOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [departmentNameValue, setDepartmentNameValue] = useState("");
   const [departmentColorValue, setDepartmentColorValue] = useState("#facc15");
-  const [userId, setUserId] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [positionTitle, setPositionTitle] = useState("");
   const [departmentId, setDepartmentId] = useState("none");
   const [role, setRole] = useState<PostitMemberRole>("member");
-  const [supervisorUserId, setSupervisorUserId] = useState("none");
+  const [leaderPersonIds, setLeaderPersonIds] = useState<string[]>([]);
+
+  const canCreatePeople =
+    data.access.canAdminister || ["leader", "manager"].includes(data.access.memberRole ?? "");
+  const possibleLeaders = data.people.filter(
+    (person) =>
+      person.active &&
+      person.id !== editingId &&
+      ["leader", "manager", "director", "admin"].includes(person.role),
+  );
+
+  function resetPersonForm() {
+    setEditingId(null);
+    setFullName("");
+    setEmail("");
+    setPositionTitle("");
+    setDepartmentId("none");
+    setRole("member");
+    setLeaderPersonIds([]);
+  }
+
+  function editPerson(person: PostitWorkspace["people"][number]) {
+    setEditingId(person.id);
+    setFullName(person.full_name);
+    setEmail(person.email || "");
+    setPositionTitle(person.position_title);
+    setDepartmentId(person.department_id || "none");
+    setRole(person.role);
+    setLeaderPersonIds(
+      data.reportingLines
+        .filter((line) => line.subordinate_person_id === person.id)
+        .map((line) => line.leader_person_id),
+    );
+    setPersonOpen(true);
+  }
+
+  function canEditPerson(personId: string) {
+    return (
+      data.access.canAdminister ||
+      data.reportingLines.some(
+        (line) =>
+          line.subordinate_person_id === personId && line.leader_person_id === data.access.personId,
+      )
+    );
+  }
+
   const saveDepartment = useMutation({
     mutationFn: () =>
       savePostitDepartment({ data: { name: departmentNameValue, color: departmentColorValue } }),
@@ -1059,38 +1189,44 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
     },
     onError: (error: Error) => toast.error(error.message),
   });
-  const saveMember = useMutation({
+
+  const savePerson = useMutation({
     mutationFn: () =>
-      savePostitMember({
+      savePostitPerson({
         data: {
-          userId,
+          id: editingId || undefined,
+          fullName,
+          email: email || null,
+          positionTitle,
           departmentId: departmentId === "none" ? null : departmentId,
           role,
-          supervisorUserId: supervisorUserId === "none" ? null : supervisorUserId,
+          leaderPersonIds,
         },
       }),
     onSuccess: () => {
-      toast.success("Cadastro do Postit! atualizado.");
-      setMemberOpen(false);
+      toast.success(editingId ? "Cadastro atualizado." : "Pessoa cadastrada no Postit!.");
+      setPersonOpen(false);
+      resetPersonForm();
       refresh();
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-8">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">
-            Estrutura de cobrança
+            Diretório e cadeia de comando
           </p>
-          <h2 className="mt-2 text-2xl font-black text-white">Pessoas, setores e gestores</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            O gestor cadastrado recebe o post-it quando os três prazos acabam.
+          <h2 className="mt-2 text-2xl font-black text-white">Pessoas, cargos e lideranças</h2>
+          <p className="mt-1 max-w-2xl text-sm text-slate-400">
+            Cadastre pessoas antes mesmo do primeiro login. Quando usarem o Google com o mesmo
+            e-mail, o acesso será vinculado automaticamente.
           </p>
         </div>
-        {data.access.canAdminister ? (
-          <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {data.access.canAdminister ? (
             <Dialog open={departmentOpen} onOpenChange={setDepartmentOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="border-white/10">
@@ -1101,10 +1237,10 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
                 <DialogHeader>
                   <DialogTitle>Novo setor</DialogTitle>
                   <DialogDescription>
-                    Crie uma área para organizar responsáveis e reuniões.
+                    A cor escolhida será usada nos post-its desse setor.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
                   <div className="space-y-1.5">
                     <Label>Nome</Label>
                     <Input
@@ -1132,119 +1268,163 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Dialog open={memberOpen} onOpenChange={setMemberOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-amber-300 text-slate-950 hover:bg-amber-200">
-                  <UserRound className="mr-2 h-4 w-4" /> Cadastrar pessoa
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-950">
-                <DialogHeader>
-                  <DialogTitle>Acesso e hierarquia</DialogTitle>
-                  <DialogDescription>
-                    Selecione uma conta existente e defina quem é o gestor imediato.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label>Pessoa</Label>
-                    <Select
-                      value={userId}
-                      onValueChange={(value) => {
-                        setUserId(value);
-                        const existing = data.members.find((member) => member.user_id === value);
-                        if (existing) {
-                          setDepartmentId(existing.department_id || "none");
-                          setRole(existing.role);
-                          setSupervisorUserId(existing.supervisor_user_id || "none");
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {data.profiles.map((profile) => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.full_name || profile.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label>Setor</Label>
-                      <Select value={departmentId} onValueChange={setDepartmentId}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sem setor fixo</SelectItem>
-                          {data.departments
-                            .filter((department) => department.active)
-                            .map((department) => (
-                              <SelectItem key={department.id} value={department.id}>
-                                {department.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Função</Label>
-                      <Select
-                        value={role}
-                        onValueChange={(value) => setRole(value as PostitMemberRole)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Gestor imediato</Label>
-                    <Select value={supervisorUserId} onValueChange={setSupervisorUserId}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sem gestor acima</SelectItem>
-                        {data.members
-                          .filter(
-                            (member) =>
-                              member.active &&
-                              member.user_id !== userId &&
-                              ["leader", "manager", "director", "admin"].includes(member.role),
-                          )
-                          .map((member) => (
-                            <SelectItem key={member.user_id} value={member.user_id}>
-                              {profileName(data, member.user_id)} ·{" "}
-                              {ROLE_LABELS[member.role as PostitMemberRole]}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={() => saveMember.mutate()} disabled={saveMember.isPending}>
-                    Salvar cadastro
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        ) : null}
+          ) : null}
+
+          {canCreatePeople ? (
+            <Button
+              className="bg-amber-300 text-slate-950 hover:bg-amber-200"
+              onClick={() => {
+                resetPersonForm();
+                if (!data.access.canAdminister && data.access.personId) {
+                  setLeaderPersonIds([data.access.personId]);
+                }
+                setPersonOpen(true);
+              }}
+            >
+              <UserRound className="mr-2 h-4 w-4" /> Cadastrar pessoa
+            </Button>
+          ) : null}
+        </div>
       </div>
+
+      <Dialog
+        open={personOpen}
+        onOpenChange={(open) => {
+          setPersonOpen(open);
+          if (!open) resetPersonForm();
+        }}
+      >
+        <DialogContent className="max-h-[92vh] overflow-y-auto bg-slate-950 sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Editar pessoa" : "Nova pessoa"}</DialogTitle>
+            <DialogDescription>
+              Nome, cargo e setor pertencem apenas ao Postit. O e-mail serve para vincular o
+              primeiro login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Nome</Label>
+                <Input
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Ex.: Wagner"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cargo ou função</Label>
+                <Input
+                  value={positionTitle}
+                  onChange={(event) => setPositionTitle(event.target.value)}
+                  placeholder="Ex.: CEO, Gerente Geral, Técnico"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>E-mail para vincular o login (opcional)</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="pessoa@empresa.com.br"
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Setor</Label>
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem setor fixo</SelectItem>
+                    {data.departments
+                      .filter((department) => department.active)
+                      .map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Nível de permissão</Label>
+                <Select value={role} onValueChange={(value) => setRole(value as PostitMemberRole)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Colaborador</SelectItem>
+                    <SelectItem value="leader">Líder</SelectItem>
+                    {data.access.canAdminister ? (
+                      <>
+                        <SelectItem value="manager">Gestor / Supervisor</SelectItem>
+                        <SelectItem value="director">Diretoria</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </>
+                    ) : null}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Responde para</Label>
+              <p className="text-xs text-slate-500">
+                Pode marcar mais de um líder, como Renan → Carol e Wagner.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {possibleLeaders.map((leader) => {
+                  const selected = leaderPersonIds.includes(leader.id);
+                  return (
+                    <button
+                      key={leader.id}
+                      type="button"
+                      onClick={() =>
+                        setLeaderPersonIds((current) =>
+                          selected
+                            ? current.filter((id) => id !== leader.id)
+                            : [...current, leader.id],
+                        )
+                      }
+                      className={
+                        "flex items-center justify-between rounded-xl border p-3 text-left transition " +
+                        (selected
+                          ? "border-amber-300/50 bg-amber-300/10"
+                          : "border-white/10 bg-white/[.03] hover:border-white/20")
+                      }
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold text-white">
+                          {leader.full_name}
+                        </span>
+                        <span className="block text-xs text-slate-500">
+                          {leader.position_title}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <Check className="h-4 w-4 text-amber-300" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-slate-600" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPersonOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => savePerson.mutate()} disabled={savePerson.isPending}>
+              Salvar pessoa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <section>
         <h3 className="mb-3 text-sm font-bold uppercase tracking-[.18em] text-slate-500">
           Setores
@@ -1253,14 +1433,14 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
           {data.departments
             .filter((department) => department.active)
             .map((department) => {
-              const count = data.members.filter(
-                (member) => member.active && member.department_id === department.id,
+              const count = data.people.filter(
+                (person) => person.active && person.department_id === department.id,
               ).length;
               return (
                 <Card key={department.id} className="border-white/10 bg-slate-950/55">
                   <CardContent className="flex items-center gap-3 p-4">
                     <span
-                      className="h-10 w-2 rounded-full"
+                      className="h-11 w-2 rounded-full"
                       style={{ backgroundColor: department.color }}
                     />
                     <div>
@@ -1275,53 +1455,80 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
             })}
         </div>
       </section>
+
       <section>
         <h3 className="mb-3 text-sm font-bold uppercase tracking-[.18em] text-slate-500">
-          Equipe cadastrada
+          Diretório do Postit
         </h3>
-        {data.members.filter((member) => member.active).length ? (
-          <div className="overflow-hidden rounded-xl border border-white/10">
-            <div className="divide-y divide-white/5">
-              {data.members
-                .filter((member) => member.active)
-                .map((member) => (
-                  <div
-                    key={member.id}
-                    className="grid gap-3 bg-slate-950/45 p-4 sm:grid-cols-[1.2fr_.8fr_.8fr_1fr] sm:items-center"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-slate-300">
-                        <UserRound className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-medium text-white">
-                          {profileName(data, member.user_id)}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {data.profiles.find((profile) => profile.id === member.user_id)?.email}
-                        </p>
+        {data.people.filter((person) => person.active).length ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {data.people
+              .filter((person) => person.active)
+              .map((person) => {
+                const leaders = data.reportingLines
+                  .filter((line) => line.subordinate_person_id === person.id)
+                  .map((line) => personName(data, line.leader_person_id));
+                return (
+                  <Card key={person.id} className="border-white/10 bg-slate-950/55">
+                    <CardContent className="space-y-4 p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-950"
+                            style={{
+                              backgroundColor: departmentColor(data, person.department_id),
+                            }}
+                          >
+                            <UserRound className="h-5 w-5" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-white">{person.full_name}</p>
+                            <p className="truncate text-sm text-amber-200">
+                              {person.position_title}
+                            </p>
+                          </div>
+                        </div>
+                        {canEditPerson(person.id) ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-slate-400"
+                            onClick={() => editPerson(person)}
+                          >
+                            Editar
+                          </Button>
+                        ) : null}
                       </div>
-                    </div>
-                    <span className="text-sm text-slate-300">
-                      {departmentName(data, member.department_id)}
-                    </span>
-                    <Badge variant="outline" className="w-fit border-white/10 text-slate-300">
-                      {ROLE_LABELS[member.role as PostitMemberRole]}
-                    </Badge>
-                    <span className="text-sm text-slate-400">
-                      Gestor:{" "}
-                      {member.supervisor_user_id
-                        ? profileName(data, member.supervisor_user_id)
-                        : "—"}
-                    </span>
-                  </div>
-                ))}
-            </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="outline" className="border-white/10 text-slate-300">
+                          {departmentName(data, person.department_id)}
+                        </Badge>
+                        <Badge variant="outline" className="border-white/10 text-slate-300">
+                          {ROLE_LABELS[person.role as PostitMemberRole]}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={
+                            person.user_id
+                              ? "border-emerald-400/20 text-emerald-300"
+                              : "border-amber-400/20 text-amber-300"
+                          }
+                        >
+                          {person.user_id ? "Login vinculado" : "Aguardando primeiro login"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        Responde para: {leaders.length ? leaders.join(" + ") : "ninguém acima"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
           </div>
         ) : (
           <EmptyState
             title="Nenhuma pessoa cadastrada"
-            description="Cadastre os participantes antes de abrir o primeiro post-it."
+            description="Cadastre a estrutura da empresa e depois defina quem responde para quem."
           />
         )}
       </section>
@@ -1474,15 +1681,21 @@ function PostitDetailDialog({
   if (!item) return null;
   const deadlines = data.deadlines.filter((deadline) => deadline.postit_id === item.id);
   const comments = data.comments.filter((row) => row.postit_id === item.id);
+  const currentPersonIsAssignee = Boolean(
+    data.access.personId && itemAssigneeIds(data, item.id).includes(data.access.personId),
+  );
   const canOperate =
-    data.access.canManage ||
-    [item.responsible_user_id, item.creator_user_id, item.manager_user_id].includes(
-      data.currentUserId,
-    );
+    data.access.canAdminister ||
+    currentPersonIsAssignee ||
+    [item.creator_user_id, item.manager_user_id].includes(data.currentUserId) ||
+    (data.access.personId &&
+      [item.creator_person_id, item.manager_person_id].includes(data.access.personId));
   const canValidate =
-    data.access.canManage ||
+    data.access.canAdminister ||
     item.creator_user_id === data.currentUserId ||
-    item.manager_user_id === data.currentUserId;
+    item.manager_user_id === data.currentUserId ||
+    (data.access.personId &&
+      [item.creator_person_id, item.manager_person_id].includes(data.access.personId));
   const status = POSTIT_STATUS[item.status as PostitStatus];
 
   return (
@@ -1512,8 +1725,8 @@ function PostitDetailDialog({
         <div className="grid gap-3 sm:grid-cols-3">
           <DetailInfo
             icon={UserRound}
-            label="Responsável"
-            value={profileName(data, item.responsible_user_id)}
+            label="Responsáveis"
+            value={itemAssigneeNames(data, item.id)}
           />
           <DetailInfo
             icon={Building2}
@@ -1530,7 +1743,7 @@ function PostitDetailDialog({
           <div className="rounded-xl border border-rose-400/30 bg-rose-400/10 p-4">
             <p className="flex items-center gap-2 font-semibold text-rose-200">
               <AlertTriangle className="h-4 w-4" /> Escalado para{" "}
-              {item.manager_user_id ? profileName(data, item.manager_user_id) : "a gestão"}
+              {item.manager_person_id ? personName(data, item.manager_person_id) : "a gestão"}
             </p>
             <p className="mt-1 text-sm text-rose-200/70">
               Os três prazos foram esgotados sem conclusão validada.
@@ -1771,6 +1984,20 @@ function profileName(data: PostitWorkspace, userId?: string | null) {
   if (!userId) return "—";
   const profile = data.profiles.find((row) => row.id === userId);
   return profile?.full_name?.trim() || profile?.email || "Usuário";
+}
+function personName(data: PostitWorkspace, personId?: string | null) {
+  if (!personId) return "—";
+  return data.people.find((row) => row.id === personId)?.full_name || "Pessoa";
+}
+function itemAssigneeIds(data: PostitWorkspace, postitId: string) {
+  return data.assignees
+    .filter((row) => row.postit_id === postitId)
+    .sort((a, b) => Number(a.assignment_order) - Number(b.assignment_order))
+    .map((row) => row.person_id as string);
+}
+function itemAssigneeNames(data: PostitWorkspace, postitId: string) {
+  const names = itemAssigneeIds(data, postitId).map((personId) => personName(data, personId));
+  return names.length ? names.join(" + ") : "Sem responsável";
 }
 function departmentName(data: PostitWorkspace, departmentId?: string | null) {
   if (!departmentId) return "Geral";

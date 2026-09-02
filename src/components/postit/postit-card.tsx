@@ -80,59 +80,84 @@ export function PostitCard({
 }) {
   const status = POSTIT_STATUS[item.status as PostitStatus] ?? POSTIT_STATUS.open;
   const urgent = ["overdue", "escalated"].includes(item.status);
+  const paperBackground = `linear-gradient(145deg, color-mix(in srgb, ${departmentColor} 34%, #fffbe6) 0%, color-mix(in srgb, ${departmentColor} 58%, #fff3a6) 58%, color-mix(in srgb, ${departmentColor} 72%, #f8d45c) 100%)`;
   return (
-    <button type="button" onClick={onClick} className="block h-full w-full text-left">
+    <button
+      type="button"
+      onClick={onClick}
+      className="block h-full w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+    >
       <Card
         className={
-          "group relative h-full overflow-hidden border-white/10 bg-slate-950/65 transition-all hover:-translate-y-0.5 hover:border-amber-300/35 hover:shadow-xl hover:shadow-amber-500/5 " +
-          (urgent ? "ring-1 ring-rose-400/25" : "")
+          "group relative h-full min-h-72 overflow-hidden rounded-[1.4rem] border-white/60 text-slate-800 shadow-[0_18px_42px_rgba(15,23,42,.28)] transition-all duration-300 hover:-translate-y-1.5 hover:rotate-[.35deg] hover:shadow-[0_26px_54px_rgba(15,23,42,.38)] " +
+          (urgent ? "ring-2 ring-rose-500/50" : "")
         }
+        style={{ background: paperBackground }}
       >
-        <span
-          className="absolute inset-y-0 left-0 w-1"
-          style={{ backgroundColor: departmentColor }}
-        />
-        <CardContent className="space-y-4 p-5 pl-6">
+        <span className="absolute right-0 bottom-0 h-20 w-20 rounded-tl-[3rem] border-l border-t border-white/60 bg-gradient-to-br from-white/70 via-white/20 to-black/15 shadow-[-10px_-10px_25px_rgba(255,255,255,.25)]" />
+        <CardContent className="relative z-10 flex h-full min-h-72 flex-col p-5 pb-6 sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-mono text-[11px] font-semibold tracking-[.12em] text-slate-500">
-                {item.code}
+              <p className="text-[11px] font-black uppercase tracking-[.18em] text-slate-700/55">
+                {departmentName} · {item.code}
               </p>
-              <h3 className="mt-1 line-clamp-2 font-semibold leading-snug text-white group-hover:text-amber-100">
+              <h3 className="mt-3 line-clamp-3 text-2xl font-black italic leading-[1.08] tracking-tight text-slate-800">
                 {item.title}
               </h3>
+              <span
+                className="mt-2 block h-1 w-24 rounded-full opacity-70"
+                style={{ backgroundColor: departmentColor }}
+              />
             </div>
             {urgent ? (
-              <AlertTriangle className="h-5 w-5 shrink-0 text-rose-400" />
+              <span className="rounded-full bg-white/60 p-2 shadow-sm">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600" />
+              </span>
             ) : item.status === "completed" ? (
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+              <span className="rounded-full bg-white/60 p-2 shadow-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+              </span>
             ) : (
-              <Clock3 className="h-5 w-5 shrink-0 text-amber-400/80" />
+              <span className="rounded-full bg-white/60 p-2 shadow-sm">
+                <Clock3 className="h-5 w-5 shrink-0 text-slate-700" />
+              </span>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline" className={status.className}>
+          <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-slate-700/75">
+            {item.description}
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge
+              variant="outline"
+              className="border-white/60 bg-white/45 font-semibold text-slate-700 shadow-sm"
+            >
               <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${status.dot}`} />
               {status.label}
             </Badge>
-            <Badge variant="outline" className="border-white/10 bg-white/5 text-slate-300">
-              {departmentName}
+            <Badge
+              variant="outline"
+              className="border-white/60 bg-white/45 font-semibold text-slate-700 shadow-sm"
+            >
+              Prioridade {PRIORITY_LABELS[item.priority]}
             </Badge>
           </div>
 
-          <div className="grid gap-2 border-t border-white/8 pt-3 text-xs text-slate-400">
+          <div className="mt-auto grid gap-2 border-t border-slate-700/10 pt-4 text-xs text-slate-700/75">
             <span className="flex items-center gap-2">
-              <UserRound className="h-3.5 w-3.5 text-slate-500" />
-              <span className="truncate">{responsibleName}</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/60 shadow-sm">
+                <UserRound className="h-3.5 w-3.5 text-slate-700" />
+              </span>
+              <span className="truncate font-semibold">{responsibleName}</span>
             </span>
             <span
-              className={"flex items-center gap-2 " + (urgent ? "font-medium text-rose-300" : "")}
+              className={"flex items-center gap-2 font-medium " + (urgent ? "text-rose-700" : "")}
             >
-              <CalendarDays className="h-3.5 w-3.5" />
+              <CalendarDays className="ml-1.5 h-3.5 w-3.5" />
               {dueLabel(item.current_due_date, item.status)}
               {item.extension_count > 0 ? (
-                <span className="ml-auto text-[10px] text-slate-500">
+                <span className="mr-12 ml-auto text-[10px] text-slate-700/60">
                   prazo {Number(item.extension_count) + 1}/3
                 </span>
               ) : null}
