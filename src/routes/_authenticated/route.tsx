@@ -49,8 +49,8 @@ export const Route = createFileRoute("/_authenticated")({
     // Contas criadas por login social (Google) já possuem e-mail real
     // verificado no auth — não faz sentido pedir e-mail de novo.
     const authEmail = data.user.email ?? "";
-    const hasRealAuthEmail =
-      authEmail.includes("@") && !authEmail.endsWith(".webicheck.local");
+    const hasRealAuthEmail = authEmail.includes("@") && !authEmail.endsWith(".local");
+
     const hasEmail =
       Boolean((profile as { contact_email?: string | null }).contact_email) || hasRealAuthEmail;
     if (
