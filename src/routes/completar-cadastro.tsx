@@ -149,10 +149,9 @@ function CompleteProfilePage() {
     if (!userId) return;
     setSaving(true);
     try {
-      if (needsEmail) {
-        await setMyContactEmail({ data: { email: email.trim().toLowerCase() } });
-      }
-
+      // Cidade/provedor PRIMEIRO: o middleware das server functions exige
+      // profiles.city preenchido, então salvar o e-mail antes disso falha
+      // com "Unauthorized: Profile city required".
       const patch: Record<string, unknown> = {};
       if (needsCities) {
         await supabase.from("user_cities").delete().eq("user_id", userId);
@@ -171,6 +170,11 @@ function CompleteProfilePage() {
           .eq("id", userId);
         if (error) throw error;
       }
+
+      if (needsEmail) {
+        await setMyContactEmail({ data: { email: email.trim().toLowerCase() } });
+      }
+
       toast.success("Cadastro concluído.");
       navigate({ to: "/painel", replace: true });
     } catch (err) {
