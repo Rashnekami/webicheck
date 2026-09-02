@@ -33,6 +33,7 @@ export interface PostitItemRow {
   creator_person_id: string | null;
   primary_assignee_person_id: string | null;
   manager_person_id: string | null;
+  group_id: string | null;
   review_meeting_id: string | null;
   source_type: "meeting" | "sector" | "managerial" | "sporadic" | "standalone";
   meeting_id: string | null;
@@ -69,6 +70,16 @@ export interface PostitWorkspace {
   members: any[];
   people: any[];
   reportingLines: any[];
+  groups: any[];
+  personGroups: any[];
+  departmentLeaders: any[];
+  visibilityGrants: any[];
+  loginAccounts: Array<{
+    id: string;
+    user_id: string;
+    login: string;
+    active: boolean;
+  }>;
   assignees: any[];
   assignablePersonIds: string[];
   meetings: any[];
@@ -86,6 +97,10 @@ interface AccessContext extends PostitAccess {
 
 function brazilToday() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+function cleanCityNames(values: string[] = []) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].slice(0, 12);
 }
 
 async function getAccessContext(userId: string): Promise<AccessContext> {
@@ -202,23 +217,94 @@ async function getAssignablePersonIds(
   if (access.canAdminister) return allIds;
   if (!access.personId) return [];
 
-  const { data: lines, error: linesError } = await client
-    .from("postit_reporting_lines")
-    .select("subordinate_person_id, leader_person_id")
-    .eq("provider_id", access.providerId);
-  if (linesError) throw new Error(linesError.message);
+  const [linesResult, membershipsResult] = await Promise.all([
+    client
+      .from("postit_reporting_lines")
+      .select("subordinate_person_id, leader_person_id")
+      .eq("provider_id", access.providerId),
+    client
+      .from("postit_person_groups")
+      .select("person_id, group_id, is_leader")
+      .eq("provider_id", access.providerId),
+  ]);
+  if (linesResult.error) throw new Error(linesResult.error.message);
+  if (membershipsResult.error) throw new Error(membershipsResult.error.message);
+  const lines = linesResult.data ?? [];
+  const memberships = membershipsResult.data ?? [];
+  const ledGroupIds = new Set(
+    memberships
+      .filter((row: any) => row.person_id === access.personId && row.is_leader)
+      .map((row: any) => row.group_id as string),
+  );
   const allowed = new Set<string>();
-  for (const line of lines ?? []) {
+  for (const line of lines) {
     if (line.subordinate_person_id === access.personId) allowed.add(line.leader_person_id);
     if (
       ["leader", "manager"].includes(access.memberRole ?? "") &&
-      line.leader_person_id === access.personId
+      line.leader_person_id === access.personId &&
+      memberships.some(
+        (row: any) =>
+          row.person_id === line.subordinate_person_id && ledGroupIds.has(row.group_id as string),
+      )
     ) {
       allowed.add(line.subordinate_person_id);
     }
   }
   if (["leader", "manager"].includes(access.memberRole ?? "")) allowed.add(access.personId);
   return allIds.filter((id: string) => allowed.has(id));
+}
+
+async function getVisibleGroupIds(client: AnyDb, access: AccessContext & { providerId: string }) {
+  const { data: groups, error: groupError } = await client
+    .from("postit_groups")
+    .select("id")
+    .eq("provider_id", access.providerId)
+    .eq("active", true);
+  if (groupError) throw new Error(groupError.message);
+  const allIds = (groups ?? []).map((group: any) => group.id as string);
+  if (access.canAdminister) return allIds;
+  if (!access.personId) return [];
+  const now = new Date().toISOString();
+  const [memberships, grants] = await Promise.all([
+    client
+      .from("postit_person_groups")
+      .select("group_id")
+      .eq("provider_id", access.providerId)
+      .eq("person_id", access.personId)
+      .eq("is_leader", true),
+    client
+      .from("postit_visibility_grants")
+      .select("group_id, ends_at")
+      .eq("provider_id", access.providerId)
+      .eq("grantee_person_id", access.personId)
+      .eq("active", true)
+      .lte("starts_at", now),
+  ]);
+  if (memberships.error) throw new Error(memberships.error.message);
+  if (grants.error) throw new Error(grants.error.message);
+  const visible = new Set<string>(
+    (memberships.data ?? []).map((row: any) => row.group_id as string),
+  );
+  for (const grant of grants.data ?? []) {
+    if (!grant.ends_at || grant.ends_at > now) visible.add(grant.group_id as string);
+  }
+  return allIds.filter((id: string) => visible.has(id));
+}
+
+async function getSelectableGroupIds(
+  client: AnyDb,
+  access: AccessContext & { providerId: string },
+) {
+  if (access.canAdminister) return getVisibleGroupIds(client, access);
+  if (!access.personId) return [];
+  const visible = await getVisibleGroupIds(client, access);
+  const { data: ownMemberships, error } = await client
+    .from("postit_person_groups")
+    .select("group_id")
+    .eq("provider_id", access.providerId)
+    .eq("person_id", access.personId);
+  if (error) throw new Error(error.message);
+  return [...new Set([...visible, ...(ownMemberships ?? []).map((row: any) => row.group_id)])];
 }
 
 function nextTuesdayAtNine() {
@@ -510,6 +596,11 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       members,
       people,
       reportingLines,
+      groups,
+      personGroups,
+      departmentLeaders,
+      visibilityGrants,
+      loginAccounts,
       assignees,
       meetings,
       items,
@@ -538,6 +629,29 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
         .select("*")
         .eq("provider_id", access.providerId)
         .order("created_at"),
+      client.from("postit_groups").select("*").eq("provider_id", access.providerId).order("name"),
+      client
+        .from("postit_person_groups")
+        .select("*")
+        .eq("provider_id", access.providerId)
+        .order("created_at"),
+      client
+        .from("postit_department_leaders")
+        .select("*")
+        .eq("provider_id", access.providerId)
+        .order("created_at"),
+      client
+        .from("postit_visibility_grants")
+        .select("*")
+        .eq("provider_id", access.providerId)
+        .order("created_at", { ascending: false }),
+      access.canAdminister
+        ? client
+            .from("provider_login_accounts")
+            .select("id, user_id, login, active")
+            .eq("provider_id", access.providerId)
+            .order("login")
+        : Promise.resolve({ data: [], error: null }),
       client
         .from("postit_assignees")
         .select("*")
@@ -583,6 +697,11 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       members,
       people,
       reportingLines,
+      groups,
+      personGroups,
+      departmentLeaders,
+      visibilityGrants,
+      loginAccounts,
       assignees,
       meetings,
       items,
@@ -608,6 +727,7 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
 
     const allAssignees = assignees.data ?? [];
     const rawItems = items.data ?? [];
+    const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
     const visibleItems = access.canAdminister
       ? rawItems
       : rawItems.filter(
@@ -615,6 +735,7 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
             item.creator_user_id === context.userId ||
             item.manager_user_id === context.userId ||
             item.responsible_user_id === context.userId ||
+            (item.group_id && visibleGroupIds.has(item.group_id)) ||
             (access.personId &&
               (item.creator_person_id === access.personId ||
                 item.manager_person_id === access.personId ||
@@ -633,6 +754,15 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       members: members.data ?? [],
       people: people.data ?? [],
       reportingLines: reportingLines.data ?? [],
+      groups: groups.data ?? [],
+      personGroups: personGroups.data ?? [],
+      departmentLeaders: departmentLeaders.data ?? [],
+      visibilityGrants: access.canAdminister
+        ? (visibilityGrants.data ?? [])
+        : (visibilityGrants.data ?? []).filter(
+            (row: any) => row.grantee_person_id === access.personId,
+          ),
+      loginAccounts: loginAccounts.data ?? [],
       assignees: allAssignees.filter((row: any) => visibleItemIds.has(row.postit_id)),
       assignablePersonIds,
       meetings: meetings.data ?? [],
@@ -676,6 +806,161 @@ export const savePostitDepartment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const savePostitGroup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      id?: string;
+      departmentId: string;
+      name: string;
+      cityNames?: string[];
+      active?: boolean;
+    }) => {
+      if (!data.departmentId) throw new Error("Selecione o setor do grupo.");
+      if (data.name.trim().length < 2) throw new Error("Informe o nome do grupo.");
+      return { ...data, cityNames: cleanCityNames(data.cityNames) };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const access = await requireAccess(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const client = db(supabaseAdmin);
+    const { data: department, error: departmentError } = await client
+      .from("postit_departments")
+      .select("id")
+      .eq("id", data.departmentId)
+      .eq("provider_id", access.providerId)
+      .eq("active", true)
+      .maybeSingle();
+    if (departmentError) throw new Error(departmentError.message);
+    if (!department) throw new Error("Setor inválido.");
+    if (!access.canAdminister) {
+      const { data: responsibility, error: responsibilityError } = await client
+        .from("postit_department_leaders")
+        .select("id")
+        .eq("provider_id", access.providerId)
+        .eq("department_id", data.departmentId)
+        .eq("person_id", access.personId)
+        .maybeSingle();
+      if (responsibilityError) throw new Error(responsibilityError.message);
+      if (!responsibility) {
+        throw new Error("Somente responsáveis do setor podem criar ou editar grupos.");
+      }
+    }
+    const payload = {
+      department_id: data.departmentId,
+      name: data.name.trim(),
+      city_names: data.cityNames ?? [],
+      active: data.active ?? true,
+    };
+    const result = data.id
+      ? await client
+          .from("postit_groups")
+          .update(payload)
+          .eq("id", data.id)
+          .eq("provider_id", access.providerId)
+          .select("id")
+          .single()
+      : await client
+          .from("postit_groups")
+          .insert({
+            ...payload,
+            provider_id: access.providerId,
+            created_by: context.userId,
+          })
+          .select("id")
+          .single();
+    if (result.error) throw new Error(result.error.message);
+    await insertEvent(client, access, data.id ? "group_updated" : "group_created", {
+      details: {
+        group_id: result.data.id,
+        department_id: data.departmentId,
+        city_names: data.cityNames ?? [],
+      },
+    });
+    return { ok: true, groupId: result.data.id as string };
+  });
+
+export const savePostitVisibilityGrant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      id?: string;
+      groupId: string;
+      granteePersonId: string;
+      reason: string;
+      startsAt: string;
+      endsAt?: string | null;
+      active?: boolean;
+    }) => {
+      if (!data.groupId || !data.granteePersonId) {
+        throw new Error("Selecione o grupo e quem fará a cobertura.");
+      }
+      if (data.reason.trim().length < 2) throw new Error("Informe o motivo da cobertura.");
+      if (!data.startsAt) throw new Error("Informe o início da cobertura.");
+      if (data.endsAt && data.endsAt <= data.startsAt) {
+        throw new Error("O término precisa ser posterior ao início.");
+      }
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const access = await requireManager(context.userId, true);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const client = db(supabaseAdmin);
+    const [groupResult, personResult] = await Promise.all([
+      client
+        .from("postit_groups")
+        .select("id")
+        .eq("id", data.groupId)
+        .eq("provider_id", access.providerId)
+        .eq("active", true)
+        .maybeSingle(),
+      client
+        .from("postit_people")
+        .select("id")
+        .eq("id", data.granteePersonId)
+        .eq("provider_id", access.providerId)
+        .eq("active", true)
+        .maybeSingle(),
+    ]);
+    if (groupResult.error) throw new Error(groupResult.error.message);
+    if (personResult.error) throw new Error(personResult.error.message);
+    if (!groupResult.data || !personResult.data) {
+      throw new Error("Grupo ou pessoa não pertence a este provedor.");
+    }
+    const payload = {
+      group_id: data.groupId,
+      grantee_person_id: data.granteePersonId,
+      reason: data.reason.trim(),
+      starts_at: data.startsAt,
+      ends_at: data.endsAt || null,
+      active: data.active ?? true,
+    };
+    const result = data.id
+      ? await client
+          .from("postit_visibility_grants")
+          .update(payload)
+          .eq("id", data.id)
+          .eq("provider_id", access.providerId)
+          .select("id")
+          .single()
+      : await client
+          .from("postit_visibility_grants")
+          .insert({
+            ...payload,
+            provider_id: access.providerId,
+            created_by: context.userId,
+          })
+          .select("id")
+          .single();
+    if (result.error) throw new Error(result.error.message);
+    await insertEvent(client, access, "visibility_grant_saved", {
+      details: { grant_id: result.data.id, ...payload },
+    });
+    return { ok: true };
+  });
+
 export const savePostitPerson = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -687,6 +972,10 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       departmentId?: string | null;
       role: PostitMemberRole;
       leaderPersonIds?: string[];
+      cityNames?: string[];
+      groupIds?: string[];
+      ledGroupIds?: string[];
+      departmentResponsible?: boolean;
       active?: boolean;
     }) => {
       if (data.fullName.trim().length < 2) throw new Error("Informe o nome da pessoa.");
@@ -697,7 +986,12 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       if (new Set(data.leaderPersonIds ?? []).size !== (data.leaderPersonIds ?? []).length) {
         throw new Error("Não repita o mesmo líder.");
       }
-      return data;
+      const groupIds = [...new Set(data.groupIds ?? [])];
+      const ledGroupIds = [...new Set(data.ledGroupIds ?? [])];
+      if (ledGroupIds.some((id) => !groupIds.includes(id))) {
+        throw new Error("Para liderar um grupo, a pessoa também precisa participar dele.");
+      }
+      return { ...data, cityNames: cleanCityNames(data.cityNames), groupIds, ledGroupIds };
     },
   )
   .handler(async ({ data, context }) => {
@@ -734,7 +1028,42 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       if (["manager", "director", "admin"].includes(data.role)) {
         throw new Error("Somente a administração pode atribuir cargos de gestão.");
       }
+      if (data.departmentResponsible || (data.ledGroupIds ?? []).length) {
+        throw new Error("Somente a administração pode definir responsáveis de setor ou grupo.");
+      }
       if (access.personId && !leaderIds.includes(access.personId)) leaderIds.push(access.personId);
+    }
+
+    const groupIds = data.groupIds ?? [];
+    const ledGroupIds = data.ledGroupIds ?? [];
+    if (groupIds.length) {
+      const { data: selectedGroups, error: selectedGroupsError } = await client
+        .from("postit_groups")
+        .select("id, department_id, active")
+        .eq("provider_id", access.providerId)
+        .in("id", groupIds);
+      if (selectedGroupsError) throw new Error(selectedGroupsError.message);
+      if (
+        (selectedGroups ?? []).length !== groupIds.length ||
+        (selectedGroups ?? []).some(
+          (group: any) => !group.active || group.department_id !== (data.departmentId || null),
+        )
+      ) {
+        throw new Error("Todos os grupos precisam estar ativos e pertencer ao setor escolhido.");
+      }
+      if (!access.canAdminister) {
+        const { data: allowedGroups, error: allowedGroupsError } = await client
+          .from("postit_person_groups")
+          .select("group_id")
+          .eq("provider_id", access.providerId)
+          .eq("person_id", access.personId)
+          .eq("is_leader", true);
+        if (allowedGroupsError) throw new Error(allowedGroupsError.message);
+        const allowedIds = new Set((allowedGroups ?? []).map((row: any) => row.group_id));
+        if (groupIds.some((id) => !allowedIds.has(id))) {
+          throw new Error("Você só pode cadastrar pessoas nos grupos que lidera.");
+        }
+      }
     }
     if (leaderIds.length) {
       const { data: leaders, error: leadersError } = await client
@@ -784,6 +1113,7 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       full_name: data.fullName.trim(),
       email: normalizedEmail,
       position_title: data.positionTitle.trim(),
+      city_names: data.cityNames ?? [],
       role: data.role,
       active: data.active ?? true,
       created_by: context.userId,
@@ -799,6 +1129,45 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       : await client.from("postit_people").insert(payload).select("id, user_id").single();
     if (saved.error) throw new Error(saved.error.message);
     const personId = saved.data.id as string;
+
+    const { error: deleteGroupsError } = await client
+      .from("postit_person_groups")
+      .delete()
+      .eq("provider_id", access.providerId)
+      .eq("person_id", personId);
+    if (deleteGroupsError) throw new Error(deleteGroupsError.message);
+    if (groupIds.length) {
+      const { error: personGroupsError } = await client.from("postit_person_groups").insert(
+        groupIds.map((groupId) => ({
+          provider_id: access.providerId,
+          person_id: personId,
+          group_id: groupId,
+          is_leader: ledGroupIds.includes(groupId),
+          created_by: context.userId,
+        })),
+      );
+      if (personGroupsError) throw new Error(personGroupsError.message);
+    }
+
+    if (access.canAdminister) {
+      const { error: deleteDepartmentLeaderError } = await client
+        .from("postit_department_leaders")
+        .delete()
+        .eq("provider_id", access.providerId)
+        .eq("person_id", personId);
+      if (deleteDepartmentLeaderError) throw new Error(deleteDepartmentLeaderError.message);
+      if (data.departmentResponsible && data.departmentId) {
+        const { error: departmentLeaderError } = await client
+          .from("postit_department_leaders")
+          .insert({
+            provider_id: access.providerId,
+            department_id: data.departmentId,
+            person_id: personId,
+            created_by: context.userId,
+          });
+        if (departmentLeaderError) throw new Error(departmentLeaderError.message);
+      }
+    }
 
     const { error: deleteLinesError } = await client
       .from("postit_reporting_lines")
@@ -819,6 +1188,13 @@ export const savePostitPerson = createServerFn({ method: "POST" })
     }
 
     if (saved.data.user_id) {
+      if ((data.cityNames ?? []).length) {
+        await client
+          .from("profiles")
+          .update({ city: data.cityNames?.[0] })
+          .eq("id", saved.data.user_id)
+          .eq("provider_id", access.providerId);
+      }
       const primaryLeader = leaderIds.length
         ? await client.from("postit_people").select("user_id").eq("id", leaderIds[0]).maybeSingle()
         : { data: null };
@@ -842,6 +1218,10 @@ export const savePostitPerson = createServerFn({ method: "POST" })
         role: data.role,
         position_title: data.positionTitle.trim(),
         leader_person_ids: leaderIds,
+        city_names: data.cityNames ?? [],
+        group_ids: groupIds,
+        led_group_ids: ledGroupIds,
+        department_responsible: Boolean(data.departmentResponsible),
       },
     });
     await notify(client, {
@@ -853,6 +1233,211 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       dedupeKey: `${personId}:access-granted`,
     });
     return { ok: true, personId };
+  });
+
+function randomPostitPassword() {
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  return Buffer.from(bytes).toString("base64url") + "#1";
+}
+
+async function nextPostitLogin(client: AnyDb, providerId: string) {
+  const { data, error } = await client
+    .from("provider_login_accounts")
+    .select("login")
+    .eq("provider_id", providerId)
+    .ilike("login", "pst%");
+  if (error) throw new Error(error.message);
+  let next = 1;
+  const taken = new Set<string>();
+  for (const row of data ?? []) {
+    const login = String(row.login).toLowerCase();
+    taken.add(login);
+    const match = /^pst(\d+)$/.exec(login);
+    if (match) next = Math.max(next, Number(match[1]) + 1);
+  }
+  let candidate = `pst${String(next).padStart(2, "0")}`;
+  while (taken.has(candidate)) {
+    next += 1;
+    candidate = `pst${String(next).padStart(2, "0")}`;
+  }
+  return candidate;
+}
+
+export const issuePostitCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { personId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const access = await requireManager(context.userId, true);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const client = db(supabaseAdmin);
+    const { data: person, error: personError } = await client
+      .from("postit_people")
+      .select("id, user_id, full_name, email, city_names, department_id, role, active")
+      .eq("id", data.personId)
+      .eq("provider_id", access.providerId)
+      .maybeSingle();
+    if (personError) throw new Error(personError.message);
+    if (!person?.active) throw new Error("Pessoa não encontrada ou inativa.");
+
+    if (person.user_id) {
+      const { data: existingAccount } = await client
+        .from("provider_login_accounts")
+        .select("id")
+        .eq("provider_id", access.providerId)
+        .eq("user_id", person.user_id)
+        .maybeSingle();
+      if (existingAccount) throw new Error("Esta pessoa já possui login e senha.");
+    }
+
+    const { data: provider, error: providerError } = await client
+      .from("providers")
+      .select("slug")
+      .eq("id", access.providerId)
+      .single();
+    if (providerError || !provider) throw new Error("Provedor não encontrado.");
+    const login = await nextPostitLogin(client, access.providerId);
+    const password = randomPostitPassword();
+    const syntheticEmail = `${login}@${provider.slug}.checktecnico.local`;
+    const primaryCity = cleanCityNames(person.city_names)[0] || "Postit";
+    let userId = (person.user_id as string | null) ?? null;
+    let signInEmail = syntheticEmail;
+    let createdNewUser = false;
+
+    if (userId) {
+      const { data: authUser, error: authUserError } =
+        await supabaseAdmin.auth.admin.getUserById(userId);
+      if (authUserError || !authUser.user) throw new Error("Conta vinculada não encontrada.");
+      signInEmail = authUser.user.email || person.email || syntheticEmail;
+      const { error: passwordError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password,
+        email_confirm: true,
+        user_metadata: { ...authUser.user.user_metadata, postit_only: true },
+      });
+      if (passwordError) throw new Error(passwordError.message);
+    } else {
+      const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: syntheticEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: person.full_name,
+          city: primaryCity,
+          login,
+          postit_only: true,
+        },
+      });
+      if (createError || !created.user) {
+        throw new Error(createError?.message || "Não foi possível criar a conta.");
+      }
+      userId = created.user.id;
+      createdNewUser = true;
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.hash(password, 10);
+    const { error: profileError } = await client.from("profiles").upsert(
+      {
+        id: userId,
+        provider_id: access.providerId,
+        email: signInEmail,
+        full_name: person.full_name,
+        city: primaryCity,
+        active: true,
+        must_change_password: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
+    if (profileError) throw new Error(profileError.message);
+    if (createdNewUser) {
+      const { error: rolesError } = await client.from("user_roles").delete().eq("user_id", userId);
+      if (rolesError) throw new Error(rolesError.message);
+    }
+    const { error: accountError } = await client.from("provider_login_accounts").insert({
+      user_id: userId,
+      provider_id: access.providerId,
+      login,
+      password_hash: passwordHash,
+      supabase_email: signInEmail,
+      active: true,
+      created_by: context.userId,
+    });
+    if (accountError) throw new Error(accountError.message);
+    const { error: personLinkError } = await client
+      .from("postit_people")
+      .update({ user_id: userId })
+      .eq("id", person.id)
+      .eq("provider_id", access.providerId);
+    if (personLinkError) throw new Error(personLinkError.message);
+
+    const { data: primaryLine } = await client
+      .from("postit_reporting_lines")
+      .select("leader_person_id")
+      .eq("provider_id", access.providerId)
+      .eq("subordinate_person_id", person.id)
+      .limit(1)
+      .maybeSingle();
+    let supervisorUserId: string | null = null;
+    if (primaryLine?.leader_person_id) {
+      const { data: supervisor } = await client
+        .from("postit_people")
+        .select("user_id")
+        .eq("id", primaryLine.leader_person_id)
+        .maybeSingle();
+      supervisorUserId = supervisor?.user_id || null;
+    }
+    const { error: memberError } = await client.from("postit_members").upsert(
+      {
+        provider_id: access.providerId,
+        user_id: userId,
+        department_id: person.department_id,
+        role: person.role,
+        supervisor_user_id: supervisorUserId,
+        active: true,
+        created_by: context.userId,
+      },
+      { onConflict: "provider_id,user_id" },
+    );
+    if (memberError) throw new Error(memberError.message);
+    await insertEvent(client, access, "credential_issued", {
+      details: { person_id: person.id, login },
+    });
+    return { ok: true, login, password };
+  });
+
+export const resetPostitCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { accountId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const access = await requireManager(context.userId, true);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const client = db(supabaseAdmin);
+    const { data: account, error: accountError } = await client
+      .from("provider_login_accounts")
+      .select("id, user_id, login")
+      .eq("id", data.accountId)
+      .eq("provider_id", access.providerId)
+      .maybeSingle();
+    if (accountError) throw new Error(accountError.message);
+    if (!account) throw new Error("Credencial não encontrada.");
+    const password = randomPostitPassword();
+    const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(account.user_id, {
+      password,
+    });
+    if (authError) throw new Error(authError.message);
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.hash(password, 10);
+    const { error: updateError } = await client
+      .from("provider_login_accounts")
+      .update({ password_hash: passwordHash, active: true })
+      .eq("id", account.id);
+    if (updateError) throw new Error(updateError.message);
+    await client.from("profiles").update({ must_change_password: true }).eq("id", account.user_id);
+    await insertEvent(client, access, "credential_reset", {
+      details: { account_id: account.id, login: account.login },
+    });
+    return { ok: true, login: account.login as string, password };
   });
 
 export const createPostitMeeting = createServerFn({ method: "POST" })
@@ -934,6 +1519,7 @@ export const createPostitItem = createServerFn({ method: "POST" })
       title: string;
       description: string;
       departmentId: string;
+      groupId?: string | null;
       assigneePersonIds: string[];
       meetingId?: string | null;
       sourceType?: "meeting" | "sector" | "managerial" | "sporadic" | "standalone";
@@ -987,17 +1573,69 @@ export const createPostitItem = createServerFn({ method: "POST" })
       throw new Error("Você só pode abrir post-its para seus líderes ou liderados autorizados.");
     }
 
+    let groupId = data.groupId || null;
+    if (!groupId) {
+      const candidatePeople = [access.personId, ...data.assigneePersonIds].filter(Boolean);
+      const { data: memberships, error: membershipsError } = await client
+        .from("postit_person_groups")
+        .select("group_id")
+        .eq("provider_id", access.providerId)
+        .in("person_id", candidatePeople.length ? candidatePeople : [context.userId]);
+      if (membershipsError) throw new Error(membershipsError.message);
+      const candidateGroupIds = (memberships ?? []).map((row: any) => row.group_id as string);
+      if (candidateGroupIds.length) {
+        const { data: matchingGroup } = await client
+          .from("postit_groups")
+          .select("id")
+          .eq("provider_id", access.providerId)
+          .eq("department_id", data.departmentId)
+          .eq("active", true)
+          .in("id", candidateGroupIds)
+          .limit(1)
+          .maybeSingle();
+        groupId = matchingGroup?.id || null;
+      }
+    }
+    if (groupId) {
+      const { data: selectedGroup, error: selectedGroupError } = await client
+        .from("postit_groups")
+        .select("id, department_id, active")
+        .eq("id", groupId)
+        .eq("provider_id", access.providerId)
+        .maybeSingle();
+      if (selectedGroupError) throw new Error(selectedGroupError.message);
+      if (!selectedGroup?.active || selectedGroup.department_id !== data.departmentId) {
+        throw new Error("O grupo não pertence ao setor selecionado.");
+      }
+      const selectableGroupIds = await getSelectableGroupIds(client, access);
+      if (!selectableGroupIds.includes(groupId)) {
+        throw new Error("Você não possui acesso para abrir post-its neste grupo.");
+      }
+    }
+
     const primaryPerson = (responsiblePeople ?? []).find(
       (person: any) => person.id === data.assigneePersonIds[0],
     );
-    const { data: primaryLeaderLine } = await client
+    const { data: primaryLeaderLines, error: primaryLeaderLinesError } = await client
       .from("postit_reporting_lines")
       .select("leader_person_id")
       .eq("provider_id", access.providerId)
-      .eq("subordinate_person_id", data.assigneePersonIds[0])
-      .limit(1)
-      .maybeSingle();
-    const managerPersonId = (primaryLeaderLine?.leader_person_id as string | null) ?? null;
+      .eq("subordinate_person_id", data.assigneePersonIds[0]);
+    if (primaryLeaderLinesError) throw new Error(primaryLeaderLinesError.message);
+    let managerPersonId = (primaryLeaderLines?.[0]?.leader_person_id as string | null) ?? null;
+    if (groupId && (primaryLeaderLines ?? []).length > 1) {
+      const leaderIds = primaryLeaderLines.map((line: any) => line.leader_person_id as string);
+      const { data: groupLeader } = await client
+        .from("postit_person_groups")
+        .select("person_id")
+        .eq("provider_id", access.providerId)
+        .eq("group_id", groupId)
+        .eq("is_leader", true)
+        .in("person_id", leaderIds)
+        .limit(1)
+        .maybeSingle();
+      if (groupLeader?.person_id) managerPersonId = groupLeader.person_id as string;
+    }
     let managerUserId: string | null = null;
     if (managerPersonId) {
       const { data: managerPerson } = await client
@@ -1019,6 +1657,7 @@ export const createPostitItem = createServerFn({ method: "POST" })
         title: data.title.trim(),
         description: data.description.trim(),
         department_id: data.departmentId,
+        group_id: groupId,
         responsible_user_id: primaryPerson?.user_id || null,
         creator_user_id: context.userId,
         manager_user_id: managerUserId,
@@ -1061,6 +1700,7 @@ export const createPostitItem = createServerFn({ method: "POST" })
         assignee_person_ids: data.assigneePersonIds,
         due_date: data.dueDate,
         source_type: sourceType,
+        group_id: groupId,
         review_meeting_id: reviewMeetingId,
       },
     });
@@ -1122,14 +1762,40 @@ async function canOperateItem(client: AnyDb, access: AccessContext, item: any) {
     return true;
   }
   if (!access.personId) return false;
-  const { data: assignment, error } = await client
-    .from("postit_assignees")
-    .select("id")
-    .eq("postit_id", item.id)
-    .eq("person_id", access.personId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return Boolean(assignment);
+  const [assignment, groupLeadership, coverage] = await Promise.all([
+    client
+      .from("postit_assignees")
+      .select("id")
+      .eq("postit_id", item.id)
+      .eq("person_id", access.personId)
+      .maybeSingle(),
+    item.group_id
+      ? client
+          .from("postit_person_groups")
+          .select("id")
+          .eq("group_id", item.group_id)
+          .eq("person_id", access.personId)
+          .eq("is_leader", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    item.group_id
+      ? client
+          .from("postit_visibility_grants")
+          .select("id, ends_at")
+          .eq("group_id", item.group_id)
+          .eq("grantee_person_id", access.personId)
+          .eq("active", true)
+          .lte("starts_at", new Date().toISOString())
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (assignment.error) throw new Error(assignment.error.message);
+  if (groupLeadership.error) throw new Error(groupLeadership.error.message);
+  if (coverage.error) throw new Error(coverage.error.message);
+  const coverageActive =
+    coverage.data && (!coverage.data.ends_at || coverage.data.ends_at > new Date().toISOString());
+  return Boolean(assignment.data || groupLeadership.data || coverageActive);
 }
 
 export const startPostitItem = createServerFn({ method: "POST" })

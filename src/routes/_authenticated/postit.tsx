@@ -16,9 +16,12 @@ import {
   ChevronRight,
   CircleDot,
   Clock3,
+  Copy,
   History,
+  KeyRound,
   LayoutDashboard,
   Loader2,
+  MapPin,
   MessageSquareText,
   Plus,
   RefreshCw,
@@ -26,6 +29,7 @@ import {
   Send,
   Settings2,
   ShieldAlert,
+  ShieldCheck,
   StickyNote,
   UserRound,
   UsersRound,
@@ -66,9 +70,13 @@ import {
   extendPostitDeadline,
   getPostitAccess,
   getPostitWorkspace,
+  issuePostitCredential,
   markPostitNotificationsRead,
+  resetPostitCredential,
   savePostitDepartment,
+  savePostitGroup,
   savePostitPerson,
+  savePostitVisibilityGrant,
   startPostitItem,
   submitPostitCompletion,
   validatePostitCompletion,
@@ -328,6 +336,17 @@ function PostitWorkspacePage() {
               </Link>
             </Button>
             <Button
+              asChild
+              variant="secondary"
+              size="sm"
+              className="border-white/10 bg-white/5 text-slate-200"
+            >
+              <Link to="/minha-conta">
+                <KeyRound className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Minha conta</span>
+              </Link>
+            </Button>
+            <Button
               size="sm"
               className="bg-amber-300 text-slate-950 hover:bg-amber-200"
               onClick={() => setNewItemOpen(true)}
@@ -519,17 +538,38 @@ function DashboardPanel({
                   </h3>
                 </div>
               </div>
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((item) => (
-                  <PostitCard
-                    key={item.id}
-                    item={item}
-                    departmentName={departmentName(data, item.department_id)}
-                    departmentColor={departmentColor(data, item.department_id)}
-                    responsibleName={itemAssigneeNames(data, item.id)}
-                    onClick={() => openItem(item.id)}
-                  />
-                ))}
+              <div className="space-y-6">
+                {[...new Set(items.map((item) => item.group_id || "none"))].map((bucketId) => {
+                  const group = data.groups.find((row) => row.id === bucketId);
+                  const groupItems = items.filter((item) => (item.group_id || "none") === bucketId);
+                  return (
+                    <div key={bucketId}>
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <Badge className="border-white/10 bg-white/5 text-slate-300">
+                          <UsersRound className="mr-1.5 h-3.5 w-3.5" />
+                          {group?.name || "Sem grupo"}
+                        </Badge>
+                        {group?.city_names?.length ? (
+                          <span className="text-xs text-slate-500">
+                            {group.city_names.join(" · ")}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                        {groupItems.map((item) => (
+                          <PostitCard
+                            key={item.id}
+                            item={item}
+                            departmentName={departmentName(data, item.department_id)}
+                            departmentColor={departmentColor(data, item.department_id)}
+                            responsibleName={itemAssigneeNames(data, item.id)}
+                            onClick={() => openItem(item.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -684,6 +724,7 @@ function NewPostitDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [groupId, setGroupId] = useState("none");
   const [primaryPersonId, setPrimaryPersonId] = useState("");
   const [secondaryPersonId, setSecondaryPersonId] = useState("none");
   const [meetingId, setMeetingId] = useState("none");
@@ -695,6 +736,28 @@ function NewPostitDialog({
   const activePeople = data.people.filter(
     (person) => person.active && data.assignablePersonIds.includes(person.id),
   );
+  const availableGroupIds = new Set(
+    data.access.canAdminister
+      ? data.groups.map((group) => group.id)
+      : [
+          ...data.personGroups
+            .filter((row) => row.person_id === data.access.personId)
+            .map((row) => row.group_id),
+          ...data.visibilityGrants
+            .filter((row) => row.grantee_person_id === data.access.personId && row.active)
+            .map((row) => row.group_id),
+        ],
+  );
+  const groupsForDepartment = data.groups.filter(
+    (group) =>
+      group.active && group.department_id === departmentId && availableGroupIds.has(group.id),
+  );
+  const peopleForSelection = activePeople.filter(
+    (person) =>
+      (!departmentId || person.department_id === departmentId) &&
+      (groupId === "none" ||
+        data.personGroups.some((row) => row.person_id === person.id && row.group_id === groupId)),
+  );
   const create = useMutation({
     mutationFn: () =>
       createPostitItem({
@@ -702,6 +765,7 @@ function NewPostitDialog({
           title,
           description,
           departmentId,
+          groupId: groupId === "none" ? null : groupId,
           assigneePersonIds: [primaryPersonId, secondaryPersonId].filter(
             (personId) => personId && personId !== "none",
           ),
@@ -717,6 +781,7 @@ function NewPostitDialog({
       setDescription("");
       setPrimaryPersonId("");
       setSecondaryPersonId("none");
+      setGroupId("none");
       onOpenChange(false);
       refresh();
     },
@@ -759,6 +824,7 @@ function NewPostitDialog({
                 value={departmentId}
                 onValueChange={(value) => {
                   setDepartmentId(value);
+                  setGroupId("none");
                   setPrimaryPersonId("");
                   setSecondaryPersonId("none");
                 }}
@@ -778,6 +844,25 @@ function NewPostitDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
+              <Label>Grupo / cidades</Label>
+              <select
+                value={groupId}
+                onChange={(event) => {
+                  setGroupId(event.target.value);
+                  setPrimaryPersonId("");
+                  setSecondaryPersonId("none");
+                }}
+                className="flex h-10 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              >
+                <option value="none">Sem grupo específico</option>
+                {groupsForDepartment.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} · {(group.city_names ?? []).join(", ") || "sem cidades"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <Label>Responsável principal</Label>
               <Select
                 value={primaryPersonId}
@@ -790,7 +875,7 @@ function NewPostitDialog({
                   <SelectValue placeholder="Selecione a pessoa" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activePeople.map((person) => (
+                  {peopleForSelection.map((person) => (
                     <SelectItem key={person.id} value={person.id}>
                       {person.full_name} · {person.position_title}
                     </SelectItem>
@@ -810,7 +895,7 @@ function NewPostitDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Somente uma pessoa</SelectItem>
-                  {activePeople
+                  {peopleForSelection
                     .filter((person) => person.id !== primaryPersonId)
                     .map((person) => (
                       <SelectItem key={person.id} value={person.id}>
@@ -1123,25 +1208,54 @@ function MeetingsPanel({ data, refresh }: { data: PostitWorkspace; refresh: () =
 
 function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => void }) {
   const [departmentOpen, setDepartmentOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [coverageOpen, setCoverageOpen] = useState(false);
   const [personOpen, setPersonOpen] = useState(false);
+  const [personTab, setPersonTab] = useState("dados");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [departmentNameValue, setDepartmentNameValue] = useState("");
   const [departmentColorValue, setDepartmentColorValue] = useState("#facc15");
+  const [groupDepartmentId, setGroupDepartmentId] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [groupCities, setGroupCities] = useState("");
+  const [coverageGroupId, setCoverageGroupId] = useState("");
+  const [coveragePersonId, setCoveragePersonId] = useState("");
+  const [coverageReason, setCoverageReason] = useState("Cobertura de férias");
+  const [coverageStartsAt, setCoverageStartsAt] = useState(asDateTimeLocal());
+  const [coverageEndsAt, setCoverageEndsAt] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [positionTitle, setPositionTitle] = useState("");
   const [departmentId, setDepartmentId] = useState("none");
   const [role, setRole] = useState<PostitMemberRole>("member");
   const [leaderPersonIds, setLeaderPersonIds] = useState<string[]>([]);
+  const [cityNamesValue, setCityNamesValue] = useState("");
+  const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [ledGroupIds, setLedGroupIds] = useState<string[]>([]);
+  const [departmentResponsible, setDepartmentResponsible] = useState(false);
+  const [issuedCredential, setIssuedCredential] = useState<{
+    login: string;
+    password: string;
+  } | null>(null);
 
   const canCreatePeople =
     data.access.canAdminister || ["leader", "manager"].includes(data.access.memberRole ?? "");
+  const canCreateGroups =
+    data.access.canAdminister ||
+    data.departmentLeaders.some((row) => row.person_id === data.access.personId);
   const possibleLeaders = data.people.filter(
     (person) =>
       person.active &&
       person.id !== editingId &&
       ["leader", "manager", "director", "admin"].includes(person.role),
   );
+  const groupsForPerson = data.groups.filter(
+    (group) => group.active && group.department_id === departmentId,
+  );
+  const selectedPerson = data.people.find((person) => person.id === editingId);
+  const selectedAccount = selectedPerson?.user_id
+    ? data.loginAccounts.find((account) => account.user_id === selectedPerson.user_id)
+    : null;
 
   function resetPersonForm() {
     setEditingId(null);
@@ -1151,6 +1265,12 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
     setDepartmentId("none");
     setRole("member");
     setLeaderPersonIds([]);
+    setCityNamesValue("");
+    setGroupIds([]);
+    setLedGroupIds([]);
+    setDepartmentResponsible(false);
+    setIssuedCredential(null);
+    setPersonTab("dados");
   }
 
   function editPerson(person: PostitWorkspace["people"][number]) {
@@ -1160,11 +1280,18 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
     setPositionTitle(person.position_title);
     setDepartmentId(person.department_id || "none");
     setRole(person.role);
+    setCityNamesValue((person.city_names ?? []).join(", "));
+    const memberships = data.personGroups.filter((row) => row.person_id === person.id);
+    setGroupIds(memberships.map((row) => row.group_id));
+    setLedGroupIds(memberships.filter((row) => row.is_leader).map((row) => row.group_id));
+    setDepartmentResponsible(data.departmentLeaders.some((row) => row.person_id === person.id));
     setLeaderPersonIds(
       data.reportingLines
         .filter((line) => line.subordinate_person_id === person.id)
         .map((line) => line.leader_person_id),
     );
+    setIssuedCredential(null);
+    setPersonTab("dados");
     setPersonOpen(true);
   }
 
@@ -1190,6 +1317,25 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const saveGroup = useMutation({
+    mutationFn: () =>
+      savePostitGroup({
+        data: {
+          departmentId: groupDepartmentId,
+          name: groupName,
+          cityNames: groupCities.split(","),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Grupo criado.");
+      setGroupOpen(false);
+      setGroupName("");
+      setGroupCities("");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const savePerson = useMutation({
     mutationFn: () =>
       savePostitPerson({
@@ -1201,75 +1347,129 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
           departmentId: departmentId === "none" ? null : departmentId,
           role,
           leaderPersonIds,
+          cityNames: cityNamesValue.split(","),
+          groupIds,
+          ledGroupIds,
+          departmentResponsible,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success(editingId ? "Cadastro atualizado." : "Pessoa cadastrada no Postit!.");
-      setPersonOpen(false);
-      resetPersonForm();
+      setEditingId(result.personId);
+      setPersonTab("acesso");
       refresh();
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  const issueCredential = useMutation({
+    mutationFn: () => issuePostitCredential({ data: { personId: editingId! } }),
+    onSuccess: (result) => {
+      setIssuedCredential({ login: result.login, password: result.password });
+      toast.success("Login e senha temporária criados.");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const resetCredential = useMutation({
+    mutationFn: () => resetPostitCredential({ data: { accountId: selectedAccount!.id } }),
+    onSuccess: (result) => {
+      setIssuedCredential({ login: result.login, password: result.password });
+      toast.success("Nova senha temporária criada.");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const saveCoverage = useMutation({
+    mutationFn: () =>
+      savePostitVisibilityGrant({
+        data: {
+          groupId: coverageGroupId,
+          granteePersonId: coveragePersonId,
+          reason: coverageReason,
+          startsAt: new Date(coverageStartsAt).toISOString(),
+          endsAt: coverageEndsAt ? new Date(coverageEndsAt).toISOString() : null,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Cobertura temporária liberada.");
+      setCoverageOpen(false);
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const endCoverage = useMutation({
+    mutationFn: (grant: PostitWorkspace["visibilityGrants"][number]) =>
+      savePostitVisibilityGrant({
+        data: {
+          id: grant.id,
+          groupId: grant.group_id,
+          granteePersonId: grant.grantee_person_id,
+          reason: grant.reason,
+          startsAt: grant.starts_at,
+          endsAt: grant.ends_at,
+          active: false,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Cobertura encerrada.");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  async function copyCredential() {
+    if (!issuedCredential) return;
+    await navigator.clipboard.writeText(
+      "Login: " + issuedCredential.login + "\nSenha temporária: " + issuedCredential.password,
+    );
+    toast.success("Login e senha copiados.");
+  }
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">
-            Diretório e cadeia de comando
+            Diretório, cidades e cadeia de comando
           </p>
-          <h2 className="mt-2 text-2xl font-black text-white">Pessoas, cargos e lideranças</h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-400">
-            Cadastre pessoas antes mesmo do primeiro login. Quando usarem o Google com o mesmo
-            e-mail, o acesso será vinculado automaticamente.
+          <h2 className="mt-2 text-2xl font-black text-white">Pessoas, grupos e acessos</h2>
+          <p className="mt-1 max-w-3xl text-sm text-slate-400">
+            Setor define a área. Grupo separa cidades, lojas ou equipes e impede que um supervisor
+            veja os post-its de outro grupo.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {data.access.canAdminister ? (
-            <Dialog open={departmentOpen} onOpenChange={setDepartmentOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="border-white/10">
-                  <Building2 className="mr-2 h-4 w-4" /> Novo setor
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="bg-slate-950">
-                <DialogHeader>
-                  <DialogTitle>Novo setor</DialogTitle>
-                  <DialogDescription>
-                    A cor escolhida será usada nos post-its desse setor.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
-                  <div className="space-y-1.5">
-                    <Label>Nome</Label>
-                    <Input
-                      value={departmentNameValue}
-                      onChange={(event) => setDepartmentNameValue(event.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Cor</Label>
-                    <Input
-                      type="color"
-                      value={departmentColorValue}
-                      onChange={(event) => setDepartmentColorValue(event.target.value)}
-                      className="h-11"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    onClick={() => saveDepartment.mutate()}
-                    disabled={saveDepartment.isPending}
-                  >
-                    Criar setor
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="outline"
+              className="border-white/10"
+              onClick={() => setDepartmentOpen(true)}
+            >
+              <Building2 className="mr-2 h-4 w-4" /> Novo setor
+            </Button>
           ) : null}
-
+          {canCreateGroups ? (
+            <Button
+              variant="outline"
+              className="border-white/10"
+              onClick={() => setGroupOpen(true)}
+            >
+              <UsersRound className="mr-2 h-4 w-4" /> Novo grupo
+            </Button>
+          ) : null}
+          {data.access.canAdminister ? (
+            <Button
+              variant="outline"
+              className="border-white/10"
+              onClick={() => setCoverageOpen(true)}
+            >
+              <ShieldCheck className="mr-2 h-4 w-4" /> Cobertura
+            </Button>
+          ) : null}
           {canCreatePeople ? (
             <Button
               className="bg-amber-300 text-slate-950 hover:bg-amber-200"
@@ -1287,167 +1487,568 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
         </div>
       </div>
 
-      <Dialog
-        open={personOpen}
-        onOpenChange={(open) => {
-          setPersonOpen(open);
-          if (!open) resetPersonForm();
-        }}
-      >
-        <DialogContent className="max-h-[92vh] overflow-y-auto bg-slate-950 sm:max-w-2xl">
+      <Dialog open={departmentOpen} onOpenChange={setDepartmentOpen}>
+        <DialogContent className="bg-slate-950">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Editar pessoa" : "Nova pessoa"}</DialogTitle>
+            <DialogTitle>Novo setor</DialogTitle>
+            <DialogDescription>A cor será usada nos post-its desse setor.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-[1fr_7rem]">
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input
+                value={departmentNameValue}
+                onChange={(event) => setDepartmentNameValue(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cor</Label>
+              <Input
+                type="color"
+                value={departmentColorValue}
+                onChange={(event) => setDepartmentColorValue(event.target.value)}
+                className="h-11"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => saveDepartment.mutate()} disabled={saveDepartment.isPending}>
+              Criar setor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={groupOpen} onOpenChange={setGroupOpen}>
+        <DialogContent className="bg-slate-950">
+          <DialogHeader>
+            <DialogTitle>Novo grupo operacional</DialogTitle>
             <DialogDescription>
-              Nome, cargo e setor pertencem apenas ao Postit. O e-mail serve para vincular o
-              primeiro login.
+              Ex.: Técnica — Telêmaco/Imbaú/Tibagi ou Marketing — Lojas Norte.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label>Nome</Label>
-                <Input
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder="Ex.: Wagner"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Cargo ou função</Label>
-                <Input
-                  value={positionTitle}
-                  onChange={(event) => setPositionTitle(event.target.value)}
-                  placeholder="Ex.: CEO, Gerente Geral, Técnico"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Setor</Label>
+              <select
+                value={groupDepartmentId}
+                onChange={(event) => setGroupDepartmentId(event.target.value)}
+                className="flex h-11 w-full rounded-md border border-white/10 bg-slate-900 px-3 text-sm text-slate-100"
+              >
+                <option value="">Selecione</option>
+                {data.departments
+                  .filter((row) => row.active)
+                  .map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                    </option>
+                  ))}
+              </select>
             </div>
             <div className="space-y-1.5">
-              <Label>E-mail para vincular o login (opcional)</Label>
+              <Label>Nome do grupo</Label>
               <Input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="pessoa@empresa.com.br"
+                value={groupName}
+                onChange={(event) => setGroupName(event.target.value)}
+                placeholder="Ex.: Equipe Técnica Norte"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cidades ou lojas</Label>
+              <Input
+                value={groupCities}
+                onChange={(event) => setGroupCities(event.target.value)}
+                placeholder="Telêmaco Borba, Imbaú, Tibagi"
+              />
+              <p className="text-xs text-slate-500">Separe várias localidades por vírgula.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => saveGroup.mutate()} disabled={saveGroup.isPending}>
+              Criar grupo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={coverageOpen} onOpenChange={setCoverageOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto bg-slate-950">
+          <DialogHeader>
+            <DialogTitle>Liberar cobertura temporária</DialogTitle>
+            <DialogDescription>
+              Use para férias ou afastamentos. A pessoa verá somente o grupo escolhido durante o
+              período.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Grupo que será coberto</Label>
+              <select
+                value={coverageGroupId}
+                onChange={(event) => setCoverageGroupId(event.target.value)}
+                className="flex h-11 w-full rounded-md border border-white/10 bg-slate-900 px-3 text-sm text-slate-100"
+              >
+                <option value="">Selecione</option>
+                {data.groups
+                  .filter((row) => row.active)
+                  .map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name} · {(row.city_names ?? []).join(", ")}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Quem assumirá</Label>
+              <select
+                value={coveragePersonId}
+                onChange={(event) => setCoveragePersonId(event.target.value)}
+                className="flex h-11 w-full rounded-md border border-white/10 bg-slate-900 px-3 text-sm text-slate-100"
+              >
+                <option value="">Selecione</option>
+                {data.people
+                  .filter((row) => row.active)
+                  .map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.full_name} · {row.position_title}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Motivo</Label>
+              <Input
+                value={coverageReason}
+                onChange={(event) => setCoverageReason(event.target.value)}
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Setor</Label>
-                <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem setor fixo</SelectItem>
-                    {data.departments
-                      .filter((department) => department.active)
-                      .map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Label>Início</Label>
+                <Input
+                  type="datetime-local"
+                  value={coverageStartsAt}
+                  onChange={(event) => setCoverageStartsAt(event.target.value)}
+                />
               </div>
               <div className="space-y-1.5">
-                <Label>Nível de permissão</Label>
-                <Select value={role} onValueChange={(value) => setRole(value as PostitMemberRole)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="member">Colaborador</SelectItem>
-                    <SelectItem value="leader">Líder</SelectItem>
-                    {data.access.canAdminister ? (
-                      <>
-                        <SelectItem value="manager">Gestor / Supervisor</SelectItem>
-                        <SelectItem value="director">Diretoria</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                      </>
-                    ) : null}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Responde para</Label>
-              <p className="text-xs text-slate-500">
-                Pode marcar mais de um líder, como Renan → Carol e Wagner.
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {possibleLeaders.map((leader) => {
-                  const selected = leaderPersonIds.includes(leader.id);
-                  return (
-                    <button
-                      key={leader.id}
-                      type="button"
-                      onClick={() =>
-                        setLeaderPersonIds((current) =>
-                          selected
-                            ? current.filter((id) => id !== leader.id)
-                            : [...current, leader.id],
-                        )
-                      }
-                      className={
-                        "flex items-center justify-between rounded-xl border p-3 text-left transition " +
-                        (selected
-                          ? "border-amber-300/50 bg-amber-300/10"
-                          : "border-white/10 bg-white/[.03] hover:border-white/20")
-                      }
-                    >
-                      <span>
-                        <span className="block text-sm font-semibold text-white">
-                          {leader.full_name}
-                        </span>
-                        <span className="block text-xs text-slate-500">
-                          {leader.position_title}
-                        </span>
-                      </span>
-                      {selected ? (
-                        <Check className="h-4 w-4 text-amber-300" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-slate-600" />
-                      )}
-                    </button>
-                  );
-                })}
+                <Label>Término (opcional)</Label>
+                <Input
+                  type="datetime-local"
+                  value={coverageEndsAt}
+                  onChange={(event) => setCoverageEndsAt(event.target.value)}
+                />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setPersonOpen(false)}>
+            <Button onClick={() => saveCoverage.mutate()} disabled={saveCoverage.isPending}>
+              Liberar acesso
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={personOpen} onOpenChange={setPersonOpen}>
+        <DialogContent className="max-h-[92vh] overflow-y-auto bg-slate-950 sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Editar pessoa" : "Nova pessoa"}</DialogTitle>
+            <DialogDescription>
+              O formulário permanece aberto enquanto você escolhe setor, grupo, cidades e líderes.
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs value={personTab} onValueChange={setPersonTab}>
+            <TabsList className="grid w-full grid-cols-2 bg-slate-900">
+              <TabsTrigger value="dados">Cadastro e grupos</TabsTrigger>
+              <TabsTrigger value="acesso">Acesso e senha</TabsTrigger>
+            </TabsList>
+            <TabsContent value="dados" className="space-y-4 pt-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Nome</Label>
+                  <Input
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    placeholder="Ex.: Wagner"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cargo ou função</Label>
+                  <Input
+                    value={positionTitle}
+                    onChange={(event) => setPositionTitle(event.target.value)}
+                    placeholder="Ex.: Supervisor técnico"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>E-mail pessoal ou corporativo (opcional)</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="pessoa@empresa.com.br"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Setor</Label>
+                  <select
+                    value={departmentId}
+                    onChange={(event) => {
+                      setDepartmentId(event.target.value);
+                      setGroupIds([]);
+                      setLedGroupIds([]);
+                    }}
+                    className="flex h-11 w-full rounded-md border border-white/10 bg-slate-900 px-3 text-sm text-slate-100"
+                  >
+                    <option value="none">Sem setor fixo</option>
+                    {data.departments
+                      .filter((row) => row.active)
+                      .map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Nível de permissão</Label>
+                  <select
+                    value={role}
+                    onChange={(event) => setRole(event.target.value as PostitMemberRole)}
+                    className="flex h-11 w-full rounded-md border border-white/10 bg-slate-900 px-3 text-sm text-slate-100"
+                  >
+                    <option value="member">Colaborador</option>
+                    <option value="leader">Líder</option>
+                    {data.access.canAdminister ? (
+                      <>
+                        <option value="manager">Gestor / Supervisor</option>
+                        <option value="director">Diretoria / Gerência Geral</option>
+                        <option value="admin">Administrador total</option>
+                      </>
+                    ) : null}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cidade, cidades ou lojas</Label>
+                <Input
+                  value={cityNamesValue}
+                  onChange={(event) => setCityNamesValue(event.target.value)}
+                  placeholder="Telêmaco Borba, Imbaú, Tibagi"
+                />
+                <p className="text-xs text-slate-500">Separe várias localidades por vírgula.</p>
+              </div>
+              {groupsForPerson.length ? (
+                <div className="space-y-2">
+                  <Label>Grupos deste setor</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {groupsForPerson.map((group) => {
+                      const selected = groupIds.includes(group.id);
+                      const leads = ledGroupIds.includes(group.id);
+                      return (
+                        <div
+                          key={group.id}
+                          className={
+                            "rounded-xl border p-3 " +
+                            (selected
+                              ? "border-amber-300/40 bg-amber-300/10"
+                              : "border-white/10 bg-white/[.03]")
+                          }
+                        >
+                          <button
+                            type="button"
+                            className="flex w-full items-start justify-between gap-2 text-left"
+                            onClick={() => {
+                              setGroupIds((current) =>
+                                selected
+                                  ? current.filter((id) => id !== group.id)
+                                  : [...current, group.id],
+                              );
+                              if (selected)
+                                setLedGroupIds((current) =>
+                                  current.filter((id) => id !== group.id),
+                                );
+                            }}
+                          >
+                            <span>
+                              <span className="block text-sm font-semibold text-white">
+                                {group.name}
+                              </span>
+                              <span className="block text-xs text-slate-500">
+                                {(group.city_names ?? []).join(" · ") || "Sem cidades"}
+                              </span>
+                            </span>
+                            {selected ? (
+                              <Check className="h-4 w-4 text-amber-300" />
+                            ) : (
+                              <Plus className="h-4 w-4 text-slate-600" />
+                            )}
+                          </button>
+                          {selected &&
+                          data.access.canAdminister &&
+                          ["leader", "manager", "director", "admin"].includes(role) ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLedGroupIds((current) =>
+                                  leads
+                                    ? current.filter((id) => id !== group.id)
+                                    : [...current, group.id],
+                                )
+                              }
+                              className={
+                                "mt-3 w-full rounded-lg border px-2 py-1.5 text-xs " +
+                                (leads
+                                  ? "border-sky-400/40 bg-sky-400/10 text-sky-300"
+                                  : "border-white/10 text-slate-400")
+                              }
+                            >
+                              {leads ? "Responsável por este grupo" : "Marcar como líder do grupo"}
+                            </button>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : departmentId !== "none" ? (
+                <p className="rounded-lg border border-dashed border-white/10 p-3 text-xs text-slate-500">
+                  Ainda não existe grupo nesse setor. Crie um grupo para separar as cidades ou
+                  lojas.
+                </p>
+              ) : null}
+              {data.access.canAdminister &&
+              departmentId !== "none" &&
+              ["leader", "manager", "director", "admin"].includes(role) ? (
+                <button
+                  type="button"
+                  onClick={() => setDepartmentResponsible((value) => !value)}
+                  className={
+                    "flex w-full items-center justify-between rounded-xl border p-3 text-left " +
+                    (departmentResponsible
+                      ? "border-emerald-400/40 bg-emerald-400/10"
+                      : "border-white/10 bg-white/[.03]")
+                  }
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-white">
+                      Responsável pelo setor
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      Cada setor aceita até dois líderes ou supervisores.
+                    </span>
+                  </span>
+                  {departmentResponsible ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+                </button>
+              ) : null}
+              <div className="space-y-2">
+                <Label>Responde para</Label>
+                <p className="text-xs text-slate-500">Pode marcar mais de um líder.</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {possibleLeaders.map((leader) => {
+                    const selected = leaderPersonIds.includes(leader.id);
+                    return (
+                      <button
+                        key={leader.id}
+                        type="button"
+                        onClick={() =>
+                          setLeaderPersonIds((current) =>
+                            selected
+                              ? current.filter((id) => id !== leader.id)
+                              : [...current, leader.id],
+                          )
+                        }
+                        className={
+                          "flex items-center justify-between rounded-xl border p-3 text-left transition " +
+                          (selected
+                            ? "border-amber-300/50 bg-amber-300/10"
+                            : "border-white/10 bg-white/[.03]")
+                        }
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold text-white">
+                            {leader.full_name}
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            {leader.position_title}
+                          </span>
+                        </span>
+                        {selected ? (
+                          <Check className="h-4 w-4 text-amber-300" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-600" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="acesso" className="space-y-4 pt-3">
+              {!editingId ? (
+                <Card className="border-dashed border-white/10 bg-white/[.02]">
+                  <CardContent className="p-6 text-center text-sm text-slate-400">
+                    Salve o cadastro primeiro para liberar login e senha.
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <Card className="border-white/10 bg-white/[.03]">
+                    <CardContent className="space-y-3 p-5">
+                      <div className="flex items-center gap-3">
+                        <KeyRound className="h-5 w-5 text-amber-300" />
+                        <div>
+                          <p className="font-semibold text-white">Login interno do Postit!</p>
+                          <p className="text-xs text-slate-500">
+                            {selectedAccount
+                              ? "Login ativo: " + selectedAccount.login
+                              : selectedPerson?.user_id
+                                ? "Conta vinculada, sem login interno."
+                                : "Ainda sem conta de acesso."}
+                          </p>
+                        </div>
+                      </div>
+                      {data.access.canAdminister ? (
+                        selectedAccount ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => resetCredential.mutate()}
+                            disabled={resetCredential.isPending}
+                          >
+                            Gerar nova senha temporária
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => issueCredential.mutate()}
+                            disabled={issueCredential.isPending || !editingId}
+                          >
+                            Criar login e senha temporária
+                          </Button>
+                        )
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Somente a administração pode criar ou redefinir senhas.
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                  {issuedCredential ? (
+                    <Card className="border-emerald-400/30 bg-emerald-400/10">
+                      <CardContent className="space-y-3 p-5">
+                        <p className="text-sm font-semibold text-emerald-200">
+                          Entregue estes dados agora
+                        </p>
+                        <div className="rounded-lg bg-black/30 p-3 font-mono text-sm text-white">
+                          <p>Login: {issuedCredential.login}</p>
+                          <p>Senha: {issuedCredential.password}</p>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={copyCredential}>
+                          <Copy className="mr-2 h-4 w-4" /> Copiar acesso
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+                  <Card className="border-sky-400/20 bg-sky-400/5">
+                    <CardContent className="p-5 text-sm text-slate-300">
+                      Depois do primeiro login e da troca de senha, a própria pessoa pode abrir
+                      <strong> Minha conta</strong> no Postit! e vincular o Google dela.
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setPersonOpen(false);
+                resetPersonForm();
+              }}
+            >
               Cancelar
             </Button>
-            <Button onClick={() => savePerson.mutate()} disabled={savePerson.isPending}>
-              Salvar pessoa
-            </Button>
+            {personTab === "dados" ? (
+              <Button onClick={() => savePerson.mutate()} disabled={savePerson.isPending}>
+                Salvar pessoa
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <section>
         <h3 className="mb-3 text-sm font-bold uppercase tracking-[.18em] text-slate-500">
-          Setores
+          Setores e grupos
         </h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 lg:grid-cols-2">
           {data.departments
             .filter((department) => department.active)
             .map((department) => {
-              const count = data.people.filter(
-                (person) => person.active && person.department_id === department.id,
-              ).length;
+              const leaders = data.departmentLeaders
+                .filter((row) => row.department_id === department.id)
+                .map((row) => data.people.find((person) => person.id === row.person_id))
+                .filter(Boolean);
+              const groups = data.groups.filter(
+                (group) => group.active && group.department_id === department.id,
+              );
               return (
                 <Card key={department.id} className="border-white/10 bg-slate-950/55">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <span
-                      className="h-11 w-2 rounded-full"
-                      style={{ backgroundColor: department.color }}
-                    />
-                    <div>
-                      <p className="font-semibold text-white">{department.name}</p>
-                      <p className="text-xs text-slate-500">
-                        {count} pessoa{count === 1 ? "" : "s"}
-                      </p>
+                  <CardContent className="space-y-4 p-5">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-11 w-2 rounded-full"
+                        style={{ backgroundColor: department.color }}
+                      />
+                      <div>
+                        <p className="font-semibold text-white">{department.name}</p>
+                        <p className="text-xs text-slate-500">
+                          Responsáveis:{" "}
+                          {leaders.length
+                            ? leaders.map((leader) => leader.full_name).join(" e ")
+                            : "não definidos"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {groups.length ? (
+                        groups.map((group) => {
+                          const groupLeaders = data.personGroups
+                            .filter((row) => row.group_id === group.id && row.is_leader)
+                            .map((row) => data.people.find((person) => person.id === row.person_id))
+                            .filter(Boolean);
+                          return (
+                            <div
+                              key={group.id}
+                              className="rounded-xl border border-white/10 bg-white/[.03] p-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-200">
+                                    {group.name}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    <MapPin className="mr-1 inline h-3 w-3" />
+                                    {(group.city_names ?? []).join(" · ") || "Sem cidades"}
+                                  </p>
+                                </div>
+                                <Badge className="border-white/10 bg-white/5 text-slate-400">
+                                  {groupLeaders.length}/2 líderes
+                                </Badge>
+                              </div>
+                              {groupLeaders.length ? (
+                                <p className="mt-2 text-xs text-sky-300">
+                                  {groupLeaders.map((leader) => leader.full_name).join(" e ")}
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-slate-600">Nenhum grupo criado.</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1456,81 +2057,96 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
         </div>
       </section>
 
-      <section>
-        <h3 className="mb-3 text-sm font-bold uppercase tracking-[.18em] text-slate-500">
-          Diretório do Postit
-        </h3>
-        {data.people.filter((person) => person.active).length ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.people
-              .filter((person) => person.active)
-              .map((person) => {
-                const leaders = data.reportingLines
-                  .filter((line) => line.subordinate_person_id === person.id)
-                  .map((line) => personName(data, line.leader_person_id));
+      {data.access.canAdminister && data.visibilityGrants.some((grant) => grant.active) ? (
+        <section>
+          <h3 className="mb-3 text-sm font-bold uppercase tracking-[.18em] text-slate-500">
+            Coberturas temporárias
+          </h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {data.visibilityGrants
+              .filter((grant) => grant.active)
+              .map((grant) => {
+                const person = data.people.find((row) => row.id === grant.grantee_person_id);
+                const group = data.groups.find((row) => row.id === grant.group_id);
                 return (
-                  <Card key={person.id} className="border-white/10 bg-slate-950/55">
-                    <CardContent className="space-y-4 p-5">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span
-                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-950"
-                            style={{
-                              backgroundColor: departmentColor(data, person.department_id),
-                            }}
-                          >
-                            <UserRound className="h-5 w-5" />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate font-bold text-white">{person.full_name}</p>
-                            <p className="truncate text-sm text-amber-200">
-                              {person.position_title}
-                            </p>
-                          </div>
-                        </div>
-                        {canEditPerson(person.id) ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-slate-400"
-                            onClick={() => editPerson(person)}
-                          >
-                            Editar
-                          </Button>
-                        ) : null}
+                  <Card key={grant.id} className="border-sky-400/20 bg-sky-400/5">
+                    <CardContent className="flex items-start justify-between gap-3 p-4">
+                      <div>
+                        <p className="font-semibold text-white">
+                          {person?.full_name || "Pessoa"} → {group?.name || "Grupo"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">{grant.reason}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatDateTime(grant.starts_at)} até{" "}
+                          {grant.ends_at ? formatDateTime(grant.ends_at) : "sem término"}
+                        </p>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline" className="border-white/10 text-slate-300">
-                          {departmentName(data, person.department_id)}
-                        </Badge>
-                        <Badge variant="outline" className="border-white/10 text-slate-300">
-                          {ROLE_LABELS[person.role as PostitMemberRole]}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={
-                            person.user_id
-                              ? "border-emerald-400/20 text-emerald-300"
-                              : "border-amber-400/20 text-amber-300"
-                          }
-                        >
-                          {person.user_id ? "Login vinculado" : "Aguardando primeiro login"}
-                        </Badge>
-                      </div>
-                      <p className="text-xs leading-relaxed text-slate-500">
-                        Responde para: {leaders.length ? leaders.join(" + ") : "ninguém acima"}
-                      </p>
+                      <Button size="sm" variant="ghost" onClick={() => endCoverage.mutate(grant)}>
+                        Encerrar
+                      </Button>
                     </CardContent>
                   </Card>
                 );
               })}
           </div>
-        ) : (
-          <EmptyState
-            title="Nenhuma pessoa cadastrada"
-            description="Cadastre a estrutura da empresa e depois defina quem responde para quem."
-          />
-        )}
+        </section>
+      ) : null}
+
+      <section>
+        <h3 className="mb-3 text-sm font-bold uppercase tracking-[.18em] text-slate-500">
+          Pessoas
+        </h3>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {data.people
+            .filter((person) => person.active)
+            .map((person) => {
+              const department = data.departments.find((row) => row.id === person.department_id);
+              const memberships = data.personGroups.filter((row) => row.person_id === person.id);
+              const leaders = data.reportingLines
+                .filter((line) => line.subordinate_person_id === person.id)
+                .map(
+                  (line) => data.people.find((row) => row.id === line.leader_person_id)?.full_name,
+                )
+                .filter(Boolean);
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  disabled={!canEditPerson(person.id)}
+                  onClick={() => editPerson(person)}
+                  className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 text-left transition hover:border-amber-300/30 disabled:cursor-default disabled:hover:border-white/10"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-white">{person.full_name}</p>
+                      <p className="text-xs text-slate-500">{person.position_title}</p>
+                    </div>
+                    <Badge className="border-white/10 bg-white/5 text-slate-400">
+                      {ROLE_LABELS[person.role as PostitMemberRole]}
+                    </Badge>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">
+                    {department?.name || "Sem setor"} ·{" "}
+                    {(person.city_names ?? []).join(", ") || "sem cidades"}
+                  </p>
+                  {memberships.length ? (
+                    <p className="mt-1 text-xs text-sky-300">
+                      {memberships
+                        .map(
+                          (membership) =>
+                            data.groups.find((group) => group.id === membership.group_id)?.name,
+                        )
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-slate-600">
+                    Responde para: {leaders.length ? leaders.join(" e ") : "não definido"}
+                  </p>
+                </button>
+              );
+            })}
+        </div>
       </section>
     </div>
   );
@@ -1684,14 +2300,31 @@ function PostitDetailDialog({
   const currentPersonIsAssignee = Boolean(
     data.access.personId && itemAssigneeIds(data, item.id).includes(data.access.personId),
   );
+  const currentPersonManagesGroup = Boolean(
+    item.group_id &&
+    data.access.personId &&
+    (data.personGroups.some(
+      (row) =>
+        row.group_id === item.group_id && row.person_id === data.access.personId && row.is_leader,
+    ) ||
+      data.visibilityGrants.some(
+        (row) =>
+          row.group_id === item.group_id &&
+          row.grantee_person_id === data.access.personId &&
+          row.active &&
+          (!row.ends_at || row.ends_at > new Date().toISOString()),
+      )),
+  );
   const canOperate =
     data.access.canAdminister ||
     currentPersonIsAssignee ||
+    currentPersonManagesGroup ||
     [item.creator_user_id, item.manager_user_id].includes(data.currentUserId) ||
     (data.access.personId &&
       [item.creator_person_id, item.manager_person_id].includes(data.access.personId));
   const canValidate =
     data.access.canAdminister ||
+    currentPersonManagesGroup ||
     item.creator_user_id === data.currentUserId ||
     item.manager_user_id === data.currentUserId ||
     (data.access.personId &&

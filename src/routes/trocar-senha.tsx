@@ -12,13 +12,7 @@ import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/trocar-senha")({
   ssr: false,
@@ -70,7 +64,11 @@ function TrocarSenhaPage() {
       toast.error("A troca não foi confirmada pelo servidor. Tente novamente.");
       return;
     }
-    navigate({ to: "/painel", replace: true });
+    const { data: authData } = await supabase.auth.getUser();
+    navigate({
+      to: authData.user?.user_metadata?.postit_only ? "/postit" : "/painel",
+      replace: true,
+    });
   }
 
   if (checking) {
@@ -131,9 +129,7 @@ function TrocarSenhaPage() {
                 className="w-full"
                 disabled={form.formState.isSubmitting}
               >
-                {form.formState.isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Salvar e continuar
               </Button>
             </form>

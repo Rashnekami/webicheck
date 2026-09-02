@@ -44,8 +44,9 @@ export const Route = createFileRoute("/_authenticated")({
     // O Postit! também atende Financeiro, RH, Marketing e Diretoria. Essas
     // pessoas precisam estar ligadas a um provedor, mas não necessariamente
     // possuir cidade/região técnica configurada.
-    const enteringPostit = location.pathname.startsWith("/postit");
-    if (!profile.provider_id || (!enteringPostit && !profile.cities_configured_at)) {
+    const postitAccountPath =
+      location.pathname.startsWith("/postit") || location.pathname === "/minha-conta";
+    if (!profile.provider_id || (!postitAccountPath && !profile.cities_configured_at)) {
       throw redirect({ to: "/completar-cadastro" });
     }
     if (await fetchMustChangePassword(data.user.id)) {
