@@ -1575,6 +1575,62 @@ export type Database = {
           },
         ]
       }
+      postit_department_leaders: {
+        Row: {
+          created_at: string
+          created_by: string
+          department_id: string
+          id: string
+          person_id: string
+          provider_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          department_id: string
+          id?: string
+          person_id: string
+          provider_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          department_id?: string
+          id?: string
+          person_id?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_department_leaders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_department_leaders_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_department_leaders_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_department_leaders_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       postit_departments: {
         Row: {
           active: boolean
@@ -1685,6 +1741,64 @@ export type Database = {
           },
         ]
       }
+      postit_groups: {
+        Row: {
+          active: boolean
+          city_names: string[]
+          created_at: string
+          created_by: string
+          department_id: string
+          id: string
+          name: string
+          provider_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          city_names?: string[]
+          created_at?: string
+          created_by: string
+          department_id: string
+          id?: string
+          name: string
+          provider_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          city_names?: string[]
+          created_at?: string
+          created_by?: string
+          department_id?: string
+          id?: string
+          name?: string
+          provider_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_groups_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_groups_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       postit_items: {
         Row: {
           cancelled_at: string | null
@@ -1700,6 +1814,7 @@ export type Database = {
           description: string
           escalation_level: number
           extension_count: number
+          group_id: string | null
           id: string
           initial_due_date: string
           manager_person_id: string | null
@@ -1731,6 +1846,7 @@ export type Database = {
           description: string
           escalation_level?: number
           extension_count?: number
+          group_id?: string | null
           id?: string
           initial_due_date: string
           manager_person_id?: string | null
@@ -1762,6 +1878,7 @@ export type Database = {
           description?: string
           escalation_level?: number
           extension_count?: number
+          group_id?: string | null
           id?: string
           initial_due_date?: string
           manager_person_id?: string | null
@@ -1799,6 +1916,13 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "postit_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "postit_groups"
             referencedColumns: ["id"]
           },
           {
@@ -2088,6 +2212,7 @@ export type Database = {
       postit_people: {
         Row: {
           active: boolean
+          city_names: string[]
           created_at: string
           created_by: string
           department_id: string | null
@@ -2102,6 +2227,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          city_names?: string[]
           created_at?: string
           created_by: string
           department_id?: string | null
@@ -2116,6 +2242,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          city_names?: string[]
           created_at?: string
           created_by?: string
           department_id?: string | null
@@ -2155,6 +2282,65 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_person_groups: {
+        Row: {
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          is_leader: boolean
+          person_id: string
+          provider_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          is_leader?: boolean
+          person_id: string
+          provider_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          is_leader?: boolean
+          person_id?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_person_groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_person_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "postit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_person_groups_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_person_groups_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
             referencedColumns: ["id"]
           },
         ]
@@ -2211,6 +2397,77 @@ export type Database = {
             columns: ["subordinate_person_id"]
             isOneToOne: false
             referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      postit_visibility_grants: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          ends_at: string | null
+          grantee_person_id: string
+          group_id: string
+          id: string
+          provider_id: string
+          reason: string
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          ends_at?: string | null
+          grantee_person_id: string
+          group_id: string
+          id?: string
+          provider_id: string
+          reason: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          ends_at?: string | null
+          grantee_person_id?: string
+          group_id?: string
+          id?: string
+          provider_id?: string
+          reason?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "postit_visibility_grants_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_visibility_grants_grantee_person_id_fkey"
+            columns: ["grantee_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_visibility_grants_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "postit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_visibility_grants_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
             referencedColumns: ["id"]
           },
         ]
