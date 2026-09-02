@@ -1520,7 +1520,9 @@ export type Database = {
       postit_deadline_history: {
         Row: {
           created_at: string
+          decision_type: string
           id: string
+          meeting_id: string | null
           new_due_date: string
           postit_id: string
           previous_due_date: string | null
@@ -1531,7 +1533,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          decision_type?: string
           id?: string
+          meeting_id?: string | null
           new_due_date: string
           postit_id: string
           previous_due_date?: string | null
@@ -1542,7 +1546,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          decision_type?: string
           id?: string
+          meeting_id?: string | null
           new_due_date?: string
           postit_id?: string
           previous_due_date?: string | null
@@ -1552,6 +1558,13 @@ export type Database = {
           sequence?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "postit_deadline_history_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "postit_meetings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "postit_deadline_history_postit_id_fkey"
             columns: ["postit_id"]
@@ -1801,6 +1814,8 @@ export type Database = {
       }
       postit_items: {
         Row: {
+          accepted_at: string | null
+          accepted_by_person_id: string | null
           cancelled_at: string | null
           code: string
           completion_evidence_url: string | null
@@ -1809,20 +1824,24 @@ export type Database = {
           created_at: string
           creator_person_id: string | null
           creator_user_id: string
-          current_due_date: string
+          current_due_date: string | null
           department_id: string
           description: string
           escalation_level: number
           extension_count: number
           group_id: string | null
           id: string
-          initial_due_date: string
+          initial_due_date: string | null
           manager_person_id: string | null
           manager_user_id: string | null
           meeting_id: string | null
+          opened_by_person_id: string | null
           primary_assignee_person_id: string | null
           priority: Database["public"]["Enums"]["postit_priority"]
           provider_id: string
+          rejected_at: string | null
+          rejected_by_person_id: string | null
+          rejection_reason: string | null
           responsible_user_id: string | null
           review_meeting_id: string | null
           source_type: string
@@ -1833,6 +1852,8 @@ export type Database = {
           validated_by: string | null
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by_person_id?: string | null
           cancelled_at?: string | null
           code: string
           completion_evidence_url?: string | null
@@ -1841,20 +1862,24 @@ export type Database = {
           created_at?: string
           creator_person_id?: string | null
           creator_user_id: string
-          current_due_date: string
+          current_due_date?: string | null
           department_id: string
           description: string
           escalation_level?: number
           extension_count?: number
           group_id?: string | null
           id?: string
-          initial_due_date: string
+          initial_due_date?: string | null
           manager_person_id?: string | null
           manager_user_id?: string | null
           meeting_id?: string | null
+          opened_by_person_id?: string | null
           primary_assignee_person_id?: string | null
           priority?: Database["public"]["Enums"]["postit_priority"]
           provider_id: string
+          rejected_at?: string | null
+          rejected_by_person_id?: string | null
+          rejection_reason?: string | null
           responsible_user_id?: string | null
           review_meeting_id?: string | null
           source_type?: string
@@ -1865,6 +1890,8 @@ export type Database = {
           validated_by?: string | null
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by_person_id?: string | null
           cancelled_at?: string | null
           code?: string
           completion_evidence_url?: string | null
@@ -1873,20 +1900,24 @@ export type Database = {
           created_at?: string
           creator_person_id?: string | null
           creator_user_id?: string
-          current_due_date?: string
+          current_due_date?: string | null
           department_id?: string
           description?: string
           escalation_level?: number
           extension_count?: number
           group_id?: string | null
           id?: string
-          initial_due_date?: string
+          initial_due_date?: string | null
           manager_person_id?: string | null
           manager_user_id?: string | null
           meeting_id?: string | null
+          opened_by_person_id?: string | null
           primary_assignee_person_id?: string | null
           priority?: Database["public"]["Enums"]["postit_priority"]
           provider_id?: string
+          rejected_at?: string | null
+          rejected_by_person_id?: string | null
+          rejection_reason?: string | null
           responsible_user_id?: string | null
           review_meeting_id?: string | null
           source_type?: string
@@ -1897,6 +1928,13 @@ export type Database = {
           validated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "postit_items_accepted_by_person_id_fkey"
+            columns: ["accepted_by_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "postit_items_creator_person_id_fkey"
             columns: ["creator_person_id"]
@@ -1947,6 +1985,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "postit_items_opened_by_person_id_fkey"
+            columns: ["opened_by_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "postit_items_primary_assignee_person_id_fkey"
             columns: ["primary_assignee_person_id"]
             isOneToOne: false
@@ -1958,6 +2003,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "postit_items_rejected_by_person_id_fkey"
+            columns: ["rejected_by_person_id"]
+            isOneToOne: false
+            referencedRelation: "postit_people"
             referencedColumns: ["id"]
           },
           {
@@ -2219,6 +2271,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          is_gr_conductor: boolean
           position_title: string
           provider_id: string
           role: Database["public"]["Enums"]["postit_member_role"]
@@ -2234,6 +2287,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          is_gr_conductor?: boolean
           position_title?: string
           provider_id: string
           role?: Database["public"]["Enums"]["postit_member_role"]
@@ -2249,6 +2303,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          is_gr_conductor?: boolean
           position_title?: string
           provider_id?: string
           role?: Database["public"]["Enums"]["postit_member_role"]
@@ -4259,6 +4314,7 @@ export type Database = {
       postit_member_role: "member" | "leader" | "manager" | "director" | "admin"
       postit_priority: "low" | "normal" | "high" | "critical"
       postit_status:
+        | "pending_acceptance"
         | "open"
         | "in_progress"
         | "overdue"
@@ -4266,6 +4322,7 @@ export type Database = {
         | "completed"
         | "escalated"
         | "cancelled"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4417,6 +4474,7 @@ export const Constants = {
       postit_member_role: ["member", "leader", "manager", "director", "admin"],
       postit_priority: ["low", "normal", "high", "critical"],
       postit_status: [
+        "pending_acceptance",
         "open",
         "in_progress",
         "overdue",
@@ -4424,6 +4482,7 @@ export const Constants = {
         "completed",
         "escalated",
         "cancelled",
+        "rejected",
       ],
     },
   },
