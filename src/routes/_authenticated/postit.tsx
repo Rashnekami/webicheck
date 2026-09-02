@@ -67,12 +67,14 @@ import {
   closePostitMeeting,
   createPostitItem,
   createPostitMeeting,
+  decidePostitAtGr,
   extendPostitDeadline,
   getPostitAccess,
   getPostitWorkspace,
   issuePostitCredential,
   markPostitNotificationsRead,
   resetPostitCredential,
+  respondPostitAssignment,
   savePostitDepartment,
   savePostitGroup,
   savePostitPerson,
@@ -111,12 +113,14 @@ const ROLE_LABELS: Record<PostitMemberRole, string> = {
 
 const FILTERS: Array<{ value: "all" | PostitStatus; label: string }> = [
   { value: "all", label: "Todos" },
+  { value: "pending_acceptance", label: "Aguardando aceite" },
   { value: "open", label: "Abertos" },
   { value: "in_progress", label: "Em andamento" },
   { value: "overdue", label: "Fora do prazo" },
   { value: "escalated", label: "Escalados" },
   { value: "awaiting_validation", label: "Validação" },
   { value: "completed", label: "Concluídos" },
+  { value: "rejected", label: "Recusados" },
 ];
 
 function asDateTimeLocal(date = new Date()) {
@@ -128,6 +132,10 @@ function defaultDueDate() {
   const date = new Date();
   date.setDate(date.getDate() + 7);
   return date.toISOString().slice(0, 10);
+}
+
+function todayInBrazil() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }
 
 function formatDate(date?: string | null) {
@@ -453,7 +461,9 @@ function DashboardPanel({
   openItem: (id: string) => void;
   onNew: () => void;
 }) {
-  const active = data.items.filter((item) => !["completed", "cancelled"].includes(item.status));
+  const active = data.items.filter(
+    (item) => !["completed", "cancelled", "rejected"].includes(item.status),
+  );
   const completed = data.items.filter((item) => item.status === "completed");
   const overdue = data.items.filter((item) => item.status === "overdue");
   const escalated = data.items.filter((item) => item.status === "escalated");
@@ -518,7 +528,11 @@ function DashboardPanel({
             department,
             items: active
               .filter((item) => item.department_id === department.id)
-              .sort((a, b) => a.current_due_date.localeCompare(b.current_due_date)),
+              .sort((a, b) =>
+                (a.current_due_date ?? "9999-12-31").localeCompare(
+                  b.current_due_date ?? "9999-12-31",
+                ),
+              ),
           }))
           .filter((group) => group.items.length)
           .map(({ department, items }) => (
@@ -725,19 +739,27 @@ function NewPostitDialog({
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [groupId, setGroupId] = useState("none");
+  const [creatorPersonId, setCreatorPersonId] = useState("self");
   const [primaryPersonId, setPrimaryPersonId] = useState("");
   const [secondaryPersonId, setSecondaryPersonId] = useState("none");
   const [meetingId, setMeetingId] = useState("none");
   const [sourceType, setSourceType] = useState<
     "meeting" | "sector" | "managerial" | "sporadic" | "standalone"
   >("standalone");
-  const [dueDate, setDueDate] = useState(defaultDueDate());
   const [priority, setPriority] = useState<PostitPriority>("normal");
+  const canOpenOnBehalf = Boolean(
+    data.access.canAdminister ||
+    (data.access.isGrConductor &&
+      (data.hasGeneralGrToday || data.grTodayDepartmentIds.includes(departmentId))),
+  );
+  const availablePersonIds = canOpenOnBehalf
+    ? data.assignablePersonIds
+    : data.normalAssignablePersonIds;
   const activePeople = data.people.filter(
-    (person) => person.active && data.assignablePersonIds.includes(person.id),
+    (person) => person.active && availablePersonIds.includes(person.id),
   );
   const availableGroupIds = new Set(
-    data.access.canAdminister
+    canOpenOnBehalf
       ? data.groups.map((group) => group.id)
       : [
           ...data.personGroups
@@ -766,12 +788,12 @@ function NewPostitDialog({
           description,
           departmentId,
           groupId: groupId === "none" ? null : groupId,
+          creatorPersonId: creatorPersonId === "self" ? null : creatorPersonId,
           assigneePersonIds: [primaryPersonId, secondaryPersonId].filter(
             (personId) => personId && personId !== "none",
           ),
           meetingId: sourceType === "meeting" && meetingId !== "none" ? meetingId : null,
           sourceType,
-          dueDate,
           priority,
         },
       }),
@@ -781,6 +803,7 @@ function NewPostitDialog({
       setDescription("");
       setPrimaryPersonId("");
       setSecondaryPersonId("none");
+      setCreatorPersonId("self");
       setGroupId("none");
       onOpenChange(false);
       refresh();
@@ -796,7 +819,8 @@ function NewPostitDialog({
             <StickyNote className="h-5 w-5 text-amber-300" /> Novo post-it
           </DialogTitle>
           <DialogDescription>
-            Registre o compromisso, defina quem responde e a primeira data.
+            Registre o compromisso e defina quem responde. O responsável aceitará e informará a
+            primeira data.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -818,12 +842,37 @@ function NewPostitDialog({
             />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
+            {canOpenOnBehalf ? (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Abrir em nome de</Label>
+                <Select value={creatorPersonId} onValueChange={setCreatorPersonId}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="self">Eu mesmo</SelectItem>
+                    {data.people
+                      .filter((person) => person.active && person.id !== data.access.personId)
+                      .map((person) => (
+                        <SelectItem key={person.id} value={person.id}>
+                          {person.full_name} · {person.position_title}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">
+                  Liberação especial para condutores no dia da GR. A ação fica registrada em seu
+                  nome.
+                </p>
+              </div>
+            ) : null}
             <div className="space-y-1.5">
               <Label>Setor</Label>
               <Select
                 value={departmentId}
                 onValueChange={(value) => {
                   setDepartmentId(value);
+                  setCreatorPersonId("self");
                   setGroupId("none");
                   setPrimaryPersonId("");
                   setSecondaryPersonId("none");
@@ -904,14 +953,6 @@ function NewPostitDialog({
                     ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Prazo inicial</Label>
-              <Input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-              />
             </div>
             <div className="space-y-1.5">
               <Label>Prioridade</Label>
@@ -1133,7 +1174,7 @@ function MeetingsPanel({ data, refresh }: { data: PostitWorkspace; refresh: () =
           {data.meetings.map((meeting) => {
             const items = data.items.filter((item) => item.meeting_id === meeting.id);
             const pending = items.filter(
-              (item) => !["completed", "cancelled"].includes(item.status),
+              (item) => !["completed", "cancelled", "rejected"].includes(item.status),
             ).length;
             return (
               <Card key={meeting.id} className="border-white/10 bg-slate-950/55">
@@ -1233,6 +1274,7 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
   const [groupIds, setGroupIds] = useState<string[]>([]);
   const [ledGroupIds, setLedGroupIds] = useState<string[]>([]);
   const [departmentResponsible, setDepartmentResponsible] = useState(false);
+  const [grConductor, setGrConductor] = useState(false);
   const [issuedCredential, setIssuedCredential] = useState<{
     login: string;
     password: string;
@@ -1269,6 +1311,7 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
     setGroupIds([]);
     setLedGroupIds([]);
     setDepartmentResponsible(false);
+    setGrConductor(false);
     setIssuedCredential(null);
     setPersonTab("dados");
   }
@@ -1285,6 +1328,7 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
     setGroupIds(memberships.map((row) => row.group_id));
     setLedGroupIds(memberships.filter((row) => row.is_leader).map((row) => row.group_id));
     setDepartmentResponsible(data.departmentLeaders.some((row) => row.person_id === person.id));
+    setGrConductor(Boolean(person.is_gr_conductor));
     setLeaderPersonIds(
       data.reportingLines
         .filter((line) => line.subordinate_person_id === person.id)
@@ -1351,6 +1395,7 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
           groupIds,
           ledGroupIds,
           departmentResponsible,
+          grConductor,
         },
       }),
     onSuccess: (result) => {
@@ -1843,6 +1888,32 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
                   {departmentResponsible ? <Check className="h-4 w-4 text-emerald-300" /> : null}
                 </button>
               ) : null}
+              {data.access.canAdminister ? (
+                <button
+                  type="button"
+                  onClick={() => setGrConductor((value) => !value)}
+                  disabled={
+                    !grConductor &&
+                    data.people.filter((person) => person.active && person.is_gr_conductor)
+                      .length >= 2
+                  }
+                  className={
+                    "flex w-full items-center justify-between rounded-xl border p-3 text-left disabled:cursor-not-allowed disabled:opacity-50 " +
+                    (grConductor
+                      ? "border-violet-400/40 bg-violet-400/10"
+                      : "border-white/10 bg-white/[.03]")
+                  }
+                >
+                  <span>
+                    <span className="block text-sm font-semibold text-white">Condutor da GR</span>
+                    <span className="block text-xs text-slate-500">
+                      Pode abrir em nome de outros e registrar conclusão, escalonamento ou nova data
+                      no dia da reunião. Limite de duas pessoas.
+                    </span>
+                  </span>
+                  {grConductor ? <Check className="h-4 w-4 text-violet-300" /> : null}
+                </button>
+              ) : null}
               <div className="space-y-2">
                 <Label>Responde para</Label>
                 <p className="text-xs text-slate-500">Pode marcar mais de um líder.</p>
@@ -2129,6 +2200,9 @@ function TeamPanel({ data, refresh }: { data: PostitWorkspace; refresh: () => vo
                     {department?.name || "Sem setor"} ·{" "}
                     {(person.city_names ?? []).join(", ") || "sem cidades"}
                   </p>
+                  {person.is_gr_conductor ? (
+                    <p className="mt-1 text-xs font-semibold text-violet-300">Condutor da GR</p>
+                  ) : null}
                   {memberships.length ? (
                     <p className="mt-1 text-xs text-sky-300">
                       {memberships
@@ -2235,7 +2309,17 @@ function PostitDetailDialog({
   data: PostitWorkspace;
   refresh: () => void;
 }) {
-  const [mode, setMode] = useState<"none" | "extend" | "complete" | "reject">("none");
+  const [mode, setMode] = useState<
+    | "none"
+    | "accept_assignment"
+    | "reject_assignment"
+    | "extend"
+    | "complete"
+    | "reject_completion"
+    | "gr_complete"
+    | "gr_escalate"
+  >("none");
+  const [firstDueDate, setFirstDueDate] = useState(defaultDueDate());
   const [newDueDate, setNewDueDate] = useState(defaultDueDate());
   const [reason, setReason] = useState("");
   const [completionNote, setCompletionNote] = useState("");
@@ -2260,10 +2344,41 @@ function PostitDetailDialog({
     },
     onError: actionError,
   });
+  const respondAssignment = useMutation({
+    mutationFn: (decision: "accept" | "reject") =>
+      respondPostitAssignment({
+        data: {
+          postitId: itemId(),
+          decision,
+          firstDueDate: decision === "accept" ? firstDueDate : null,
+          reason: decision === "reject" ? reason : null,
+        },
+      }),
+    onSuccess: (_, decision) => {
+      toast.success(
+        decision === "accept"
+          ? "Post-it aceito e primeira data registrada."
+          : "Post-it recusado e criador avisado.",
+      );
+      done();
+    },
+    onError: actionError,
+  });
   const extend = useMutation({
     mutationFn: () => extendPostitDeadline({ data: { postitId: itemId(), newDueDate, reason } }),
     onSuccess: () => {
       toast.success("Novo prazo registrado no histórico.");
+      done();
+    },
+    onError: actionError,
+  });
+  const decideAtGr = useMutation({
+    mutationFn: (decision: "complete" | "escalate") =>
+      decidePostitAtGr({ data: { postitId: itemId(), decision, note: reason } }),
+    onSuccess: (_, decision) => {
+      toast.success(
+        decision === "complete" ? "Post-it baixado na GR." : "Post-it escalado para a gestão.",
+      );
       done();
     },
     onError: actionError,
@@ -2300,6 +2415,10 @@ function PostitDetailDialog({
   const currentPersonIsAssignee = Boolean(
     data.access.personId && itemAssigneeIds(data, item.id).includes(data.access.personId),
   );
+  const currentPersonIsPrimary = Boolean(
+    (data.access.personId && item.primary_assignee_person_id === data.access.personId) ||
+    (!item.primary_assignee_person_id && item.responsible_user_id === data.currentUserId),
+  );
   const currentPersonManagesGroup = Boolean(
     item.group_id &&
     data.access.personId &&
@@ -2330,6 +2449,18 @@ function PostitDetailDialog({
     (data.access.personId &&
       [item.creator_person_id, item.manager_person_id].includes(data.access.personId));
   const status = POSTIT_STATUS[item.status as PostitStatus];
+  const canConductThisGr = Boolean(
+    data.access.canAdminister ||
+    (data.access.isGrConductor &&
+      (data.hasGeneralGrToday || data.grTodayDepartmentIds.includes(item.department_id))),
+  );
+  const canSetNextDate = Boolean(
+    (currentPersonIsPrimary || canConductThisGr) &&
+    item.current_due_date &&
+    item.current_due_date <= todayInBrazil() &&
+    Number(item.extension_count) < 2 &&
+    !["completed", "cancelled", "awaiting_validation", "rejected"].includes(item.status),
+  );
 
   return (
     <Dialog
@@ -2369,9 +2500,109 @@ function PostitDetailDialog({
           <DetailInfo
             icon={CalendarDays}
             label="Prazo atual"
-            value={`${formatDate(item.current_due_date)} · data ${Number(item.extension_count) + 1}/3`}
+            value={
+              item.current_due_date
+                ? `${formatDate(item.current_due_date)} · ${Number(item.extension_count) + 1}ª data de 3`
+                : item.status === "rejected"
+                  ? "Não definido — post-it recusado"
+                  : "Aguardando aceite do responsável"
+            }
           />
         </div>
+        {item.opened_by_person_id &&
+        item.creator_person_id &&
+        item.opened_by_person_id !== item.creator_person_id ? (
+          <p className="rounded-lg border border-violet-400/20 bg-violet-400/5 px-3 py-2 text-xs text-violet-200">
+            Aberto por {personName(data, item.opened_by_person_id)} em nome de{" "}
+            {personName(data, item.creator_person_id)} durante a GR.
+          </p>
+        ) : null}
+        {item.status === "pending_acceptance" ? (
+          currentPersonIsPrimary ? (
+            <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-4">
+              <p className="font-semibold text-cyan-100">Este compromisso aguarda sua resposta.</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Ao aceitar, você assume a primeira data. Se não puder assumir, recuse e explique o
+                motivo ao criador.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  className="bg-emerald-500 text-white hover:bg-emerald-400"
+                  onClick={() =>
+                    setMode(mode === "accept_assignment" ? "none" : "accept_assignment")
+                  }
+                >
+                  <Check className="mr-2 h-4 w-4" /> Aceitar e definir 1ª data
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() =>
+                    setMode(mode === "reject_assignment" ? "none" : "reject_assignment")
+                  }
+                >
+                  <X className="mr-2 h-4 w-4" /> Recusar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-100">
+              Aguardando o responsável principal aceitar e informar a primeira data.
+            </div>
+          )
+        ) : null}
+        {mode === "accept_assignment" ? (
+          <ActionBox title="Aceitar compromisso">
+            <div className="space-y-1.5 sm:max-w-xs">
+              <Label>1ª data de entrega</Label>
+              <Input
+                type="date"
+                min={todayInBrazil()}
+                value={firstDueDate}
+                onChange={(event) => setFirstDueDate(event.target.value)}
+              />
+              <p className="text-xs text-slate-500">
+                A 2ª data só ficará disponível quando esta data chegar, durante a GR.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="bg-emerald-500 hover:bg-emerald-400"
+              onClick={() => respondAssignment.mutate("accept")}
+              disabled={respondAssignment.isPending}
+            >
+              Confirmar aceite e 1ª data
+            </Button>
+          </ActionBox>
+        ) : null}
+        {mode === "reject_assignment" ? (
+          <ActionBox title="Recusar compromisso">
+            <div className="space-y-1.5">
+              <Label>Por que você não pode assumir?</Label>
+              <Textarea
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                rows={3}
+                placeholder="O motivo será enviado ao criador do post-it."
+              />
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => respondAssignment.mutate("reject")}
+              disabled={respondAssignment.isPending}
+            >
+              Confirmar recusa
+            </Button>
+          </ActionBox>
+        ) : null}
+        {item.status === "rejected" ? (
+          <div className="rounded-xl border border-rose-400/30 bg-rose-400/10 p-4">
+            <p className="font-semibold text-rose-200">Compromisso recusado pelo responsável</p>
+            <p className="mt-1 text-sm text-rose-100/75">
+              {item.rejection_reason || "Nenhum motivo registrado."}
+            </p>
+          </div>
+        ) : null}
         {item.status === "escalated" ? (
           <div className="rounded-xl border border-rose-400/30 bg-rose-400/10 p-4">
             <p className="flex items-center gap-2 font-semibold text-rose-200">
@@ -2379,7 +2610,9 @@ function PostitDetailDialog({
               {item.manager_person_id ? personName(data, item.manager_person_id) : "a gestão"}
             </p>
             <p className="mt-1 text-sm text-rose-200/70">
-              Os três prazos foram esgotados sem conclusão validada.
+              {Number(item.extension_count) >= 2
+                ? "Os três prazos foram esgotados sem conclusão validada."
+                : "A gerência decidiu escalar esta pendência durante a GR."}
             </p>
           </div>
         ) : null}
@@ -2411,28 +2644,100 @@ function PostitDetailDialog({
             <CircleDot className="mr-2 h-4 w-4" /> Iniciar andamento
           </Button>
         ) : null}
-        {canOperate && !["completed", "cancelled", "awaiting_validation"].includes(item.status) ? (
+        {canConductThisGr &&
+        !["pending_acceptance", "rejected", "completed", "cancelled"].includes(item.status) ? (
+          <div className="rounded-xl border border-violet-400/25 bg-violet-400/5 p-4">
+            <p className="font-semibold text-violet-100">Mesa de decisão da GR</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Liberação especial de hoje. A decisão ficará registrada no seu perfil.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                className="bg-emerald-500 text-white hover:bg-emerald-400"
+                onClick={() => setMode(mode === "gr_complete" ? "none" : "gr_complete")}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Baixar na GR
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setMode(mode === "gr_escalate" ? "none" : "gr_escalate")}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" /> Escalar na GR
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {mode === "gr_complete" || mode === "gr_escalate" ? (
+          <ActionBox
+            title={mode === "gr_complete" ? "Baixar post-it na GR" : "Escalar post-it na GR"}
+          >
+            <div className="space-y-1.5">
+              <Label>Registro da decisão</Label>
+              <Textarea
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                rows={3}
+                placeholder="O que foi apresentado e decidido pela gerência?"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant={mode === "gr_escalate" ? "destructive" : "default"}
+              className={mode === "gr_complete" ? "bg-emerald-500 hover:bg-emerald-400" : ""}
+              onClick={() => decideAtGr.mutate(mode === "gr_complete" ? "complete" : "escalate")}
+              disabled={decideAtGr.isPending}
+            >
+              Confirmar decisão da GR
+            </Button>
+          </ActionBox>
+        ) : null}
+        {(canOperate || canConductThisGr) &&
+        ![
+          "pending_acceptance",
+          "rejected",
+          "completed",
+          "cancelled",
+          "awaiting_validation",
+        ].includes(item.status) ? (
           <div className="flex flex-wrap gap-2">
-            {Number(item.extension_count) < 2 ? (
+            {canSetNextDate ? (
               <Button
                 variant="outline"
                 className="border-white/10"
                 onClick={() => setMode(mode === "extend" ? "none" : "extend")}
               >
-                <Clock3 className="mr-2 h-4 w-4" /> Nova data ({2 - Number(item.extension_count)}{" "}
-                restante{2 - Number(item.extension_count) === 1 ? "" : "s"})
+                <Clock3 className="mr-2 h-4 w-4" /> Definir {Number(item.extension_count) + 2}ª data
               </Button>
             ) : null}
-            <Button
-              className="bg-emerald-500 text-white hover:bg-emerald-400"
-              onClick={() => setMode(mode === "complete" ? "none" : "complete")}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" /> Enviar conclusão
-            </Button>
+            {canOperate ? (
+              <Button
+                className="bg-emerald-500 text-white hover:bg-emerald-400"
+                onClick={() => setMode(mode === "complete" ? "none" : "complete")}
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Enviar conclusão
+              </Button>
+            ) : null}
           </div>
         ) : null}
+        {(currentPersonIsPrimary || canConductThisGr) &&
+        item.current_due_date &&
+        item.current_due_date > todayInBrazil() &&
+        Number(item.extension_count) < 2 &&
+        ![
+          "pending_acceptance",
+          "rejected",
+          "completed",
+          "cancelled",
+          "awaiting_validation",
+        ].includes(item.status) ? (
+          <p className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-400">
+            A {Number(item.extension_count) + 2}ª data será liberada em{" "}
+            {formatDate(item.current_due_date)}, na revisão da GR. Antes disso, o prazo vigente não
+            pode ser alterado.
+          </p>
+        ) : null}
         {mode === "extend" ? (
-          <ActionBox title="Registrar nova data">
+          <ActionBox title={`Definir ${Number(item.extension_count) + 2}ª data na GR`}>
             <div className="grid gap-3 sm:grid-cols-[.45fr_1fr]">
               <div className="space-y-1.5">
                 <Label>Nova data</Label>
@@ -2443,11 +2748,11 @@ function PostitDetailDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Justificativa obrigatória</Label>
+                <Label>Registro da decisão na GR</Label>
                 <Input
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
-                  placeholder="Por que o prazo precisa mudar?"
+                  placeholder="O que foi acordado na reunião?"
                 />
               </div>
             </div>
@@ -2495,13 +2800,13 @@ function PostitDetailDialog({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => setMode(mode === "reject" ? "none" : "reject")}
+              onClick={() => setMode(mode === "reject_completion" ? "none" : "reject_completion")}
             >
               <X className="mr-2 h-4 w-4" /> Devolver
             </Button>
           </div>
         ) : null}
-        {mode === "reject" ? (
+        {mode === "reject_completion" ? (
           <ActionBox title="Devolver ao responsável">
             <div className="space-y-1.5">
               <Label>O que precisa ser corrigido?</Label>
@@ -2532,8 +2837,10 @@ function PostitDetailDialog({
                   <span className="absolute -left-1 top-1 h-2 w-2 rounded-full bg-amber-300" />
                   <p className="text-sm font-medium text-slate-200">
                     {deadline.sequence === 0
-                      ? "Prazo inicial"
-                      : `${deadline.sequence}ª prorrogação`}{" "}
+                      ? "1ª data — assumida no aceite"
+                      : deadline.sequence === 1
+                        ? "2ª data — revisão da GR"
+                        : "3ª data — revisão final da GR"}{" "}
                     · {formatDate(deadline.new_due_date)}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">{deadline.reason}</p>

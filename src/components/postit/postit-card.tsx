@@ -10,6 +10,11 @@ export const POSTIT_STATUS: Record<
   PostitStatus,
   { label: string; className: string; dot: string }
 > = {
+  pending_acceptance: {
+    label: "Aguardando aceite",
+    className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200",
+    dot: "bg-cyan-400",
+  },
   open: {
     label: "Aberto",
     className: "border-sky-400/30 bg-sky-400/10 text-sky-200",
@@ -45,6 +50,11 @@ export const POSTIT_STATUS: Record<
     className: "border-slate-400/30 bg-slate-400/10 text-slate-300",
     dot: "bg-slate-400",
   },
+  rejected: {
+    label: "Recusado",
+    className: "border-rose-400/30 bg-rose-400/10 text-rose-300",
+    dot: "bg-rose-500",
+  },
 };
 
 export const PRIORITY_LABELS: Record<string, string> = {
@@ -54,7 +64,8 @@ export const PRIORITY_LABELS: Record<string, string> = {
   critical: "Crítica",
 };
 
-function dueLabel(date: string, status: PostitStatus) {
+function dueLabel(date: string | null, status: PostitStatus) {
+  if (!date) return status === "rejected" ? "Sem prazo — recusado" : "Aguardando o responsável";
   if (["completed", "cancelled"].includes(status)) return format(parseISO(date), "dd/MM/yyyy");
   const today = new Date();
   const due = parseISO(date);

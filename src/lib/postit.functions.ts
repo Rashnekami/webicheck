@@ -11,13 +11,15 @@ const db = (client: unknown) => client as AnyDb;
 
 export type PostitMemberRole = "member" | "leader" | "manager" | "director" | "admin";
 export type PostitStatus =
+  | "pending_acceptance"
   | "open"
   | "in_progress"
   | "overdue"
   | "awaiting_validation"
   | "completed"
   | "escalated"
-  | "cancelled";
+  | "cancelled"
+  | "rejected";
 export type PostitPriority = "low" | "normal" | "high" | "critical";
 
 export interface PostitItemRow {
@@ -31,6 +33,7 @@ export interface PostitItemRow {
   creator_user_id: string;
   manager_user_id: string | null;
   creator_person_id: string | null;
+  opened_by_person_id: string | null;
   primary_assignee_person_id: string | null;
   manager_person_id: string | null;
   group_id: string | null;
@@ -39,8 +42,8 @@ export interface PostitItemRow {
   meeting_id: string | null;
   priority: PostitPriority;
   status: PostitStatus;
-  initial_due_date: string;
-  current_due_date: string;
+  initial_due_date: string | null;
+  current_due_date: string | null;
   extension_count: number;
   escalation_level: number;
   completion_note: string | null;
@@ -49,6 +52,11 @@ export interface PostitItemRow {
   validated_at: string | null;
   validated_by: string | null;
   cancelled_at: string | null;
+  accepted_at: string | null;
+  accepted_by_person_id: string | null;
+  rejected_at: string | null;
+  rejected_by_person_id: string | null;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +69,7 @@ export interface PostitAccess {
   memberRole: PostitMemberRole | null;
   providerId: string | null;
   personId: string | null;
+  isGrConductor: boolean;
 }
 
 export interface PostitWorkspace {
@@ -74,6 +83,8 @@ export interface PostitWorkspace {
   personGroups: any[];
   departmentLeaders: any[];
   visibilityGrants: any[];
+  grTodayDepartmentIds: string[];
+  hasGeneralGrToday: boolean;
   loginAccounts: Array<{
     id: string;
     user_id: string;
@@ -82,6 +93,7 @@ export interface PostitWorkspace {
   }>;
   assignees: any[];
   assignablePersonIds: string[];
+  normalAssignablePersonIds: string[];
   meetings: any[];
   items: PostitItemRow[];
   deadlines: any[];
@@ -97,6 +109,42 @@ interface AccessContext extends PostitAccess {
 
 function brazilToday() {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+function brazilDayBounds() {
+  const today = brazilToday();
+  const start = new Date(`${today}T00:00:00-03:00`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function getGrMeetingsToday(client: AnyDb, providerId: string) {
+  const { start, end } = brazilDayBounds();
+  const { data, error } = await client
+    .from("postit_meetings")
+    .select("id, department_id, meeting_type, status, scheduled_at")
+    .eq("provider_id", providerId)
+    .gte("scheduled_at", start)
+    .lt("scheduled_at", end)
+    .neq("status", "cancelled");
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+async function canConductGrForDepartment(
+  client: AnyDb,
+  access: AccessContext & { providerId: string },
+  departmentId: string,
+) {
+  if (access.canAdminister) return true;
+  if (!access.isGrConductor) return false;
+  const meetings = await getGrMeetingsToday(client, access.providerId);
+  return meetings.some(
+    (meeting: any) =>
+      ["general", "managerial"].includes(meeting.meeting_type) ||
+      meeting.department_id === departmentId,
+  );
 }
 
 function cleanCityNames(values: string[] = []) {
@@ -126,12 +174,13 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
       canBootstrap: false,
       memberRole: null,
       personId: null,
+      isGrConductor: false,
     };
   }
 
   const personResult = await client
     .from("postit_people")
-    .select("id, role, active")
+    .select("id, role, active, is_gr_conductor")
     .eq("provider_id", providerId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -141,7 +190,7 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
   if (!person && profile.email) {
     const { data: pendingPerson, error: pendingError } = await client
       .from("postit_people")
-      .select("id, role, active")
+      .select("id, role, active, is_gr_conductor")
       .eq("provider_id", providerId)
       .ilike("email", profile.email.trim())
       .is("user_id", null)
@@ -153,7 +202,7 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
         .update({ user_id: userId })
         .eq("id", pendingPerson.id)
         .eq("provider_id", providerId)
-        .select("id, role, active")
+        .select("id, role, active, is_gr_conductor")
         .single();
       if (linkError) throw new Error(linkError.message);
       person = linked;
@@ -180,6 +229,7 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
     providerId,
     memberRole,
     personId: person?.active ? (person.id as string) : null,
+    isGrConductor: Boolean(person?.active && person.is_gr_conductor),
     canManage,
     canAdminister,
     canBootstrap: platformAdmin || appAdmin,
@@ -206,6 +256,7 @@ async function requireManager(userId: string, administer = false) {
 async function getAssignablePersonIds(
   client: AnyDb,
   access: AccessContext & { providerId: string },
+  includeGrPrivileges = true,
 ) {
   const { data: people, error: peopleError } = await client
     .from("postit_people")
@@ -215,6 +266,13 @@ async function getAssignablePersonIds(
   if (peopleError) throw new Error(peopleError.message);
   const allIds = (people ?? []).map((person: any) => person.id as string);
   if (access.canAdminister) return allIds;
+  if (
+    includeGrPrivileges &&
+    access.isGrConductor &&
+    (await getGrMeetingsToday(client, access.providerId)).length
+  ) {
+    return allIds;
+  }
   if (!access.personId) return [];
 
   const [linesResult, membershipsResult] = await Promise.all([
@@ -728,24 +786,37 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
     const allAssignees = assignees.data ?? [];
     const rawItems = items.data ?? [];
     const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
-    const visibleItems = access.canAdminister
-      ? rawItems
-      : rawItems.filter(
-          (item: any) =>
-            item.creator_user_id === context.userId ||
-            item.manager_user_id === context.userId ||
-            item.responsible_user_id === context.userId ||
-            (item.group_id && visibleGroupIds.has(item.group_id)) ||
-            (access.personId &&
-              (item.creator_person_id === access.personId ||
-                item.manager_person_id === access.personId ||
-                allAssignees.some(
-                  (assignee: any) =>
-                    assignee.postit_id === item.id && assignee.person_id === access.personId,
-                ))),
-        );
+    const visibleItems =
+      access.canAdminister || access.isGrConductor
+        ? rawItems
+        : rawItems.filter(
+            (item: any) =>
+              item.creator_user_id === context.userId ||
+              item.manager_user_id === context.userId ||
+              item.responsible_user_id === context.userId ||
+              (item.group_id && visibleGroupIds.has(item.group_id)) ||
+              (access.personId &&
+                (item.creator_person_id === access.personId ||
+                  item.manager_person_id === access.personId ||
+                  allAssignees.some(
+                    (assignee: any) =>
+                      assignee.postit_id === item.id && assignee.person_id === access.personId,
+                  ))),
+          );
     const visibleItemIds = new Set(visibleItems.map((item: any) => item.id));
     const assignablePersonIds = await getAssignablePersonIds(client, access);
+    const normalAssignablePersonIds = await getAssignablePersonIds(client, access, false);
+    const grMeetingsToday = await getGrMeetingsToday(client, access.providerId);
+    const hasGeneralGrToday = grMeetingsToday.some((meeting: any) =>
+      ["general", "managerial"].includes(meeting.meeting_type),
+    );
+    const grTodayDepartmentIds = [
+      ...new Set(
+        grMeetingsToday
+          .map((meeting: any) => meeting.department_id as string | null)
+          .filter(Boolean),
+      ),
+    ] as string[];
     const { userId: _userId, ...publicAccess } = access;
     return {
       access: publicAccess,
@@ -762,9 +833,12 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
         : (visibilityGrants.data ?? []).filter(
             (row: any) => row.grantee_person_id === access.personId,
           ),
+      grTodayDepartmentIds,
+      hasGeneralGrToday,
       loginAccounts: loginAccounts.data ?? [],
       assignees: allAssignees.filter((row: any) => visibleItemIds.has(row.postit_id)),
       assignablePersonIds,
+      normalAssignablePersonIds,
       meetings: meetings.data ?? [],
       items: visibleItems,
       deadlines: (deadlines.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
@@ -976,6 +1050,7 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       groupIds?: string[];
       ledGroupIds?: string[];
       departmentResponsible?: boolean;
+      grConductor?: boolean;
       active?: boolean;
     }) => {
       if (data.fullName.trim().length < 2) throw new Error("Informe o nome da pessoa.");
@@ -1030,6 +1105,9 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       }
       if (data.departmentResponsible || (data.ledGroupIds ?? []).length) {
         throw new Error("Somente a administração pode definir responsáveis de setor ou grupo.");
+      }
+      if (data.grConductor) {
+        throw new Error("Somente a administração pode definir condutores de GR.");
       }
       if (access.personId && !leaderIds.includes(access.personId)) leaderIds.push(access.personId);
     }
@@ -1117,6 +1195,7 @@ export const savePostitPerson = createServerFn({ method: "POST" })
       role: data.role,
       active: data.active ?? true,
       created_by: context.userId,
+      ...(access.canAdminister ? { is_gr_conductor: Boolean(data.grConductor) } : {}),
     };
     const saved = data.id
       ? await client
@@ -1222,6 +1301,7 @@ export const savePostitPerson = createServerFn({ method: "POST" })
         group_ids: groupIds,
         led_group_ids: ledGroupIds,
         department_responsible: Boolean(data.departmentResponsible),
+        gr_conductor: Boolean(data.grConductor),
       },
     });
     await notify(client, {
@@ -1521,23 +1601,22 @@ export const createPostitItem = createServerFn({ method: "POST" })
       departmentId: string;
       groupId?: string | null;
       assigneePersonIds: string[];
+      creatorPersonId?: string | null;
       meetingId?: string | null;
       sourceType?: "meeting" | "sector" | "managerial" | "sporadic" | "standalone";
-      dueDate: string;
       priority: PostitPriority;
     }) => {
       if (data.title.trim().length < 3) throw new Error("Informe o assunto do post-it.");
       if (data.description.trim().length < 3)
         throw new Error("Descreva o que precisa ser resolvido.");
       const assignees = [...new Set(data.assigneePersonIds ?? [])];
-      if (!data.departmentId || !assignees.length || !data.dueDate) {
-        throw new Error("Preencha setor, responsável e prazo.");
+      if (!data.departmentId || !assignees.length) {
+        throw new Error("Preencha setor e responsável.");
       }
       if (assignees.length > 2) throw new Error("Cada post-it pode ter no máximo duas pessoas.");
       if (data.sourceType === "meeting" && !data.meetingId) {
         throw new Error("Selecione a reunião de origem.");
       }
-      if (data.dueDate < brazilToday()) throw new Error("O prazo não pode estar no passado.");
       return { ...data, assigneePersonIds: assignees };
     },
   )
@@ -1568,9 +1647,14 @@ export const createPostitItem = createServerFn({ method: "POST" })
     if ((responsiblePeople ?? []).length !== data.assigneePersonIds.length) {
       throw new Error("Uma das pessoas selecionadas está inativa ou não pertence ao Postit!.");
     }
-    const allowedIds = await getAssignablePersonIds(client, access);
-    if (data.assigneePersonIds.some((personId) => !allowedIds.includes(personId))) {
-      throw new Error("Você só pode abrir post-its para seus líderes ou liderados autorizados.");
+    const normalAllowedIds = await getAssignablePersonIds(client, access, false);
+    if (
+      data.assigneePersonIds.some((personId) => !normalAllowedIds.includes(personId)) &&
+      !(await canConductGrForDepartment(client, access, data.departmentId))
+    ) {
+      throw new Error(
+        "Fora da GR, você só pode abrir post-its para seus líderes ou liderados autorizados.",
+      );
     }
 
     let groupId = data.groupId || null;
@@ -1608,9 +1692,32 @@ export const createPostitItem = createServerFn({ method: "POST" })
         throw new Error("O grupo não pertence ao setor selecionado.");
       }
       const selectableGroupIds = await getSelectableGroupIds(client, access);
-      if (!selectableGroupIds.includes(groupId)) {
+      if (
+        !selectableGroupIds.includes(groupId) &&
+        !(await canConductGrForDepartment(client, access, data.departmentId))
+      ) {
         throw new Error("Você não possui acesso para abrir post-its neste grupo.");
       }
+    }
+
+    let creatorPersonId = access.personId;
+    let creatorUserId = context.userId;
+    if (data.creatorPersonId && data.creatorPersonId !== access.personId) {
+      if (!(await canConductGrForDepartment(client, access, data.departmentId))) {
+        throw new Error(
+          "Somente um condutor liberado pode abrir em nome de outra pessoa no dia da GR.",
+        );
+      }
+      const { data: representedCreator, error: representedCreatorError } = await client
+        .from("postit_people")
+        .select("id, user_id, active")
+        .eq("id", data.creatorPersonId)
+        .eq("provider_id", access.providerId)
+        .maybeSingle();
+      if (representedCreatorError) throw new Error(representedCreatorError.message);
+      if (!representedCreator?.active) throw new Error("A pessoa representada está inativa.");
+      creatorPersonId = representedCreator.id as string;
+      creatorUserId = (representedCreator.user_id as string | null) || context.userId;
     }
 
     const primaryPerson = (responsiblePeople ?? []).find(
@@ -1659,17 +1766,19 @@ export const createPostitItem = createServerFn({ method: "POST" })
         department_id: data.departmentId,
         group_id: groupId,
         responsible_user_id: primaryPerson?.user_id || null,
-        creator_user_id: context.userId,
+        creator_user_id: creatorUserId,
         manager_user_id: managerUserId,
-        creator_person_id: access.personId,
+        creator_person_id: creatorPersonId,
+        opened_by_person_id: access.personId,
         primary_assignee_person_id: data.assigneePersonIds[0],
         manager_person_id: managerPersonId,
         meeting_id: meetingId,
         review_meeting_id: reviewMeetingId,
         source_type: sourceType,
         priority: data.priority,
-        initial_due_date: data.dueDate,
-        current_due_date: data.dueDate,
+        status: "pending_acceptance",
+        initial_due_date: null,
+        current_due_date: null,
       })
       .select("id, code")
       .single();
@@ -1684,38 +1793,153 @@ export const createPostitItem = createServerFn({ method: "POST" })
       })),
     );
     if (assigneeError) throw new Error(assigneeError.message);
-    const { error: deadlineError } = await client.from("postit_deadline_history").insert({
-      provider_id: access.providerId,
-      postit_id: created.id,
-      sequence: 0,
-      previous_due_date: null,
-      new_due_date: data.dueDate,
-      reason: "Prazo inicial definido na abertura",
-      requested_by: context.userId,
-    });
-    if (deadlineError) throw new Error(deadlineError.message);
     await insertEvent(client, access, "postit_created", {
       postitId: created.id,
       details: {
         assignee_person_ids: data.assigneePersonIds,
-        due_date: data.dueDate,
         source_type: sourceType,
         group_id: groupId,
         review_meeting_id: reviewMeetingId,
+        creator_person_id: creatorPersonId,
+        opened_by_person_id: access.personId,
       },
     });
+    if (creatorUserId !== context.userId) {
+      await notify(client, {
+        providerId: access.providerId,
+        recipientUserId: creatorUserId,
+        postitId: created.id,
+        type: "opened_on_behalf",
+        title: `${created.code} aberto em seu nome`,
+        message: `Um condutor da GR abriu “${data.title.trim()}” em seu nome.`,
+        dedupeKey: `${created.id}:opened-on-behalf`,
+      });
+    }
     for (const person of responsiblePeople ?? []) {
+      const isPrimary = person.id === data.assigneePersonIds[0];
       await notify(client, {
         providerId: access.providerId,
         recipientUserId: person.user_id,
         postitId: created.id,
         type: "assigned",
         title: `Novo post-it ${created.code}`,
-        message: `Você recebeu a pendência “${data.title.trim()}”, com prazo até ${data.dueDate}.`,
+        message: isPrimary
+          ? `Você recebeu a pendência “${data.title.trim()}”. Aceite e informe o primeiro prazo, ou recuse com uma justificativa.`
+          : `Você foi incluído como segundo responsável pela pendência “${data.title.trim()}”. O responsável principal fará o aceite e definirá o primeiro prazo.`,
         dedupeKey: `${created.id}:assigned:${person.id}`,
       });
     }
     return { id: created.id as string, code: created.code as string };
+  });
+
+export const respondPostitAssignment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: {
+      postitId: string;
+      decision: "accept" | "reject";
+      firstDueDate?: string | null;
+      reason?: string | null;
+    }) => {
+      if (data.decision === "accept") {
+        if (!data.firstDueDate) throw new Error("Informe a primeira data do compromisso.");
+        if (data.firstDueDate < brazilToday()) {
+          throw new Error("A primeira data não pode estar no passado.");
+        }
+      }
+      if (data.decision === "reject" && (data.reason?.trim().length ?? 0) < 5) {
+        throw new Error("Explique em pelo menos 5 caracteres por que não pode aceitar.");
+      }
+      return data;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const access = await requireAccess(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const client = db(supabaseAdmin);
+    const item = await getItemForAction(client, access.providerId, data.postitId);
+    if (item.status !== "pending_acceptance") {
+      throw new Error("Este post-it já foi respondido.");
+    }
+    const isPrimaryResponsible =
+      (access.personId && item.primary_assignee_person_id === access.personId) ||
+      item.responsible_user_id === context.userId;
+    if (!isPrimaryResponsible) {
+      throw new Error("Somente o responsável principal pode aceitar ou recusar este post-it.");
+    }
+
+    if (data.decision === "accept") {
+      const { error: acceptError } = await client
+        .from("postit_items")
+        .update({
+          status: "open",
+          initial_due_date: data.firstDueDate,
+          current_due_date: data.firstDueDate,
+          accepted_at: new Date().toISOString(),
+          accepted_by_person_id: access.personId,
+          rejected_at: null,
+          rejected_by_person_id: null,
+          rejection_reason: null,
+        })
+        .eq("id", item.id)
+        .eq("provider_id", access.providerId)
+        .eq("status", "pending_acceptance");
+      if (acceptError) throw new Error(acceptError.message);
+      const { error: deadlineError } = await client.from("postit_deadline_history").insert({
+        provider_id: access.providerId,
+        postit_id: item.id,
+        sequence: 0,
+        previous_due_date: null,
+        new_due_date: data.firstDueDate,
+        reason: "Primeiro prazo assumido no aceite do responsável",
+        requested_by: context.userId,
+        meeting_id: item.meeting_id,
+        decision_type: "initial_acceptance",
+      });
+      if (deadlineError) throw new Error(deadlineError.message);
+      await insertEvent(client, access, "assignment_accepted", {
+        postitId: item.id,
+        details: { first_due_date: data.firstDueDate },
+      });
+      await notify(client, {
+        providerId: access.providerId,
+        recipientUserId: item.creator_user_id,
+        postitId: item.id,
+        type: "assignment_accepted",
+        title: `${item.code} aceito`,
+        message: `O responsável aceitou “${item.title}” e definiu o primeiro prazo para ${data.firstDueDate}.`,
+        dedupeKey: `${item.id}:accepted`,
+      });
+      return { ok: true, status: "open" as const };
+    }
+
+    const reason = data.reason!.trim();
+    const { error: rejectError } = await client
+      .from("postit_items")
+      .update({
+        status: "rejected",
+        rejected_at: new Date().toISOString(),
+        rejected_by_person_id: access.personId,
+        rejection_reason: reason,
+      })
+      .eq("id", item.id)
+      .eq("provider_id", access.providerId)
+      .eq("status", "pending_acceptance");
+    if (rejectError) throw new Error(rejectError.message);
+    await insertEvent(client, access, "assignment_rejected", {
+      postitId: item.id,
+      details: { reason },
+    });
+    await notify(client, {
+      providerId: access.providerId,
+      recipientUserId: item.creator_user_id,
+      postitId: item.id,
+      type: "assignment_rejected",
+      title: `${item.code} recusado`,
+      message: `O responsável recusou “${item.title}”. Motivo: ${reason}`,
+      dedupeKey: `${item.id}:rejected`,
+    });
+    return { ok: true, status: "rejected" as const };
   });
 
 async function getItemForAction(client: AnyDb, providerId: string, postitId: string) {
@@ -1833,15 +2057,28 @@ export const extendPostitDeadline = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const client = db(supabaseAdmin);
     const item = await getItemForAction(client, access.providerId, data.postitId);
-    if (!(await canOperateItem(client, access, item)))
-      throw new Error("Você não pode prorrogar este post-it.");
-    if (["completed", "cancelled", "awaiting_validation"].includes(item.status)) {
+    const isPrimaryResponsible =
+      (access.personId && item.primary_assignee_person_id === access.personId) ||
+      item.responsible_user_id === context.userId;
+    const canConductAtGr = await canConductGrForDepartment(client, access, item.department_id);
+    if (!isPrimaryResponsible && !canConductAtGr) {
+      throw new Error(
+        "Somente o responsável principal ou um condutor liberado no dia da GR pode assumir a próxima data.",
+      );
+    }
+    if (
+      ["pending_acceptance", "rejected", "completed", "cancelled", "awaiting_validation"].includes(
+        item.status,
+      )
+    ) {
       throw new Error("Este post-it não aceita nova data.");
     }
+    if (!item.current_due_date) throw new Error("Este post-it ainda não possui prazo vigente.");
     if (Number(item.extension_count) >= 2) {
-      throw new Error(
-        "As duas prorrogações já foram utilizadas. O post-it deve subir para a gestão.",
-      );
+      throw new Error("A terceira data já foi utilizada. O post-it deve subir para a gestão.");
+    }
+    if (item.current_due_date > brazilToday()) {
+      throw new Error("A próxima data só pode ser definida quando o prazo atual chegar, na GR.");
     }
     if (data.newDueDate <= item.current_due_date || data.newDueDate <= brazilToday()) {
       throw new Error("A nova data deve ser posterior ao prazo atual e a hoje.");
@@ -1859,7 +2096,7 @@ export const extendPostitDeadline = createServerFn({ method: "POST" })
       .eq("provider_id", access.providerId)
       .eq("extension_count", item.extension_count);
     if (error) throw new Error(error.message);
-    await client.from("postit_deadline_history").insert({
+    const { error: historyError } = await client.from("postit_deadline_history").insert({
       provider_id: access.providerId,
       postit_id: data.postitId,
       sequence,
@@ -1867,8 +2104,11 @@ export const extendPostitDeadline = createServerFn({ method: "POST" })
       new_due_date: data.newDueDate,
       reason: data.reason.trim(),
       requested_by: context.userId,
+      meeting_id: item.review_meeting_id || item.meeting_id || null,
+      decision_type: "gr_review",
     });
-    await insertEvent(client, access, "deadline_extended", {
+    if (historyError) throw new Error(historyError.message);
+    await insertEvent(client, access, "deadline_redefined_at_gr", {
       postitId: data.postitId,
       details: {
         sequence,
@@ -1884,11 +2124,94 @@ export const extendPostitDeadline = createServerFn({ method: "POST" })
         postitId: data.postitId,
         type: "last_deadline",
         title: `${item.code} está no último prazo`,
-        message: `A pendência “${item.title}” recebeu a segunda e última prorrogação.`,
+        message: `A pendência “${item.title}” assumiu a terceira e última data durante a GR.`,
         dedupeKey: `${item.id}:last-deadline`,
       });
     }
     return { ok: true, extensionCount: sequence };
+  });
+
+export const decidePostitAtGr = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { postitId: string; decision: "complete" | "escalate"; note: string }) => {
+    if (data.note.trim().length < 5) {
+      throw new Error("Registre em pelo menos 5 caracteres o que foi decidido na GR.");
+    }
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    const access = await requireAccess(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const client = db(supabaseAdmin);
+    const item = await getItemForAction(client, access.providerId, data.postitId);
+    if (!(await canConductGrForDepartment(client, access, item.department_id))) {
+      throw new Error("Esta decisão exige um condutor liberado e uma GR agendada para hoje.");
+    }
+    if (["pending_acceptance", "rejected", "completed", "cancelled"].includes(item.status)) {
+      throw new Error("Este post-it não pode receber uma decisão de encerramento da GR.");
+    }
+
+    const now = new Date().toISOString();
+    const note = data.note.trim();
+    const update =
+      data.decision === "complete"
+        ? {
+            status: "completed",
+            completion_note: note,
+            completion_submitted_at: now,
+            validated_at: now,
+            validated_by: context.userId,
+          }
+        : {
+            status: "escalated",
+            escalation_level: Math.max(1, Number(item.escalation_level) + 1),
+          };
+    const { error } = await client
+      .from("postit_items")
+      .update(update)
+      .eq("id", item.id)
+      .eq("provider_id", access.providerId);
+    if (error) throw new Error(error.message);
+    await insertEvent(
+      client,
+      access,
+      data.decision === "complete" ? "completed_at_gr" : "escalated_at_gr",
+      {
+        postitId: item.id,
+        details: { note, conducted_by_person_id: access.personId },
+      },
+    );
+
+    const assignees = await getItemAssigneePeople(client, access.providerId, item.id);
+    for (const person of assignees) {
+      await notify(client, {
+        providerId: access.providerId,
+        recipientUserId: person.user_id,
+        postitId: item.id,
+        type: data.decision === "complete" ? "completed_at_gr" : "escalated_at_gr",
+        title:
+          data.decision === "complete"
+            ? `${item.code} concluído na GR`
+            : `${item.code} escalado na GR`,
+        message:
+          data.decision === "complete"
+            ? `A pendência “${item.title}” foi baixada durante a reunião. Registro: ${note}`
+            : `A pendência “${item.title}” foi escalada durante a reunião. Registro: ${note}`,
+        dedupeKey: `${item.id}:${data.decision}-at-gr:${now.slice(0, 10)}`,
+      });
+    }
+    if (data.decision === "escalate") {
+      await notify(client, {
+        providerId: access.providerId,
+        recipientUserId: item.manager_user_id || item.creator_user_id,
+        postitId: item.id,
+        type: "escalated_at_gr",
+        title: `${item.code} escalado na GR`,
+        message: `A pendência “${item.title}” subiu para a gestão. Registro: ${note}`,
+        dedupeKey: `${item.id}:manager-escalated-at-gr:${now.slice(0, 10)}`,
+      });
+    }
+    return { ok: true, status: update.status };
   });
 
 export const submitPostitCompletion = createServerFn({ method: "POST" })
@@ -1904,7 +2227,7 @@ export const submitPostitCompletion = createServerFn({ method: "POST" })
     const item = await getItemForAction(client, access.providerId, data.postitId);
     if (!(await canOperateItem(client, access, item)))
       throw new Error("Você não pode concluir este post-it.");
-    if (["completed", "cancelled"].includes(item.status))
+    if (["pending_acceptance", "rejected", "completed", "cancelled"].includes(item.status))
       throw new Error("Este post-it já foi encerrado.");
     const { error } = await client
       .from("postit_items")
