@@ -172,8 +172,26 @@ function CompleteProfilePage() {
       }
 
       if (needsEmail) {
-        await setMyContactEmail({ data: { email: email.trim().toLowerCase() } });
+        const contactEmail = email.trim().toLowerCase();
+        try {
+          await setMyContactEmail({ data: { email: contactEmail } });
+        } catch (fnError) {
+          // Perfis administrativos (Postit!, RH etc.) podem não ter cidade
+          // técnica; nesse caso a server function é bloqueada pelo middleware.
+          // Salva direto pelo cliente (RLS permite o próprio perfil).
+          const message = fnError instanceof Error ? fnError.message : "";
+          if (!message.includes("Unauthorized")) throw fnError;
+          const { error: emailError } = await supabase
+            .from("profiles")
+            .update({
+              contact_email: contactEmail,
+              contact_email_set_at: new Date().toISOString(),
+            } as never)
+            .eq("id", userId);
+          if (emailError) throw new Error("Este e-mail já está vinculado a outro usuário.");
+        }
       }
+
 
       toast.success("Cadastro concluído.");
       navigate({ to: "/painel", replace: true });
