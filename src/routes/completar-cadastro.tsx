@@ -149,10 +149,9 @@ function CompleteProfilePage() {
     if (!userId) return;
     setSaving(true);
     try {
-      if (needsEmail) {
-        await setMyContactEmail({ data: { email: email.trim().toLowerCase() } });
-      }
-
+      // Cidade/provedor PRIMEIRO: o middleware das server functions exige
+      // profiles.city preenchido, então salvar o e-mail antes disso falha
+      // com "Unauthorized: Profile city required".
       const patch: Record<string, unknown> = {};
       if (needsCities) {
         await supabase.from("user_cities").delete().eq("user_id", userId);
@@ -171,6 +170,29 @@ function CompleteProfilePage() {
           .eq("id", userId);
         if (error) throw error;
       }
+
+      if (needsEmail) {
+        const contactEmail = email.trim().toLowerCase();
+        try {
+          await setMyContactEmail({ data: { email: contactEmail } });
+        } catch (fnError) {
+          // Perfis administrativos (Postit!, RH etc.) podem não ter cidade
+          // técnica; nesse caso a server function é bloqueada pelo middleware.
+          // Salva direto pelo cliente (RLS permite o próprio perfil).
+          const message = fnError instanceof Error ? fnError.message : "";
+          if (!message.includes("Unauthorized")) throw fnError;
+          const { error: emailError } = await supabase
+            .from("profiles")
+            .update({
+              contact_email: contactEmail,
+              contact_email_set_at: new Date().toISOString(),
+            } as never)
+            .eq("id", userId);
+          if (emailError) throw new Error("Este e-mail já está vinculado a outro usuário.");
+        }
+      }
+
+
       toast.success("Cadastro concluído.");
       navigate({ to: "/painel", replace: true });
     } catch (err) {
