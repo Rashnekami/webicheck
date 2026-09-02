@@ -2478,6 +2478,8 @@ export type Database = {
           assinatura: string | null
           cities_configured_at: string | null
           city: string | null
+          contact_email: string | null
+          contact_email_set_at: string | null
           created_at: string
           email: string
           full_name: string
@@ -2495,6 +2497,8 @@ export type Database = {
           assinatura?: string | null
           cities_configured_at?: string | null
           city?: string | null
+          contact_email?: string | null
+          contact_email_set_at?: string | null
           created_at?: string
           email: string
           full_name?: string
@@ -2512,6 +2516,8 @@ export type Database = {
           assinatura?: string | null
           cities_configured_at?: string | null
           city?: string | null
+          contact_email?: string | null
+          contact_email_set_at?: string | null
           created_at?: string
           email?: string
           full_name?: string
