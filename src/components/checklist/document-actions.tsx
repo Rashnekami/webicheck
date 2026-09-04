@@ -144,9 +144,10 @@ export function DocumentActions({
   const counterproof = counterproofProp ?? (counterproofQuery.data && "status" in counterproofQuery.data && counterproofQuery.data.status === "validated" ? counterproofQuery.data : null);
 
   const publicUrl = useMemo(() => {
-    if (!snap || snap.public_status !== "active" || typeof window === "undefined") return null;
-    return `${window.location.origin}/validar/${snap.public_token}`;
+    if (!snap || snap.public_status !== "active") return null;
+    return `${publicSiteBase()}/validar/${snap.public_token}`;
   }, [snap]);
+
 
   // payload local a partir do row atual (para prévia/imagem enquanto snapshot ainda não veio)
   const localPayload = useMemo(() => {
