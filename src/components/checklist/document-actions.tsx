@@ -38,8 +38,10 @@ import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-
 import type { ChecklistRow, FotoRow, IntervencaoData, RemapeamentoData } from "@/lib/checklist-schema";
 import { resolveFotoSignedUrls } from "@/lib/checklist-photo-uris";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
+import { publicSiteBase } from "@/lib/public-site-url";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
+
 
 interface Props {
   row: ChecklistRow;
