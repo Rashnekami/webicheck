@@ -38,8 +38,10 @@ import { buildImageFilename, exportNodeAsPng } from "@/services/checklist-image-
 import type { ChecklistRow, FotoRow, IntervencaoData, RemapeamentoData } from "@/lib/checklist-schema";
 import { resolveFotoSignedUrls } from "@/lib/checklist-photo-uris";
 import { getMapSnapshotUrl } from "@/lib/map-snapshot.functions";
+import { publicSiteBase } from "@/lib/public-site-url";
 import { getChecklistCounterproof } from "@/lib/customer-counterproof.functions";
 import type { CounterproofDocumentInfo } from "@/lib/customer-counterproof.functions";
+
 
 interface Props {
   row: ChecklistRow;
@@ -144,9 +146,10 @@ export function DocumentActions({
   const counterproof = counterproofProp ?? (counterproofQuery.data && "status" in counterproofQuery.data && counterproofQuery.data.status === "validated" ? counterproofQuery.data : null);
 
   const publicUrl = useMemo(() => {
-    if (!snap || snap.public_status !== "active" || typeof window === "undefined") return null;
-    return `${window.location.origin}/validar/${snap.public_token}`;
+    if (!snap || snap.public_status !== "active") return null;
+    return `${publicSiteBase()}/validar/${snap.public_token}`;
   }, [snap]);
+
 
   // payload local a partir do row atual (para prévia/imagem enquanto snapshot ainda não veio)
   const localPayload = useMemo(() => {
@@ -274,9 +277,15 @@ export function DocumentActions({
       >
         <CardContent className="space-y-4 p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold">Documentos e comprovação</h3>
+            <h3 className="text-base font-semibold">Documentos e comprovação (uso interno)</h3>
             {statusBadge}
           </div>
+          <p className="rounded-md border border-amber-400/40 bg-amber-500/10 p-2 text-xs text-amber-300">
+            Estes links abrem o documento do TÉCNICO, para a OS e auditoria. Para enviar ao cliente,
+            use o bloco “Contra-Prova do Cliente”, logo acima.
+          </p>
+
+
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => onDownloadPdf(publicUrl)} disabled={pdfBusy} size="sm">
@@ -322,7 +331,7 @@ export function DocumentActions({
               variant="outline"
               className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
             >
-              <Link2 className="mr-1.5 h-4 w-4" /> Copiar link
+              <Link2 className="mr-1.5 h-4 w-4" /> Copiar link do técnico
             </Button>
             <Button
               onClick={copyTextOs}
@@ -340,7 +349,8 @@ export function DocumentActions({
               variant="outline"
               className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
             >
-              <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar
+              <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar (interno)
+
             </Button>
             <Button
               onClick={() => setPreviewOpen(true)}

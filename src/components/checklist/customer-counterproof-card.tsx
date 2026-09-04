@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Copy, Eye, ExternalLink, Loader2, MessageCircle, ShieldAlert, ShieldCheck, Star } from "lucide-react";
 import { googleReviewTargetForCity, googleReviewWhatsAppUrl } from "@/lib/google-reviews";
+import { publicSiteBase } from "@/lib/public-site-url";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -61,19 +63,9 @@ export function CustomerCounterproofCard({
   const counterproof = isCounterproofSummary(cp) ? cp : null;
   const link = useMemo(() => {
     if (!counterproof?.public_token) return "";
-    const envBase = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/$/, "");
-    let base = envBase;
-    if (!base && typeof window !== "undefined") {
-      const host = window.location.hostname;
-      // Preview/editor hosts require Lovable auth — swap to the public production domain.
-      if (/lovable\.dev$|lovableproject\.com$|lovable\.app$|id-preview/.test(host)) {
-        base = "https://checktecnico.life";
-      } else {
-        base = window.location.origin;
-      }
-    }
-    return `${base ?? "https://checktecnico.life"}/contra-prova/${counterproof.public_token}`;
+    return `${publicSiteBase()}/contra-prova/${counterproof.public_token}`;
   }, [counterproof?.public_token]);
+
   const whatsappUrl = useMemo(() => makeWhatsAppUrl(phone, link, counterproof?.code), [phone, link, counterproof?.code]);
   // Avaliação no Google da unidade que atendeu — mesmo fluxo do link da
   // contra-prova: o técnico envia direto pelo WhatsApp do cliente.
@@ -118,7 +110,7 @@ export function CustomerCounterproofCard({
   async function copy() { try { await navigator.clipboard.writeText(link); toast.success("Link copiado."); } catch { toast.error("Não foi possível copiar o link."); } }
   return <><Card className={cp?.status === "validated" ? "border-emerald-400/70 bg-emerald-950/30 text-slate-100" : ""}><CardContent className="space-y-3 p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-semibold text-white">Contra-Prova do Cliente</h3><p className="text-xs text-slate-300">Confirmação digital vinculada definitivamente ao checklist.</p></div>{cp?.status === "validated" ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-400"><ShieldCheck className="h-4 w-4" /> Validada</span> : cp?.status === "annulled" ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-400"><ShieldAlert className="h-4 w-4" /> Anulada</span> : null}</div>
     {!cp || cp.status === "annulled" ? <Button onClick={() => create.mutate()} disabled={create.isPending}>{create.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}Gerar Contra-Prova</Button> : <><div className="rounded-lg border border-slate-600/70 bg-slate-950/50 p-3 text-sm text-slate-100"><p><b className="text-white">Código:</b> {cp.code}</p><p><b className="text-white">Checklist:</b> {cp.checklist_code}</p>{cp.status === "validated" ? <><p className="mt-1 font-medium text-emerald-400"><CheckCircle2 className="mr-1 inline h-4 w-4" />Contra-Prova validada pelo cliente<br /><span className="font-normal text-emerald-300">{cp.validated_at && new Date(cp.validated_at).toLocaleString("pt-BR")}</span></p>{cp.admin_identity_reviewed_at ? <p className="mt-1 text-xs font-medium text-cyan-400"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />Evidência conferida pelo administrador em {new Date(cp.admin_identity_reviewed_at).toLocaleString("pt-BR")}</p> : null}</> : <p className="mt-1 text-amber-400">Aguardando validação do cliente.</p>}</div>
-      {cp.status !== "validated" && <div className="space-y-2 border-t pt-3"><Label htmlFor="customer-phone">Telefone do cliente — DDD + número</Label><Input id="customer-phone" inputMode="numeric" placeholder="42999999999" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9()\-\s]/g, ""))} /><p className="text-xs text-muted-foreground">Informe sem 55. O sistema adiciona automaticamente.</p><div className="flex flex-wrap gap-2"><Button asChild size="sm"><a href={whatsappUrl || undefined} target="_blank" rel="noopener noreferrer" onClick={(event) => { if (!whatsappUrl) { event.preventDefault(); toast.error("Informe um telefone válido com DDD + número, sem 55."); return; } savePhone.mutate(); }}><MessageCircle className="mr-1.5 h-4 w-4" />Enviar pelo WhatsApp</a></Button><Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1.5 h-4 w-4" />Copiar link</Button><Button size="sm" variant="ghost" onClick={() => window.open(link, "_blank", "noopener,noreferrer")}><ExternalLink className="mr-1.5 h-4 w-4" />Abrir</Button></div></div>}
+      {cp.status !== "validated" && <div className="space-y-2 border-t pt-3"><Label htmlFor="customer-phone">Telefone do cliente — DDD + número</Label><Input id="customer-phone" inputMode="numeric" placeholder="42999999999" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9()\-\s]/g, ""))} /><p className="text-xs text-muted-foreground">Informe sem 55. O sistema adiciona automaticamente.</p><div className="flex flex-wrap gap-2"><Button asChild size="sm"><a href={whatsappUrl || undefined} target="_blank" rel="noopener noreferrer" onClick={(event) => { if (!whatsappUrl) { event.preventDefault(); toast.error("Informe um telefone válido com DDD + número, sem 55."); return; } savePhone.mutate(); }}><MessageCircle className="mr-1.5 h-4 w-4" />Enviar checklist do cliente pelo WhatsApp</a></Button><Button size="sm" variant="outline" onClick={copy}><Copy className="mr-1.5 h-4 w-4" />Copiar link do cliente</Button><Button size="sm" variant="ghost" onClick={() => window.open(link, "_blank", "noopener,noreferrer")}><ExternalLink className="mr-1.5 h-4 w-4" />Abrir</Button></div></div>}
       {isAdmin && cp.status === "validated" && cp.identity_registered && <div className="border-t border-slate-600 pt-3"><Button size="sm" variant="outline" className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950" onClick={() => evidence.mutate()} disabled={evidence.isPending}>{evidence.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Eye className="mr-1.5 h-4 w-4" />}Visualizar evidência de identificação</Button><p className="mt-1 text-xs text-slate-300">Acesso restrito a administradores e registrado na rastreabilidade.</p></div>}
       {reviewTarget ? <div className="space-y-2 border-t border-slate-600 pt-3"><p className="flex items-center gap-1.5 text-sm font-semibold text-amber-300"><Star className="h-4 w-4 fill-amber-300 text-amber-300" />Avaliação Google — Webifibra {reviewTarget.city}</p>{cp.status === "validated" ? <div className="space-y-1"><Label htmlFor="review-phone">Telefone do cliente — DDD + número</Label><Input id="review-phone" inputMode="numeric" placeholder="42999999999" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9()\-\s]/g, ""))} /></div> : null}<div className="flex flex-wrap gap-2"><Button asChild size="sm" className="bg-amber-400 text-slate-900 hover:bg-amber-300"><a href={reviewWhatsAppUrl || undefined} target="_blank" rel="noopener noreferrer" onClick={(event) => { if (!reviewWhatsAppUrl) { event.preventDefault(); toast.error("Informe um telefone válido com DDD + número, sem 55."); } }}><MessageCircle className="mr-1.5 h-4 w-4" />Enviar avaliação pelo WhatsApp</a></Button><Button size="sm" variant="outline" onClick={copyReview}><Copy className="mr-1.5 h-4 w-4" />Copiar link</Button></div><p className="text-xs text-muted-foreground">Ao concluir a contra-prova, o cliente também é direcionado automaticamente para esta avaliação.</p></div> : null}</>}</CardContent></Card>
     <Dialog open={evidenceOpen} onOpenChange={setEvidenceOpen}>
