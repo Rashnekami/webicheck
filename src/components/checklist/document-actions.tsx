@@ -331,7 +331,7 @@ export function DocumentActions({
               variant="outline"
               className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
             >
-              <Link2 className="mr-1.5 h-4 w-4" /> Copiar link
+              <Link2 className="mr-1.5 h-4 w-4" /> Copiar link do técnico
             </Button>
             <Button
               onClick={copyTextOs}
@@ -349,7 +349,8 @@ export function DocumentActions({
               variant="outline"
               className="border-slate-300 bg-white text-slate-900 hover:bg-slate-100 hover:text-slate-950 disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:opacity-100"
             >
-              <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar
+              <Share2 className="mr-1.5 h-4 w-4" /> Compartilhar (interno)
+
             </Button>
             <Button
               onClick={() => setPreviewOpen(true)}
