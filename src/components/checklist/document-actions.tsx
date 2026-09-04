@@ -277,9 +277,15 @@ export function DocumentActions({
       >
         <CardContent className="space-y-4 p-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold">Documentos e comprovação</h3>
+            <h3 className="text-base font-semibold">Documentos e comprovação (uso interno)</h3>
             {statusBadge}
           </div>
+          <p className="rounded-md border border-amber-400/40 bg-amber-500/10 p-2 text-xs text-amber-300">
+            Estes links abrem o documento do TÉCNICO, para a OS e auditoria. Para enviar ao cliente,
+            use o bloco “Contra-Prova do Cliente”, logo acima.
+          </p>
+
+
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => onDownloadPdf(publicUrl)} disabled={pdfBusy} size="sm">
