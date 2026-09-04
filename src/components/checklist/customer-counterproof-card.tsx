@@ -61,19 +61,9 @@ export function CustomerCounterproofCard({
   const counterproof = isCounterproofSummary(cp) ? cp : null;
   const link = useMemo(() => {
     if (!counterproof?.public_token) return "";
-    const envBase = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.replace(/\/$/, "");
-    let base = envBase;
-    if (!base && typeof window !== "undefined") {
-      const host = window.location.hostname;
-      // Preview/editor hosts require Lovable auth — swap to the public production domain.
-      if (/lovable\.dev$|lovableproject\.com$|lovable\.app$|id-preview/.test(host)) {
-        base = "https://checktecnico.life";
-      } else {
-        base = window.location.origin;
-      }
-    }
-    return `${base ?? "https://checktecnico.life"}/contra-prova/${counterproof.public_token}`;
+    return `${publicSiteBase()}/contra-prova/${counterproof.public_token}`;
   }, [counterproof?.public_token]);
+
   const whatsappUrl = useMemo(() => makeWhatsAppUrl(phone, link, counterproof?.code), [phone, link, counterproof?.code]);
   // Avaliação no Google da unidade que atendeu — mesmo fluxo do link da
   // contra-prova: o técnico envia direto pelo WhatsApp do cliente.
