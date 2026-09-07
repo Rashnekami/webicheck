@@ -4233,6 +4233,30 @@ export type Database = {
           report_sequence: number
         }[]
       }
+      list_checklist_summaries: {
+        Args: { _mine?: boolean; _search?: string; _status?: string }
+        Returns: {
+          cidade: string
+          cliente: string
+          codigo_validacao: string
+          created_at: string
+          cto_codigo: string
+          exchange_ticket_code: string
+          id: string
+          locked_for_rework: boolean
+          numero_publico: string
+          os: string
+          review_status: string
+          revision_number: number
+          rmap_code: string
+          serial: string
+          status: string
+          tecnico_id: string
+          tecnico_nome: string
+          tipo: string
+          updated_at: string
+        }[]
+      }
       norm_city: { Args: { _city: string }; Returns: string }
       owns_checklist_analysis: {
         Args: { _analysis_id: string }

@@ -49,7 +49,6 @@ import {
   saveTechnicalReview,
   setReviewArchived,
 } from "@/lib/technical-reviews.functions";
-import { downloadAvaliacaoPdf } from "@/components/avaliacao/avaliacao-pdf";
 import { ContinuousReviewPanel } from "@/components/avaliacao/continuous-review-panel";
 import {
   REVIEW_GROUPS,
@@ -124,11 +123,13 @@ function ReviewDetail() {
   const scaleVersion = Number(query.data?.review?.scale_version ?? 1) >= 2 ? 2 : 1;
   const isV2 = scaleVersion === 2;
   const groups = isV2 ? REVIEW_GROUPS_V2 : REVIEW_GROUPS;
-  const scaleValues = isV2
-    ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    : [1, 2, 3, 4, 5];
-  const avgOf = (group: any) =>
-    isV2 ? groupAverageV2(group, scores) : groupAverage(group, scores);
+  const scaleValues = isV2 ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5];
+  const avgOf = (
+    group: Parameters<typeof groupAverage>[0] | Parameters<typeof groupAverageV2>[0],
+  ) =>
+    isV2
+      ? groupAverageV2(group as Parameters<typeof groupAverageV2>[0], scores)
+      : groupAverage(group as Parameters<typeof groupAverage>[0], scores);
   const labelOf = (v: number | null) => (isV2 ? scoreLabelV2(v) : scoreLabel(v));
   const progress = isV2 ? reviewProgress(scores, itemNotes) : null;
 
@@ -266,7 +267,7 @@ function ReviewDetail() {
       // desenhar a imagem. Falha em uma nao pode impedir a geracao do PDF.
       const evidenceImages = (
         await Promise.all(
-          ((fresh.evidences ?? []) as any[])
+          (fresh.evidences ?? [])
             .filter((e) => e.storage_path && String(e.mime_type ?? "").startsWith("image/"))
             .map(async (e) => {
               try {
@@ -282,9 +283,16 @@ function ReviewDetail() {
               }
             }),
         )
-      ).filter(Boolean) as { id: string; url: string; name: string | null; caption: string | null }[];
+      ).filter(Boolean) as {
+        id: string;
+        url: string;
+        name: string | null;
+        caption: string | null;
+      }[];
 
-      await downloadAvaliacaoPdf({
+      await (
+        await import("@/components/avaliacao/avaliacao-pdf")
+      ).downloadAvaliacaoPdf({
         evidenceImages,
         review: fresh.review,
         employee: fresh.employee,
@@ -403,9 +411,7 @@ function ReviewDetail() {
                   {progress.withObservation} com observação
                 </p>
                 {progress.nudges.length > 0 && (
-                  <Badge variant="destructive">
-                    {progress.nudges.length} sem justificativa
-                  </Badge>
+                  <Badge variant="destructive">{progress.nudges.length} sem justificativa</Badge>
                 )}
               </div>
               {progress.nudges.length === 0 ? (
@@ -415,8 +421,8 @@ function ReviewDetail() {
                 </p>
               ) : (
                 <p className="text-xs text-amber-400">
-                  Notas de 1 a 4 e de 9 a 10 pedem uma observação com o fato — data, cliente ou
-                  O.S. Sem o exemplo, a nota vira opinião e o reconhecimento vira elogio vazio.
+                  Notas de 1 a 4 e de 9 a 10 pedem uma observação com o fato — data, cliente ou O.S.
+                  Sem o exemplo, a nota vira opinião e o reconhecimento vira elogio vazio.
                 </p>
               )}
             </CardContent>
@@ -445,49 +451,53 @@ function ReviewDetail() {
                     const needsNote =
                       isV2 && typeof score === "number" && (score <= 4 || score >= 9) && !hasNote;
                     return (
-                    <div key={item.key} className="space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-slate-200">{item.label}</p>
-                          {"help" in item && item.help && (
-                            <p className="mt-0.5 text-xs text-slate-500">{item.help}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-1 overflow-x-auto">
-                          {scaleValues.map((n) => (
+                      <div key={item.key} className="space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-slate-200">{item.label}</p>
+                            {"help" in item && item.help && (
+                              <p className="mt-0.5 text-xs text-slate-500">{item.help}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1 overflow-x-auto">
+                            {scaleValues.map((n) => (
+                              <Button
+                                key={n}
+                                type="button"
+                                size="sm"
+                                variant={scores[item.key] === n ? "default" : "secondary"}
+                                onClick={() => setScores({ ...scores, [item.key]: n })}
+                              >
+                                {n}
+                              </Button>
+                            ))}
                             <Button
-                              key={n}
                               type="button"
                               size="sm"
-                              variant={scores[item.key] === n ? "default" : "secondary"}
-                              onClick={() => setScores({ ...scores, [item.key]: n })}
+                              variant={scores[item.key] == null ? "default" : "secondary"}
+                              onClick={() => setScores({ ...scores, [item.key]: null })}
                             >
-                              {n}
+                              N/A
                             </Button>
-                          ))}
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={scores[item.key] == null ? "default" : "secondary"}
-                            onClick={() => setScores({ ...scores, [item.key]: null })}
-                          >
-                            N/A
-                          </Button>
+                          </div>
                         </div>
+                        <Input
+                          value={itemNotes[item.key] ?? ""}
+                          onChange={(e) =>
+                            setItemNotes({ ...itemNotes, [item.key]: e.target.value })
+                          }
+                          placeholder={
+                            needsNote
+                              ? score <= 4
+                                ? "Justifique: que fato levou a essa nota? (data, cliente, O.S.)"
+                                : "Qual foi o caso concreto? É o que o técnico leva da conversa."
+                              : "Observação factual (opcional)"
+                          }
+                          className={
+                            needsNote ? "border-amber-500 focus-visible:ring-amber-500" : ""
+                          }
+                        />
                       </div>
-                      <Input
-                        value={itemNotes[item.key] ?? ""}
-                        onChange={(e) => setItemNotes({ ...itemNotes, [item.key]: e.target.value })}
-                        placeholder={
-                          needsNote
-                            ? score <= 4
-                              ? "Justifique: que fato levou a essa nota? (data, cliente, O.S.)"
-                              : "Qual foi o caso concreto? É o que o técnico leva da conversa."
-                            : "Observação factual (opcional)"
-                        }
-                        className={needsNote ? "border-amber-500 focus-visible:ring-amber-500" : ""}
-                      />
-                    </div>
                     );
                   })}
                 </div>
@@ -596,24 +606,22 @@ function ReviewDetail() {
                   "copiloto",
                   "revisao",
                 ] as const
-              ).map(
-                (type) => (
-                  <Button
-                    key={type}
-                    size="sm"
-                    variant="secondary"
-                    disabled={ai.isPending}
-                    onClick={() => ai.mutate(type)}
-                  >
-                    {ai.isPending && ai.variables === type ? (
-                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-1.5 h-4 w-4" />
-                    )}
-                    {AI_LABELS[type]}
-                  </Button>
-                ),
-              )}
+              ).map((type) => (
+                <Button
+                  key={type}
+                  size="sm"
+                  variant="secondary"
+                  disabled={ai.isPending}
+                  onClick={() => ai.mutate(type)}
+                >
+                  {ai.isPending && ai.variables === type ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-1.5 h-4 w-4" />
+                  )}
+                  {AI_LABELS[type]}
+                </Button>
+              ))}
             </div>
             <div className="space-y-3">
               {aiHistory.length === 0 ? (
@@ -774,7 +782,6 @@ function EvidencesCard({ reviewId, evidences }: { reviewId: string; evidences: a
       toast.error((e as Error).message);
     }
   }
-
 
   const del = useMutation({
     mutationFn: (evidenceId: string) => removeReviewEvidence({ data: { evidenceId } }),

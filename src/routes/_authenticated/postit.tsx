@@ -272,8 +272,12 @@ function PostitWorkspacePage() {
   const workspace = useQuery({
     queryKey: ["postit-workspace"],
     queryFn: () => getPostitWorkspace(),
-    refetchInterval: 60_000,
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
+
 
   if (workspace.isLoading) return <LoadingPage label="Carregando compromissos" />;
   if (workspace.isError || !workspace.data) {

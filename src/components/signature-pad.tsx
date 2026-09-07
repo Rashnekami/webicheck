@@ -1,3 +1,7 @@
+type LandscapeOrientation = ScreenOrientation & {
+  lock?: (orientation: "landscape") => Promise<void>;
+};
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
@@ -15,17 +19,14 @@ interface SignaturePadProps {
  * Assinatura em tela cheia. O bloco inline serve apenas de pré-visualização;
  * o desenho acontece em um overlay que ocupa toda a tela do aparelho.
  */
-export function SignaturePad({
-  value,
-  onChange,
-  className,
-  height = 180,
-}: SignaturePadProps) {
+export function SignaturePad({ value, onChange, className, height = 180 }: SignaturePadProps) {
   const [open, setOpen] = useState(false);
   const hasInk = !!value;
   const openPad = useCallback(() => {
     document.documentElement.requestFullscreen?.().catch(() => undefined);
-    window.screen?.orientation?.lock?.("landscape").catch(() => undefined);
+    (window.screen?.orientation as LandscapeOrientation | undefined)
+      ?.lock?.("landscape")
+      .catch(() => undefined);
     setOpen(true);
   }, []);
 
@@ -87,11 +88,7 @@ export function SignaturePad({
   );
 }
 
-function FullscreenSignature({
-  onConfirm,
-}: {
-  onConfirm: (dataUrl: string | null) => void;
-}) {
+function FullscreenSignature({ onConfirm }: { onConfirm: (dataUrl: string | null) => void }) {
   const shellRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
@@ -127,7 +124,6 @@ function FullscreenSignature({
       img.src = previous;
     }
   }, []);
-
 
   const updateOrientation = useCallback(() => {
     setIsPortrait(window.innerHeight > window.innerWidth);
@@ -165,7 +161,7 @@ function FullscreenSignature({
       requestFullscreen.call(shell).catch(() => undefined);
     }
 
-    const orientation = window.screen?.orientation;
+    const orientation = window.screen?.orientation as LandscapeOrientation | undefined;
     orientation?.lock?.("landscape").catch(() => undefined);
 
     return () => {
@@ -286,8 +282,6 @@ function FullscreenSignature({
       </Button>
     </div>
   );
-
-
 
   return typeof document === "undefined" ? null : createPortal(overlay, document.body);
 }

@@ -72,10 +72,6 @@ import {
   type RemapeamentoData,
   type TipoIntervencao,
 } from "@/lib/checklist-schema";
-import { generateChecklistPdf } from "@/components/checklist/checklist-pdf";
-import { generateInstalacaoPdf } from "@/components/checklist/instalacao-pdf";
-import { generateRemapeamentoPdf } from "@/components/checklist/remapeamento-pdf";
-import { generateIntervencaoPdf } from "@/components/checklist/intervencao-pdf";
 import { IntervencaoAiCard } from "@/components/checklist/intervencao-ai-card";
 import { DocumentActions } from "@/components/checklist/document-actions";
 import { SupervisorReviewCard } from "@/components/checklist/supervisor-review-card";
@@ -306,6 +302,8 @@ function ChecklistDetail() {
     },
     onSuccess: () => {
       toast.success("Checklist finalizado.");
+      qc.invalidateQueries({ queryKey: ["home-checklist-counts"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-checklists"] });
       setFinalizeOpen(false);
       qc.invalidateQueries({ queryKey: ["checklist", id] });
       qc.invalidateQueries({ queryKey: ["checklists"] });
@@ -377,7 +375,9 @@ function ChecklistDetail() {
           ? counterproof
           : null;
       if (tipo === "instalacao") {
-        await generateInstalacaoPdf({
+        await (
+          await import("@/components/checklist/instalacao-pdf")
+        ).generateInstalacaoPdf({
           row: merged,
           tecnicoNome,
           assinatura: tecnicoAssinatura,
@@ -385,7 +385,9 @@ function ChecklistDetail() {
           counterproof: counterproofDocument,
         });
       } else if (isIntervencao(tipo)) {
-        await generateIntervencaoPdf({
+        await (
+          await import("@/components/checklist/intervencao-pdf")
+        ).generateIntervencaoPdf({
           row: merged,
           tecnicoNome,
           assinatura: tecnicoAssinatura,
@@ -393,7 +395,9 @@ function ChecklistDetail() {
           fotos: fotosQuery.data ?? [],
         });
       } else if (tipo === "remapeamento_cto") {
-        await generateRemapeamentoPdf({
+        await (
+          await import("@/components/checklist/remapeamento-pdf")
+        ).generateRemapeamentoPdf({
           row: merged,
           tecnicoNome,
           assinatura: tecnicoAssinatura,
@@ -401,7 +405,9 @@ function ChecklistDetail() {
           fotos: fotosQuery.data ?? [],
         });
       } else {
-        await generateChecklistPdf({
+        await (
+          await import("@/components/checklist/checklist-pdf")
+        ).generateChecklistPdf({
           row: merged,
           fotos: fotosQuery.data ?? [],
           tecnicoNome,
@@ -469,7 +475,8 @@ function ChecklistDetail() {
               <Badge className="bg-white/20 text-white">Alterações pendentes</Badge>
             ) : offlineQueued ? (
               <Badge className="bg-amber-500/25 text-amber-200">
-                <WifiOff className="mr-1 h-3.5 w-3.5" /> Salvo localmente — sincroniza quando a rede voltar
+                <WifiOff className="mr-1 h-3.5 w-3.5" /> Salvo localmente — sincroniza quando a rede
+                voltar
               </Badge>
             ) : savedAt ? (
               <Badge className="bg-white/20 text-white">
@@ -637,10 +644,13 @@ function ChecklistDetail() {
           </>
         ) : null}
 
-
         {row.status === "finalizado" && (
           <>
-            <CustomerCounterproofCard checklistId={id} isAdmin={!!user?.isAdmin} cidade={header.cidade} />
+            <CustomerCounterproofCard
+              checklistId={id}
+              isAdmin={!!user?.isAdmin}
+              cidade={header.cidade}
+            />
             <DocumentActions
               row={{ ...row, ...header, dados: data } as ChecklistRow}
               tecnicoNome={tecnicoNome}
@@ -843,7 +853,6 @@ function FotosSection({
     if (files.length) up.mutate(files);
     input.value = "";
   }
-
 
   return (
     <Card>

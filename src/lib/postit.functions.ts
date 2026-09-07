@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAccountAuth } from "@/lib/account-auth-middleware";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyDb = {
@@ -537,7 +537,7 @@ async function syncOverdueItems(context: AccessContext & { providerId: string },
 }
 
 export const getPostitAccess = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<PostitAccess> => {
     const access = await getAccessContext(context.userId);
     const { userId: _userId, ...result } = access;
@@ -545,7 +545,7 @@ export const getPostitAccess = createServerFn({ method: "GET" })
   });
 
 export const bootstrapPostit = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }) => {
     const access = await getAccessContext(context.userId);
     if (!access.canBootstrap || !access.providerId) {
@@ -641,8 +641,52 @@ export const bootstrapPostit = createServerFn({ method: "POST" })
     return { ok: true, access: confirmedAccess };
   });
 
+/** Reads every row of a filtered query in pages, so no record is lost to a row cap. */
+async function fetchAllRows(
+  build: (from: number, to: number) => any,
+  pageSize = 1000,
+  maxPages = 25,
+): Promise<any[]> {
+  const rows: any[] = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await build(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows;
+}
+
+/** Loads child rows only for the post-its the caller may actually see. */
+async function fetchRelatedRows(
+  client: AnyDb,
+  table: string,
+  providerId: string,
+  postitIds: string[],
+): Promise<any[]> {
+  if (!postitIds.length) return [];
+  const rows: any[] = [];
+  for (let index = 0; index < postitIds.length; index += 150) {
+    const slice = postitIds.slice(index, index + 150);
+    const batch = await fetchAllRows((from, to) =>
+      client
+        .from(table)
+        .select("*")
+        .eq("provider_id", providerId)
+        .in("postit_id", slice)
+        .order("created_at")
+        .range(from, to),
+    );
+    rows.push(...batch);
+  }
+  return rows;
+}
+
+
 export const getPostitWorkspace = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<PostitWorkspace> => {
     const access = await requireAccess(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -661,10 +705,6 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       loginAccounts,
       assignees,
       meetings,
-      items,
-      deadlines,
-      comments,
-      attachments,
       notifications,
     ] = await Promise.all([
       client
@@ -722,27 +762,6 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
         .order("scheduled_at", { ascending: false })
         .limit(200),
       client
-        .from("postit_items")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at", { ascending: false })
-        .limit(500),
-      client
-        .from("postit_deadline_history")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at"),
-      client
-        .from("postit_comments")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at"),
-      client
-        .from("postit_attachments")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at"),
-      client
         .from("postit_notifications")
         .select("*")
         .eq("provider_id", access.providerId)
@@ -762,51 +781,94 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       loginAccounts,
       assignees,
       meetings,
-      items,
-      deadlines,
-      comments,
-      attachments,
       notifications,
     ]) {
       if (result.error) throw new Error(result.error.message);
     }
 
+    const allAssignees = assignees.data ?? [];
+    const assignedToMe = new Set<string>(
+      allAssignees
+        .filter((row: any) => access.personId && row.person_id === access.personId)
+        .map((row: any) => row.postit_id as string),
+    );
+    const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
+    const seesEverything = access.canAdminister || access.isGrConductor;
+
+    // Access filtering happens in the database, BEFORE any pagination, so an
+    // authorised post-it can never be dropped by a technical row limit.
+    const rawItems = await fetchAllRows((from, to) => {
+      let query = client
+        .from("postit_items")
+        .select("*")
+        .eq("provider_id", access.providerId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+      if (!seesEverything) {
+        const clauses = [
+          `creator_user_id.eq.${context.userId}`,
+          `manager_user_id.eq.${context.userId}`,
+          `responsible_user_id.eq.${context.userId}`,
+        ];
+        if (visibleGroupIds.size) clauses.push(`group_id.in.(${[...visibleGroupIds].join(",")})`);
+        if (access.personId) {
+          clauses.push(`creator_person_id.eq.${access.personId}`);
+          clauses.push(`manager_person_id.eq.${access.personId}`);
+          if (assignedToMe.size) clauses.push(`id.in.(${[...assignedToMe].join(",")})`);
+        }
+        query = query.or(clauses.join(","));
+      }
+      return query;
+    });
+
+    // Defensive re-check of the exact same rules on the returned rows.
+    const visibleItems = seesEverything
+      ? rawItems
+      : rawItems.filter(
+          (item: any) =>
+            item.creator_user_id === context.userId ||
+            item.manager_user_id === context.userId ||
+            item.responsible_user_id === context.userId ||
+            (item.group_id && visibleGroupIds.has(item.group_id)) ||
+            (access.personId &&
+              (item.creator_person_id === access.personId ||
+                item.manager_person_id === access.personId ||
+                assignedToMe.has(item.id))),
+        );
+    const visibleItemIds = visibleItems.map((item: any) => item.id as string);
+    const visibleItemIdSet = new Set(visibleItemIds);
+
     const linkedUserIds = (people.data ?? [])
       .filter((person: any) => person.active && person.user_id)
       .map((person: any) => person.user_id as string);
-    const { data: profiles, error: profilesError } = await client
-      .from("profiles")
-      .select("id, full_name, email, city")
-      .eq("provider_id", access.providerId)
-      .eq("active", true)
-      .in("id", linkedUserIds.length ? linkedUserIds : [context.userId])
-      .order("full_name");
-    if (profilesError) throw new Error(profilesError.message);
 
-    const allAssignees = assignees.data ?? [];
-    const rawItems = items.data ?? [];
-    const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
-    const visibleItems =
-      access.canAdminister || access.isGrConductor
-        ? rawItems
-        : rawItems.filter(
-            (item: any) =>
-              item.creator_user_id === context.userId ||
-              item.manager_user_id === context.userId ||
-              item.responsible_user_id === context.userId ||
-              (item.group_id && visibleGroupIds.has(item.group_id)) ||
-              (access.personId &&
-                (item.creator_person_id === access.personId ||
-                  item.manager_person_id === access.personId ||
-                  allAssignees.some(
-                    (assignee: any) =>
-                      assignee.postit_id === item.id && assignee.person_id === access.personId,
-                  ))),
-          );
-    const visibleItemIds = new Set(visibleItems.map((item: any) => item.id));
-    const assignablePersonIds = await getAssignablePersonIds(client, access);
-    const normalAssignablePersonIds = await getAssignablePersonIds(client, access, false);
-    const grMeetingsToday = await getGrMeetingsToday(client, access.providerId);
+    const [
+      profilesResult,
+      deadlineRows,
+      commentRows,
+      attachmentRows,
+      assignablePersonIds,
+      normalAssignablePersonIds,
+      grMeetingsToday,
+    ] = await Promise.all([
+      client
+        .from("profiles")
+        .select("id, full_name, email, city")
+        .eq("provider_id", access.providerId)
+        .eq("active", true)
+        .in("id", linkedUserIds.length ? linkedUserIds : [context.userId])
+        .order("full_name"),
+      fetchRelatedRows(client, "postit_deadline_history", access.providerId, visibleItemIds),
+      fetchRelatedRows(client, "postit_comments", access.providerId, visibleItemIds),
+      fetchRelatedRows(client, "postit_attachments", access.providerId, visibleItemIds),
+      getAssignablePersonIds(client, access),
+      getAssignablePersonIds(client, access, false),
+      getGrMeetingsToday(client, access.providerId),
+    ]);
+    if (profilesResult.error) throw new Error(profilesResult.error.message);
+    const profiles = profilesResult.data ?? [];
+
     const hasGeneralGrToday = grMeetingsToday.some((meeting: any) =>
       ["general", "managerial"].includes(meeting.meeting_type),
     );
@@ -836,21 +898,22 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       grTodayDepartmentIds,
       hasGeneralGrToday,
       loginAccounts: loginAccounts.data ?? [],
-      assignees: allAssignees.filter((row: any) => visibleItemIds.has(row.postit_id)),
+      assignees: allAssignees.filter((row: any) => visibleItemIdSet.has(row.postit_id)),
       assignablePersonIds,
       normalAssignablePersonIds,
       meetings: meetings.data ?? [],
       items: visibleItems,
-      deadlines: (deadlines.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
-      comments: (comments.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
-      attachments: (attachments.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
+      deadlines: deadlineRows,
+      comments: commentRows,
+      attachments: attachmentRows,
       notifications: notifications.data ?? [],
-      profiles: profiles ?? [],
+      profiles,
     };
   });
 
+
 export const savePostitDepartment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { id?: string; name: string; color: string; active?: boolean }) => {
     if (data.name.trim().length < 2) throw new Error("Informe o nome do setor.");
     if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error("Cor inválida.");
@@ -881,7 +944,7 @@ export const savePostitDepartment = createServerFn({ method: "POST" })
   });
 
 export const savePostitGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       id?: string;
@@ -956,7 +1019,7 @@ export const savePostitGroup = createServerFn({ method: "POST" })
   });
 
 export const savePostitVisibilityGrant = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       id?: string;
@@ -1036,7 +1099,7 @@ export const savePostitVisibilityGrant = createServerFn({ method: "POST" })
   });
 
 export const savePostitPerson = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       id?: string;
@@ -1345,7 +1408,7 @@ async function nextPostitLogin(client: AnyDb, providerId: string) {
 }
 
 export const issuePostitCredential = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { personId: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireManager(context.userId, true);
@@ -1487,7 +1550,7 @@ export const issuePostitCredential = createServerFn({ method: "POST" })
   });
 
 export const resetPostitCredential = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { accountId: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireManager(context.userId, true);
@@ -1521,7 +1584,7 @@ export const resetPostitCredential = createServerFn({ method: "POST" })
   });
 
 export const createPostitMeeting = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       title: string;
@@ -1562,7 +1625,7 @@ export const createPostitMeeting = createServerFn({ method: "POST" })
   });
 
 export const closePostitMeeting = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { meetingId: string; notes?: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireAccess(context.userId);
@@ -1593,7 +1656,7 @@ export const closePostitMeeting = createServerFn({ method: "POST" })
   });
 
 export const createPostitItem = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       title: string;
@@ -1833,7 +1896,7 @@ export const createPostitItem = createServerFn({ method: "POST" })
   });
 
 export const respondPostitAssignment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       postitId: string;
@@ -2023,7 +2086,7 @@ async function canOperateItem(client: AnyDb, access: AccessContext, item: any) {
 }
 
 export const startPostitItem = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireAccess(context.userId);
@@ -2046,7 +2109,7 @@ export const startPostitItem = createServerFn({ method: "POST" })
   });
 
 export const extendPostitDeadline = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; newDueDate: string; reason: string }) => {
     if (!data.newDueDate) throw new Error("Informe a nova data.");
     if (data.reason.trim().length < 5) throw new Error("Explique o motivo da prorrogação.");
@@ -2132,7 +2195,7 @@ export const extendPostitDeadline = createServerFn({ method: "POST" })
   });
 
 export const decidePostitAtGr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; decision: "complete" | "escalate"; note: string }) => {
     if (data.note.trim().length < 5) {
       throw new Error("Registre em pelo menos 5 caracteres o que foi decidido na GR.");
@@ -2215,7 +2278,7 @@ export const decidePostitAtGr = createServerFn({ method: "POST" })
   });
 
 export const submitPostitCompletion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; note: string; evidenceUrl?: string }) => {
     if (data.note.trim().length < 5) throw new Error("Descreva o que foi realizado.");
     return data;
@@ -2256,7 +2319,7 @@ export const submitPostitCompletion = createServerFn({ method: "POST" })
   });
 
 export const validatePostitCompletion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; approved: boolean; note?: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireAccess(context.userId);
@@ -2328,7 +2391,7 @@ export const validatePostitCompletion = createServerFn({ method: "POST" })
   });
 
 export const addPostitComment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; body: string }) => {
     if (!data.body.trim()) throw new Error("Escreva o comentário.");
     return data;
@@ -2353,7 +2416,7 @@ export const addPostitComment = createServerFn({ method: "POST" })
   });
 
 export const markPostitNotificationsRead = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }) => {
     const access = await requireAccess(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { createDraft, deleteChecklist, listChecklists } from "@/lib/checklists";
+import { createDraft, deleteChecklist } from "@/lib/checklists";
+import { CHECKLIST_PAGE_SIZE, listChecklistPage } from "@/lib/checklist-list";
 import { deleteChecklistCascade } from "@/lib/platform-admin.functions";
 import { WebifibraLogo } from "@/components/webifibra-logo";
 import { Button } from "@/components/ui/button";
@@ -40,21 +41,8 @@ import {
 } from "@/lib/checklist-schema";
 import { formatChecklistCode } from "@/lib/checklist-code";
 
-// Checklists de rede (remapeamento/intervenção) não têm "cliente" — o
-// equivalente lá é o código da CTO/CEO (identificacao.cto_codigo), que é
-// o mesmo campo usado pra cruzar com a planilha de caixas em /ctos e
-// contabilizar o remapeamento. Sem isso a lista mostrava "Sem cliente"
-// pra praticamente todo remapeamento/intervenção, que nunca tem cliente.
-function ctoCodeFromDados(dados: unknown): string | undefined {
-  const d = dados as { identificacao?: { cto_codigo?: string }; contexto?: { cto_codigo?: string } } | null;
-  return d?.identificacao?.cto_codigo || d?.contexto?.cto_codigo || undefined;
-}
-
-function displayClienteOuCto(c: { cliente?: string | null; dados?: unknown }): string {
-  if (c.cliente) return c.cliente;
-  const cto = ctoCodeFromDados(c.dados);
-  if (cto) return `CTO/CEO ${cto}`;
-  return "Sem cliente";
+function displayClienteOuCto(c: { cliente?: string | null; cto_codigo?: string | null }): string {
+  return c.cliente || (c.cto_codigo ? `CTO/CEO ${c.cto_codigo}` : "Sem cliente");
 }
 
 export const Route = createFileRoute("/_authenticated/checklists/")({
@@ -72,11 +60,32 @@ function ChecklistsList() {
   const [tab, setTab] = useState<"todos" | "rascunho" | "finalizado">("todos");
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(q.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q]);
+
   const scope = user?.isAdmin || user?.isSupervisor || user?.isNoc ? "all" : "mine";
 
   const query = useQuery({
-    queryKey: ["checklists", scope, user?.id],
-    queryFn: () => listChecklists({ scope, userId: user!.id }),
+    queryKey: ["checklists", scope, user?.id, user?.provider_id, tab, search, page],
+    queryFn: ({ signal }) => listChecklistPage({ scope, status: tab, search, page, signal }),
+    staleTime: 30_000,
+    placeholderData: (previous, previousQuery) => {
+      const key = previousQuery?.queryKey;
+      return key?.[1] === scope &&
+        key?.[2] === user?.id &&
+        key?.[3] === user?.provider_id &&
+        key?.[4] === tab &&
+        key?.[5] === search
+        ? previous
+        : undefined;
+    },
     enabled: !!user,
   });
 
@@ -84,6 +93,8 @@ function ChecklistsList() {
     mutationFn: (tipo: TipoChecklist) => createDraft(user!.id, tipo),
     onSuccess: (id) => {
       qc.invalidateQueries({ queryKey: ["checklists"] });
+      qc.invalidateQueries({ queryKey: ["home-checklist-counts"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-checklists"] });
       setPickerOpen(false);
       navigate({ to: "/checklists/$id", params: { id } });
     },
@@ -99,42 +110,19 @@ function ChecklistsList() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["checklists"] });
+      qc.invalidateQueries({ queryKey: ["home-checklist-counts"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-checklists"] });
       toast.success("Checklist removido.");
     },
     onError: (e: Error) => toast.error(e.message || "Não foi possível remover."),
   });
 
-  const items = (query.data ?? []).filter((c) => {
-    // Esconde revisões antigas (is_current=false) da listagem principal.
-    if (c.is_current === false) return false;
-    if (tab !== "todos" && c.status !== tab) return false;
-    if (!q.trim()) return true;
-    const needle = q.toLowerCase();
-    return [
-      c.tecnico_nome,
-      c.os,
-      c.cliente,
-      c.cidade,
-      c.serial,
-      c.codigo_validacao,
-      c.numero_publico,
-      c.exchange_ticket_code,
-      ctoCodeFromDados(c.dados),
-    ]
-      .filter(Boolean)
-      .some((v) => (v as string).toLowerCase().includes(needle));
-  });
-
-  // Lista pode ter centenas/milhares de checklists — sem paginação a tela
-  // renderizava tudo de uma vez. 10 por página, reseta ao trocar busca/aba.
-  const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1);
+  const items = query.data?.items ?? [];
+  const total = query.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / CHECKLIST_PAGE_SIZE));
   useEffect(() => {
-    setPage(1);
-  }, [q, tab]);
-  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const pageItems = items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    if (query.data && !query.isPlaceholderData && page > pageCount) setPage(pageCount);
+  }, [query.data, query.isPlaceholderData, page, pageCount]);
 
   return (
     <div className="webi-page min-h-screen">
@@ -195,15 +183,33 @@ function ChecklistsList() {
           </Button>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setTab(v as typeof tab);
+            setPage(1);
+          }}
+        >
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="todos">Todos</TabsTrigger>
             <TabsTrigger value="rascunho">Rascunhos</TabsTrigger>
             <TabsTrigger value="finalizado">Finalizados</TabsTrigger>
           </TabsList>
-          <TabsContent value={tab} className="pt-3">
+          <TabsContent value={tab} className="pt-3" aria-busy={query.isFetching}>
+            {query.isFetching && !query.isLoading && (
+              <p role="status" className="mb-2 text-sm text-muted-foreground">
+                Atualizando...
+              </p>
+            )}
             {query.isLoading ? (
               <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
+            ) : query.isError ? (
+              <div role="alert" className="space-y-3 py-8 text-center">
+                <p>Não foi possível carregar os checklists.</p>
+                <Button variant="outline" onClick={() => void query.refetch()}>
+                  Tentar novamente
+                </Button>
+              </div>
             ) : items.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
@@ -216,7 +222,7 @@ function ChecklistsList() {
               </Card>
             ) : (
               <ul className="space-y-2">
-                {pageItems.map((c) => (
+                {items.map((c) => (
                   <li key={c.id}>
                     <Card className="webi-nav-card">
                       <CardContent className="flex items-start justify-between gap-3 p-4">
@@ -320,16 +326,16 @@ function ChecklistsList() {
                 ))}
               </ul>
             )}
-            {items.length > PAGE_SIZE && (
+            {!query.isError && total > CHECKLIST_PAGE_SIZE && (
               <div className="mt-4 flex items-center justify-between gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Página {currentPage} de {pageCount} · {items.length} checklist(s)
+                  Página {page} de {pageCount} · {total} checklist(s)
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={currentPage <= 1}
+                    disabled={page <= 1 || query.isFetching}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                   >
                     <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
@@ -337,7 +343,7 @@ function ChecklistsList() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={currentPage >= pageCount}
+                    disabled={page >= pageCount || query.isFetching}
                     onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                   >
                     Próxima <ChevronRight className="ml-1 h-4 w-4" />
@@ -359,7 +365,6 @@ function ChecklistsList() {
             </DialogDescription>
           </DialogHeader>
           <div className="-mx-1 grid min-h-0 flex-1 gap-3 overflow-y-auto overscroll-contain px-1 pb-1 sm:grid-cols-3">
-
             <button
               type="button"
               disabled={create.isPending}
@@ -419,7 +424,6 @@ function ChecklistsList() {
               </button>
             ))}
           </div>
-
         </DialogContent>
       </Dialog>
     </div>

@@ -2,14 +2,29 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, Download, Loader2, Lock, Paperclip, Save, Send, StickyNote } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Loader2,
+  Lock,
+  Paperclip,
+  Save,
+  Send,
+  StickyNote,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   WB_PRIORITY,
   WB_PRIORITY_LABEL,
@@ -27,15 +42,20 @@ import {
   postWhistleblowerRhMessage,
   updateWhistleblowerReport,
 } from "@/lib/whistleblower-admin.functions";
-import { downloadDenunciaInternaPdf } from "@/components/denuncia/denuncia-interno-pdf";
 
 export const Route = createFileRoute("/_authenticated/canal-etico/$id")({
   head: () => ({
     meta: [
       { title: "Denúncia — Canal Ético | CheckTécnico" },
-      { name: "description", content: "Tratamento confidencial de uma denúncia recebida pelo Canal Ético." },
+      {
+        name: "description",
+        content: "Tratamento confidencial de uma denúncia recebida pelo Canal Ético.",
+      },
       { property: "og:title", content: "Denúncia — Canal Ético" },
-      { property: "og:description", content: "Tratamento confidencial de uma denúncia recebida pelo Canal Ético." },
+      {
+        property: "og:description",
+        content: "Tratamento confidencial de uma denúncia recebida pelo Canal Ético.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
@@ -48,7 +68,10 @@ export const Route = createFileRoute("/_authenticated/canal-etico/$id")({
 
 function CanalEticoDetalhe() {
   const { id } = Route.useParams();
-  const query = useQuery({ queryKey: ["wb-report", id], queryFn: () => getWhistleblowerReport({ data: { id } }) });
+  const query = useQuery({
+    queryKey: ["wb-report", id],
+    queryFn: () => getWhistleblowerReport({ data: { id } }),
+  });
   const [status, setStatus] = useState<string>("");
   const [priority, setPriority] = useState<string>("");
   const [publicNote, setPublicNote] = useState("");
@@ -60,12 +83,16 @@ function CanalEticoDetalhe() {
 
   const data = query.data as any;
 
+  const reportId = data?.report?.id;
+  const reportStatus = data?.report?.status;
+  const reportPriority = data?.report?.priority;
+  const reportConclusion = data?.report?.conclusion;
   useEffect(() => {
-    if (!data?.report) return;
-    setStatus(data.report.status);
-    setPriority(data.report.priority ?? "MEDIA");
-    setConclusion(data.report.conclusion ?? "");
-  }, [data?.report?.id, data?.report?.status, data?.report?.priority, data?.report?.conclusion]);
+    if (!reportId) return;
+    setStatus(reportStatus);
+    setPriority(reportPriority ?? "MEDIA");
+    setConclusion(reportConclusion ?? "");
+  }, [reportId, reportStatus, reportPriority, reportConclusion]);
 
   if (query.isLoading) return <p className="p-6 text-sm text-muted-foreground">Carregando…</p>;
   if (query.isError || !data) {
@@ -133,7 +160,9 @@ function CanalEticoDetalhe() {
   async function exportPdf() {
     setExporting(true);
     try {
-      await downloadDenunciaInternaPdf(data);
+      await (
+        await import("@/components/denuncia/denuncia-interno-pdf")
+      ).downloadDenunciaInternaPdf(data);
       await logWhistleblowerExport({ data: { id, kind: "pdf_interno" } });
     } catch {
       toast.error("Não foi possível gerar o relatório.");
@@ -151,7 +180,11 @@ function CanalEticoDetalhe() {
           </Link>
         </Button>
         <Button variant="outline" onClick={exportPdf} disabled={exporting}>
-          {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+          {exporting ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
           Relatório confidencial
         </Button>
       </div>
@@ -163,7 +196,9 @@ function CanalEticoDetalhe() {
             <CardTitle className="mt-1 text-lg">{r.title}</CardTitle>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{r.report_type === "ANONYMOUS" ? "Anônima" : "Identificada"}</Badge>
+            <Badge variant="outline">
+              {r.report_type === "ANONYMOUS" ? "Anônima" : "Identificada"}
+            </Badge>
             <Badge>{WB_STATUS_LABEL[r.status as WbStatus]}</Badge>
           </div>
         </CardHeader>
@@ -176,7 +211,10 @@ function CanalEticoDetalhe() {
             <Info label="Cidade / unidade" value={[r.city, r.unit].filter(Boolean).join(" • ")} />
             <Info label="Setor" value={r.department} />
             <Info label="Local" value={r.location_description} />
-            <Info label="Data / horário" value={[r.incident_date, r.incident_time].filter(Boolean).join(" • ")} />
+            <Info
+              label="Data / horário"
+              value={[r.incident_date, r.incident_time].filter(Boolean).join(" • ")}
+            />
             <Info label="Envolvidos" value={r.people_involved} />
             <Info label="Testemunhas" value={r.witnesses} />
             <Info label="Frequência" value={r.frequency} />
@@ -193,7 +231,8 @@ function CanalEticoDetalhe() {
           )}
           {r.report_type === "ANONYMOUS" && (
             <p className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
-              <Lock className="h-4 w-4" /> Denúncia anônima: nenhum dado de identificação foi armazenado.
+              <Lock className="h-4 w-4" /> Denúncia anônima: nenhum dado de identificação foi
+              armazenado.
             </p>
           )}
         </CardContent>
@@ -245,7 +284,11 @@ function CanalEticoDetalhe() {
             <Textarea rows={4} value={conclusion} onChange={(e) => setConclusion(e.target.value)} />
           </div>
           <Button onClick={save} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
             Salvar tratamento
           </Button>
         </CardContent>
@@ -256,7 +299,9 @@ function CanalEticoDetalhe() {
           <CardTitle className="text-base">Evidências</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {data.attachments.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma evidência anexada.</p>}
+          {data.attachments.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhuma evidência anexada.</p>
+          )}
           {data.attachments.map((a: any) => (
             <button
               key={a.id}
@@ -266,7 +311,9 @@ function CanalEticoDetalhe() {
             >
               <Paperclip className="h-4 w-4 shrink-0" />
               <span className="truncate">{a.display_name}</span>
-              <span className="ml-auto text-xs text-muted-foreground">{formatWbDate(a.created_at)}</span>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {formatWbDate(a.created_at)}
+              </span>
             </button>
           ))}
         </CardContent>
@@ -278,22 +325,31 @@ function CanalEticoDetalhe() {
             <CardTitle className="text-base">Conversa com o denunciante</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {data.messages.length === 0 && <p className="text-sm text-muted-foreground">Sem mensagens.</p>}
+            {data.messages.length === 0 && (
+              <p className="text-sm text-muted-foreground">Sem mensagens.</p>
+            )}
             {data.messages.map((m: any) => (
               <div
                 key={m.id}
                 className={`rounded-lg border p-3 text-sm ${
-                  m.sender_type === "RH" ? "border-primary/40 bg-primary/5" : "border-border/60 bg-background/40"
+                  m.sender_type === "RH"
+                    ? "border-primary/40 bg-primary/5"
+                    : "border-border/60 bg-background/40"
                 }`}
               >
                 <p className="mb-1 text-xs text-muted-foreground">
-                  {m.sender_type === "RH" ? data.names[m.sender_user_id] ?? "RH" : "Denunciante"} •{" "}
-                  {formatWbDate(m.created_at)}
+                  {m.sender_type === "RH" ? (data.names[m.sender_user_id] ?? "RH") : "Denunciante"}{" "}
+                  • {formatWbDate(m.created_at)}
                 </p>
                 <p className="whitespace-pre-wrap">{m.message}</p>
               </div>
             ))}
-            <Textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Responder ao denunciante…" />
+            <Textarea
+              rows={3}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Responder ao denunciante…"
+            />
             <Button onClick={sendMessage}>
               <Send className="mr-2 h-4 w-4" /> Enviar
             </Button>
@@ -305,7 +361,9 @@ function CanalEticoDetalhe() {
             <CardTitle className="text-base">Notas internas</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {data.notes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma nota interna.</p>}
+            {data.notes.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma nota interna.</p>
+            )}
             {data.notes.map((n: any) => (
               <div key={n.id} className="rounded-lg border border-border/60 p-3 text-sm">
                 <p className="mb-1 text-xs text-muted-foreground">
@@ -314,7 +372,12 @@ function CanalEticoDetalhe() {
                 <p className="whitespace-pre-wrap">{n.note}</p>
               </div>
             ))}
-            <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Registrar nota interna…" />
+            <Textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Registrar nota interna…"
+            />
             <Button variant="outline" onClick={sendNote}>
               <StickyNote className="mr-2 h-4 w-4" /> Adicionar nota
             </Button>

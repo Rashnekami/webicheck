@@ -1,0 +1,38 @@
+{
+  "checklists._id-": {
+    "files": 76,
+    "rawBytes": 1119458,
+    "gzipBytes": 336644,
+    "pdf": []
+  },
+  "dashboard-": {
+    "files": 47,
+    "rawBytes": 1221950,
+    "gzipBytes": 362193,
+    "pdf": []
+  },
+  "painel-": {
+    "files": 60,
+    "rawBytes": 767982,
+    "gzipBytes": 239831,
+    "pdf": []
+  },
+  "trocas-ont-": {
+    "files": 28,
+    "rawBytes": 678903,
+    "gzipBytes": 205076,
+    "pdf": []
+  },
+  "avaliacoes._id-": {
+    "files": 46,
+    "rawBytes": 830522,
+    "gzipBytes": 257490,
+    "pdf": []
+  },
+  "canal-etico._id-": {
+    "files": 40,
+    "rawBytes": 773161,
+    "gzipBytes": 239463,
+    "pdf": []
+  }
+}

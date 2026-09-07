@@ -51,7 +51,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { listChecklists } from "@/lib/checklists";
+import { listDashboardChecklists } from "@/lib/checklists";
 import {
   aggregate,
   applyFilters,
@@ -61,7 +61,6 @@ import {
   type DashboardFilters,
   type PeriodPreset,
 } from "@/lib/dashboard-analytics";
-import { generatePresentationZip, presentationZipFilename } from "@/services/presentation-export";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -112,13 +111,14 @@ function Dashboard() {
   const [exporting, setExporting] = useState(false);
 
   const query = useQuery({
-    queryKey: ["dashboard-checklists"],
-    queryFn: () => listChecklists({ scope: "all", userId: user!.id }),
+    queryKey: ["dashboard-checklists", user?.id, user?.provider_id],
+    queryFn: ({ signal }) => listDashboardChecklists(signal),
+    staleTime: 60_000,
     enabled: !!user?.isAdmin,
   });
 
   const profilesQuery = useQuery({
-    queryKey: ["dashboard-profiles"],
+    queryKey: ["dashboard-profiles", user?.id, user?.provider_id],
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("id, full_name, email");
       if (error) throw error;
@@ -248,16 +248,8 @@ function Dashboard() {
       "analista_noc",
       "noc_autorizada",
     ];
-    const rows = (query.data ?? []).filter((c) => {
-      if (c.status !== "finalizado") return false;
-      if (c.is_current === false) return false;
-      // Mesmo filtro de escopo do dashboard (ver canonAll) — sem isso o CSV
-      // "detalhada" saía com linhas de remapeamento/intervenção nas colunas
-      // de ONT, todas vazias/erradas.
-      if (c.tipo !== "validacao_ont" && c.tipo !== "instalacao") return false;
-      const t = c.finalizado_em ? new Date(c.finalizado_em).getTime() : 0;
-      return t >= new Date(filters.startISO).getTime() && t < new Date(filters.endISO).getTime();
-    });
+    const filteredIds = new Set(filtered.map((record) => record.id));
+    const rows = (query.data ?? []).filter((c) => filteredIds.has(c.id));
     const lines = [header.join(";")];
     for (const c of rows) {
       const tec = nomePorId.get(c.tecnico_id) || c.tecnico_id.slice(0, 8);
@@ -301,6 +293,8 @@ function Dashboard() {
     if (exporting) return;
     setExporting(true);
     try {
+      const { generatePresentationZip, presentationZipFilename } =
+        await import("@/services/presentation-export");
       const blob = await generatePresentationZip({
         records: filtered,
         filters,
@@ -572,13 +566,22 @@ function Dashboard() {
                         <stop offset="95%" stopColor={COLORS[2]} stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="rgba(90,145,210,.16)" strokeDasharray="4 6" vertical={false} />
+                    <CartesianGrid
+                      stroke="rgba(90,145,210,.16)"
+                      strokeDasharray="4 6"
+                      vertical={false}
+                    />
                     <XAxis dataKey="monthKey" tickFormatter={formatMonthBR} fontSize={12} />
                     <YAxis
                       yAxisId="qtd"
                       allowDecimals={false}
                       fontSize={12}
-                      label={{ value: "Atendimentos", angle: -90, position: "insideLeft", fontSize: 11 }}
+                      label={{
+                        value: "Atendimentos",
+                        angle: -90,
+                        position: "insideLeft",
+                        fontSize: 11,
+                      }}
                     />
                     <YAxis
                       yAxisId="pct"
@@ -589,10 +592,16 @@ function Dashboard() {
                     />
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
-                      cursor={{ stroke: "rgba(0,190,255,.55)", strokeWidth: 1, strokeDasharray: "3 3" }}
+                      cursor={{
+                        stroke: "rgba(0,190,255,.55)",
+                        strokeWidth: 1,
+                        strokeDasharray: "3 3",
+                      }}
                       labelFormatter={(v) => formatMonthBR(String(v))}
                       formatter={(value: number, name: string) =>
-                        name === "Taxa de autorização" ? [`${value.toFixed(0)}%`, name] : [value, name]
+                        name === "Taxa de autorização"
+                          ? [`${value.toFixed(0)}%`, name]
+                          : [value, name]
                       }
                     />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -735,7 +744,10 @@ function StatCard({
         <div className="min-w-0">
           <p
             className="text-2xl font-extrabold tracking-tight text-white"
-            style={{ fontVariantNumeric: "tabular-nums", fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
+            style={{
+              fontVariantNumeric: "tabular-nums",
+              fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+            }}
           >
             {value}
           </p>
@@ -818,8 +830,7 @@ function RankingBarChart({
         />
         <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(0,132,255,.08)" }} />
         <Bar dataKey="value" fill={color} radius={[0, 6, 6, 0]} maxBarSize={26}>
-          {multiColor &&
-            data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          {multiColor && data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           <LabelList
             dataKey="value"
             position="right"
