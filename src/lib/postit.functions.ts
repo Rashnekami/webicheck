@@ -661,10 +661,6 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       loginAccounts,
       assignees,
       meetings,
-      items,
-      deadlines,
-      comments,
-      attachments,
       notifications,
     ] = await Promise.all([
       client
@@ -722,27 +718,6 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
         .order("scheduled_at", { ascending: false })
         .limit(200),
       client
-        .from("postit_items")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at", { ascending: false })
-        .limit(500),
-      client
-        .from("postit_deadline_history")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at"),
-      client
-        .from("postit_comments")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at"),
-      client
-        .from("postit_attachments")
-        .select("*")
-        .eq("provider_id", access.providerId)
-        .order("created_at"),
-      client
         .from("postit_notifications")
         .select("*")
         .eq("provider_id", access.providerId)
@@ -762,55 +737,94 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       loginAccounts,
       assignees,
       meetings,
-      items,
-      deadlines,
-      comments,
-      attachments,
       notifications,
     ]) {
       if (result.error) throw new Error(result.error.message);
     }
 
+    const allAssignees = assignees.data ?? [];
+    const assignedToMe = new Set<string>(
+      allAssignees
+        .filter((row: any) => access.personId && row.person_id === access.personId)
+        .map((row: any) => row.postit_id as string),
+    );
+    const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
+    const seesEverything = access.canAdminister || access.isGrConductor;
+
+    // Access filtering happens in the database, BEFORE any pagination, so an
+    // authorised post-it can never be dropped by a technical row limit.
+    const rawItems = await fetchAllRows((from, to) => {
+      let query = client
+        .from("postit_items")
+        .select("*")
+        .eq("provider_id", access.providerId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+      if (!seesEverything) {
+        const clauses = [
+          `creator_user_id.eq.${context.userId}`,
+          `manager_user_id.eq.${context.userId}`,
+          `responsible_user_id.eq.${context.userId}`,
+        ];
+        if (visibleGroupIds.size) clauses.push(`group_id.in.(${[...visibleGroupIds].join(",")})`);
+        if (access.personId) {
+          clauses.push(`creator_person_id.eq.${access.personId}`);
+          clauses.push(`manager_person_id.eq.${access.personId}`);
+          if (assignedToMe.size) clauses.push(`id.in.(${[...assignedToMe].join(",")})`);
+        }
+        query = query.or(clauses.join(","));
+      }
+      return query;
+    });
+
+    // Defensive re-check of the exact same rules on the returned rows.
+    const visibleItems = seesEverything
+      ? rawItems
+      : rawItems.filter(
+          (item: any) =>
+            item.creator_user_id === context.userId ||
+            item.manager_user_id === context.userId ||
+            item.responsible_user_id === context.userId ||
+            (item.group_id && visibleGroupIds.has(item.group_id)) ||
+            (access.personId &&
+              (item.creator_person_id === access.personId ||
+                item.manager_person_id === access.personId ||
+                assignedToMe.has(item.id))),
+        );
+    const visibleItemIds = visibleItems.map((item: any) => item.id as string);
+    const visibleItemIdSet = new Set(visibleItemIds);
+
     const linkedUserIds = (people.data ?? [])
       .filter((person: any) => person.active && person.user_id)
       .map((person: any) => person.user_id as string);
-    const { data: profiles, error: profilesError } = await client
-      .from("profiles")
-      .select("id, full_name, email, city")
-      .eq("provider_id", access.providerId)
-      .eq("active", true)
-      .in("id", linkedUserIds.length ? linkedUserIds : [context.userId])
-      .order("full_name");
-    if (profilesError) throw new Error(profilesError.message);
 
-    const allAssignees = assignees.data ?? [];
-    const rawItems = items.data ?? [];
-    const assignedToMe = new Set(
-      allAssignees
-        .filter((row: any) => row.person_id === access.personId)
-        .map((row: any) => row.postit_id),
-    );
-    const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
-    const visibleItems =
-      access.canAdminister || access.isGrConductor
-        ? rawItems
-        : rawItems.filter(
-            (item: any) =>
-              item.creator_user_id === context.userId ||
-              item.manager_user_id === context.userId ||
-              item.responsible_user_id === context.userId ||
-              (item.group_id && visibleGroupIds.has(item.group_id)) ||
-              (access.personId &&
-                (item.creator_person_id === access.personId ||
-                  item.manager_person_id === access.personId ||
-                  assignedToMe.has(item.id))),
-          );
-    const visibleItemIds = new Set(visibleItems.map((item: any) => item.id));
-    const [assignablePersonIds, normalAssignablePersonIds, grMeetingsToday] = await Promise.all([
+    const [
+      profilesResult,
+      deadlineRows,
+      commentRows,
+      attachmentRows,
+      assignablePersonIds,
+      normalAssignablePersonIds,
+      grMeetingsToday,
+    ] = await Promise.all([
+      client
+        .from("profiles")
+        .select("id, full_name, email, city")
+        .eq("provider_id", access.providerId)
+        .eq("active", true)
+        .in("id", linkedUserIds.length ? linkedUserIds : [context.userId])
+        .order("full_name"),
+      fetchRelatedRows(client, "postit_deadline_history", access.providerId, visibleItemIds),
+      fetchRelatedRows(client, "postit_comments", access.providerId, visibleItemIds),
+      fetchRelatedRows(client, "postit_attachments", access.providerId, visibleItemIds),
       getAssignablePersonIds(client, access),
       getAssignablePersonIds(client, access, false),
       getGrMeetingsToday(client, access.providerId),
     ]);
+    if (profilesResult.error) throw new Error(profilesResult.error.message);
+    const profiles = profilesResult.data ?? [];
+
     const hasGeneralGrToday = grMeetingsToday.some((meeting: any) =>
       ["general", "managerial"].includes(meeting.meeting_type),
     );
@@ -840,18 +854,19 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
       grTodayDepartmentIds,
       hasGeneralGrToday,
       loginAccounts: loginAccounts.data ?? [],
-      assignees: allAssignees.filter((row: any) => visibleItemIds.has(row.postit_id)),
+      assignees: allAssignees.filter((row: any) => visibleItemIdSet.has(row.postit_id)),
       assignablePersonIds,
       normalAssignablePersonIds,
       meetings: meetings.data ?? [],
       items: visibleItems,
-      deadlines: (deadlines.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
-      comments: (comments.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
-      attachments: (attachments.data ?? []).filter((row: any) => visibleItemIds.has(row.postit_id)),
+      deadlines: deadlineRows,
+      comments: commentRows,
+      attachments: attachmentRows,
       notifications: notifications.data ?? [],
-      profiles: profiles ?? [],
+      profiles,
     };
   });
+
 
 export const savePostitDepartment = createServerFn({ method: "POST" })
   .middleware([requireAccountAuth])
