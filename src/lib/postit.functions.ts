@@ -641,6 +641,50 @@ export const bootstrapPostit = createServerFn({ method: "POST" })
     return { ok: true, access: confirmedAccess };
   });
 
+/** Reads every row of a filtered query in pages, so no record is lost to a row cap. */
+async function fetchAllRows(
+  build: (from: number, to: number) => any,
+  pageSize = 1000,
+  maxPages = 25,
+): Promise<any[]> {
+  const rows: any[] = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await build(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const batch = data ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows;
+}
+
+/** Loads child rows only for the post-its the caller may actually see. */
+async function fetchRelatedRows(
+  client: AnyDb,
+  table: string,
+  providerId: string,
+  postitIds: string[],
+): Promise<any[]> {
+  if (!postitIds.length) return [];
+  const rows: any[] = [];
+  for (let index = 0; index < postitIds.length; index += 150) {
+    const slice = postitIds.slice(index, index + 150);
+    const batch = await fetchAllRows((from, to) =>
+      client
+        .from(table)
+        .select("*")
+        .eq("provider_id", providerId)
+        .in("postit_id", slice)
+        .order("created_at")
+        .range(from, to),
+    );
+    rows.push(...batch);
+  }
+  return rows;
+}
+
+
 export const getPostitWorkspace = createServerFn({ method: "GET" })
   .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<PostitWorkspace> => {
