@@ -16,9 +16,28 @@ import {
   type TipoChecklist,
 } from "./checklist-schema";
 
-export type ChecklistListRow = ChecklistRow & {
-  tecnico_nome: string;
-};
+export type DashboardChecklistRow = Pick<
+  ChecklistRow,
+  | "id"
+  | "tecnico_id"
+  | "status"
+  | "tipo"
+  | "is_current"
+  | "finalizado_em"
+  | "cidade"
+  | "cliente"
+  | "os"
+  | "numero_publico"
+  | "codigo_validacao"
+  | "modelo"
+  | "serial"
+  | "troca_realizada"
+  | "modelo_ont_retirada"
+  | "serial_ont_retirada"
+  | "modelo_ont_instalada"
+  | "serial_ont_instalada"
+  | "dados"
+>;
 
 type ChecklistDbRow = Database["public"]["Tables"]["checklists"]["Row"];
 type ChecklistDbInsert = Database["public"]["Tables"]["checklists"]["Insert"];
@@ -80,11 +99,16 @@ function mergeRemapeamentoData(saved: Record<string, unknown>): RemapeamentoData
   return {
     ...base,
     ...saved,
-    identificacao: { ...base.identificacao, ...(isRecord(saved.identificacao) ? saved.identificacao : {}) },
+    identificacao: {
+      ...base.identificacao,
+      ...(isRecord(saved.identificacao) ? saved.identificacao : {}),
+    },
     localizacao: { ...base.localizacao, ...(isRecord(saved.localizacao) ? saved.localizacao : {}) },
     splitter: { ...base.splitter, ...(isRecord(saved.splitter) ? saved.splitter : {}) },
     alimentacao: { ...base.alimentacao, ...(isRecord(saved.alimentacao) ? saved.alimentacao : {}) },
-    portas: Array.isArray(saved.portas) ? (saved.portas as RemapeamentoData["portas"]) : base.portas,
+    portas: Array.isArray(saved.portas)
+      ? (saved.portas as RemapeamentoData["portas"])
+      : base.portas,
     fusao: { ...base.fusao, ...(isRecord(saved.fusao) ? saved.fusao : {}) },
     resultado: { ...base.resultado, ...(isRecord(saved.resultado) ? saved.resultado : {}) },
   } as RemapeamentoData;
@@ -133,31 +157,36 @@ function normalizeRow(row: ChecklistDbRow): ChecklistRow {
   return { ...row, tipo, dados } as unknown as ChecklistRow;
 }
 
-export async function listChecklists(opts: {
-  scope: "mine" | "all";
-  userId: string;
-}): Promise<ChecklistListRow[]> {
-  let q = supabase.from("checklists").select("*").order("created_at", { ascending: false });
-  if (opts.scope === "mine") q = q.eq("tecnico_id", opts.userId);
-  const { data, error } = await q;
-  if (error) throw error;
-  const rows = (data ?? []).map(normalizeRow);
-  const technicianIds = [...new Set(rows.map((row) => row.tecnico_id))];
-  if (technicianIds.length === 0) return [];
-
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", technicianIds);
-  if (profilesError) throw profilesError;
-
-  const technicianNameById = new Map(
-    (profiles ?? []).map((profile) => [profile.id, profile.full_name.trim()]),
-  );
-  return rows.map((row) => ({
-    ...row,
-    tecnico_nome: technicianNameById.get(row.tecnico_id) || "Técnico não identificado",
-  }));
+/** Fetch only fields used by ONT/installation analytics and CSV export.
+ * UUID cursor pagination also works if the API row limit is below 500.
+ */
+export async function listDashboardChecklists(
+  signal?: AbortSignal,
+): Promise<DashboardChecklistRow[]> {
+  const rows: DashboardChecklistRow[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    let query = supabase
+      .from("checklists")
+      .select(
+        "id,tecnico_id,status,tipo,is_current,finalizado_em,cidade,cliente,os,numero_publico,codigo_validacao,modelo,serial,troca_realizada,modelo_ont_retirada,serial_ont_retirada,modelo_ont_instalada,serial_ont_instalada,sintoma:dados->sintoma,noc:dados->noc",
+      )
+      .eq("is_current", true)
+      .eq("status", "finalizado")
+      .in("tipo", ["validacao_ont", "instalacao"])
+      .order("id")
+      .limit(500);
+    if (cursor) query = query.gt("id", cursor);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data?.length) break;
+    for (const { sintoma, noc, ...row } of data) {
+      rows.push({ ...row, dados: mergeChecklistData({ sintoma, noc }) } as DashboardChecklistRow);
+    }
+    cursor = data[data.length - 1].id;
+  }
+  return rows;
 }
 
 /** Contagens pro dashboard (painel.tsx) — antes ele chamava listChecklists()
@@ -342,4 +371,29 @@ export async function signedFotoUrl(path: string, expiresIn = 3600): Promise<str
     .createSignedUrl(path, expiresIn);
   if (error) throw error;
   return data.signedUrl;
+}
+
+/** Sign evidence URLs in batches; respect the already-authorized dossie map. */
+export async function signedFotoUrls(
+  paths: string[],
+  expiresIn = 3600,
+): Promise<Map<string, string | null>> {
+  const urls = new Map<string, string | null>();
+  const override = (globalThis as unknown as { __dossieSignedFotoMap?: Map<string, string | null> })
+    .__dossieSignedFotoMap;
+  const pending: string[] = [];
+  for (const path of new Set(paths)) {
+    if (override?.has(path)) urls.set(path, override.get(path) ?? null);
+    else pending.push(path);
+  }
+  for (let i = 0; i < pending.length; i += 100) {
+    const { data, error } = await supabase.storage
+      .from("evidencias")
+      .createSignedUrls(pending.slice(i, i + 100), expiresIn);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      if (row.path) urls.set(row.path, row.error ? null : row.signedUrl || null);
+    }
+  }
+  return urls;
 }

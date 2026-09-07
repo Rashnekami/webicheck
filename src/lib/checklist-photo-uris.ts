@@ -1,4 +1,4 @@
-import { signedFotoUrl } from "@/lib/checklists";
+import { signedFotoUrls } from "@/lib/checklists";
 import { fotoCategoriaLabel, type FotoRow } from "@/lib/checklist-schema";
 
 export interface ResolvedFoto {
@@ -11,6 +11,7 @@ export interface ResolvedFoto {
 
 async function toDataUri(url: string): Promise<string> {
   const response = await fetch(url);
+  if (!response.ok) throw new Error(`Falha ao carregar evidência (${response.status}).`);
   const blob = await response.blob();
   return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -31,10 +32,11 @@ export function sortFotosAntesDepois(fotos: FotoRow[]): FotoRow[] {
 /** Converte as fotos em data URIs para embutir em PDFs (react-pdf não aceita URL assinada expirável). */
 export async function resolveFotoDataUris(fotos: FotoRow[]): Promise<ResolvedFoto[]> {
   const ordered = sortFotosAntesDepois(fotos);
+  const urls = await signedFotoUrls(ordered.map((foto) => foto.storage_path));
   const results = await Promise.all(
     ordered.map(async (f) => {
       try {
-        const signed = await signedFotoUrl(f.storage_path);
+        const signed = urls.get(f.storage_path);
         if (!signed) return null;
         const uri = await toDataUri(signed);
         return {
@@ -55,10 +57,11 @@ export async function resolveFotoDataUris(fotos: FotoRow[]): Promise<ResolvedFot
 /** Versão para exportação PNG: mantém URLs assinadas (sem custo de base64). */
 export async function resolveFotoSignedUrls(fotos: FotoRow[]): Promise<ResolvedFoto[]> {
   const ordered = sortFotosAntesDepois(fotos);
+  const urls = await signedFotoUrls(ordered.map((foto) => foto.storage_path));
   const results = await Promise.all(
     ordered.map(async (f) => {
       try {
-        const uri = await signedFotoUrl(f.storage_path);
+        const uri = urls.get(f.storage_path);
         if (!uri) return null;
         return {
           id: f.id,

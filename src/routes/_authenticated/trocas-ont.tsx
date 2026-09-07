@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { getCaseDossieBundle } from "@/lib/warehouse-dossie.functions";
-import { downloadCaseDossieFromBundle } from "@/components/checklist/dossie-pdf";
 
 export const Route = createFileRoute("/_authenticated/trocas-ont")({
   head: () => ({
@@ -61,7 +60,9 @@ function OntExchangesPage() {
     try {
       setDownloadingId(ticketId);
       const bundle = await getCaseDossieBundle({ data: { ticketId } });
-      await downloadCaseDossieFromBundle(bundle);
+      await (
+        await import("@/components/checklist/dossie-pdf")
+      ).downloadCaseDossieFromBundle(bundle);
     } catch (e) {
       const msg = (e as Error).message || "";
       if (msg.includes("different_provider") || msg.includes("missing_role"))

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAccountAuth } from "@/lib/account-auth-middleware";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type AnyDb = {
@@ -537,7 +537,7 @@ async function syncOverdueItems(context: AccessContext & { providerId: string },
 }
 
 export const getPostitAccess = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<PostitAccess> => {
     const access = await getAccessContext(context.userId);
     const { userId: _userId, ...result } = access;
@@ -545,7 +545,7 @@ export const getPostitAccess = createServerFn({ method: "GET" })
   });
 
 export const bootstrapPostit = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }) => {
     const access = await getAccessContext(context.userId);
     if (!access.canBootstrap || !access.providerId) {
@@ -642,7 +642,7 @@ export const bootstrapPostit = createServerFn({ method: "POST" })
   });
 
 export const getPostitWorkspace = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<PostitWorkspace> => {
     const access = await requireAccess(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -785,6 +785,11 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
 
     const allAssignees = assignees.data ?? [];
     const rawItems = items.data ?? [];
+    const assignedToMe = new Set(
+      allAssignees
+        .filter((row: any) => row.person_id === access.personId)
+        .map((row: any) => row.postit_id),
+    );
     const visibleGroupIds = new Set(await getVisibleGroupIds(client, access));
     const visibleItems =
       access.canAdminister || access.isGrConductor
@@ -798,15 +803,14 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
               (access.personId &&
                 (item.creator_person_id === access.personId ||
                   item.manager_person_id === access.personId ||
-                  allAssignees.some(
-                    (assignee: any) =>
-                      assignee.postit_id === item.id && assignee.person_id === access.personId,
-                  ))),
+                  assignedToMe.has(item.id))),
           );
     const visibleItemIds = new Set(visibleItems.map((item: any) => item.id));
-    const assignablePersonIds = await getAssignablePersonIds(client, access);
-    const normalAssignablePersonIds = await getAssignablePersonIds(client, access, false);
-    const grMeetingsToday = await getGrMeetingsToday(client, access.providerId);
+    const [assignablePersonIds, normalAssignablePersonIds, grMeetingsToday] = await Promise.all([
+      getAssignablePersonIds(client, access),
+      getAssignablePersonIds(client, access, false),
+      getGrMeetingsToday(client, access.providerId),
+    ]);
     const hasGeneralGrToday = grMeetingsToday.some((meeting: any) =>
       ["general", "managerial"].includes(meeting.meeting_type),
     );
@@ -850,7 +854,7 @@ export const getPostitWorkspace = createServerFn({ method: "GET" })
   });
 
 export const savePostitDepartment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { id?: string; name: string; color: string; active?: boolean }) => {
     if (data.name.trim().length < 2) throw new Error("Informe o nome do setor.");
     if (!/^#[0-9a-f]{6}$/i.test(data.color)) throw new Error("Cor inválida.");
@@ -881,7 +885,7 @@ export const savePostitDepartment = createServerFn({ method: "POST" })
   });
 
 export const savePostitGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       id?: string;
@@ -956,7 +960,7 @@ export const savePostitGroup = createServerFn({ method: "POST" })
   });
 
 export const savePostitVisibilityGrant = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       id?: string;
@@ -1036,7 +1040,7 @@ export const savePostitVisibilityGrant = createServerFn({ method: "POST" })
   });
 
 export const savePostitPerson = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       id?: string;
@@ -1345,7 +1349,7 @@ async function nextPostitLogin(client: AnyDb, providerId: string) {
 }
 
 export const issuePostitCredential = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { personId: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireManager(context.userId, true);
@@ -1487,7 +1491,7 @@ export const issuePostitCredential = createServerFn({ method: "POST" })
   });
 
 export const resetPostitCredential = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { accountId: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireManager(context.userId, true);
@@ -1521,7 +1525,7 @@ export const resetPostitCredential = createServerFn({ method: "POST" })
   });
 
 export const createPostitMeeting = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       title: string;
@@ -1562,7 +1566,7 @@ export const createPostitMeeting = createServerFn({ method: "POST" })
   });
 
 export const closePostitMeeting = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { meetingId: string; notes?: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireAccess(context.userId);
@@ -1593,7 +1597,7 @@ export const closePostitMeeting = createServerFn({ method: "POST" })
   });
 
 export const createPostitItem = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       title: string;
@@ -1833,7 +1837,7 @@ export const createPostitItem = createServerFn({ method: "POST" })
   });
 
 export const respondPostitAssignment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator(
     (data: {
       postitId: string;
@@ -2023,7 +2027,7 @@ async function canOperateItem(client: AnyDb, access: AccessContext, item: any) {
 }
 
 export const startPostitItem = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireAccess(context.userId);
@@ -2046,7 +2050,7 @@ export const startPostitItem = createServerFn({ method: "POST" })
   });
 
 export const extendPostitDeadline = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; newDueDate: string; reason: string }) => {
     if (!data.newDueDate) throw new Error("Informe a nova data.");
     if (data.reason.trim().length < 5) throw new Error("Explique o motivo da prorrogação.");
@@ -2132,7 +2136,7 @@ export const extendPostitDeadline = createServerFn({ method: "POST" })
   });
 
 export const decidePostitAtGr = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; decision: "complete" | "escalate"; note: string }) => {
     if (data.note.trim().length < 5) {
       throw new Error("Registre em pelo menos 5 caracteres o que foi decidido na GR.");
@@ -2215,7 +2219,7 @@ export const decidePostitAtGr = createServerFn({ method: "POST" })
   });
 
 export const submitPostitCompletion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; note: string; evidenceUrl?: string }) => {
     if (data.note.trim().length < 5) throw new Error("Descreva o que foi realizado.");
     return data;
@@ -2256,7 +2260,7 @@ export const submitPostitCompletion = createServerFn({ method: "POST" })
   });
 
 export const validatePostitCompletion = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; approved: boolean; note?: string }) => data)
   .handler(async ({ data, context }) => {
     const access = await requireAccess(context.userId);
@@ -2328,7 +2332,7 @@ export const validatePostitCompletion = createServerFn({ method: "POST" })
   });
 
 export const addPostitComment = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { postitId: string; body: string }) => {
     if (!data.body.trim()) throw new Error("Escreva o comentário.");
     return data;
@@ -2353,7 +2357,7 @@ export const addPostitComment = createServerFn({ method: "POST" })
   });
 
 export const markPostitNotificationsRead = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }) => {
     const access = await requireAccess(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
