@@ -4,7 +4,6 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { FileArchive, FileDown, FilePlus2, Files, Loader2 } from "lucide-react";
 import type { ChecklistData, FotoRow } from "@/lib/checklist-schema";
-import { downloadChecklistOnly, generateDossiePdf } from "@/components/checklist/dossie-pdf";
 import { DiagnosticsSection } from "@/components/checklist/diagnostics-section";
 import { CaseTimeline } from "@/components/checklist/case-timeline";
 
@@ -103,6 +102,8 @@ export function CaseRevisionsPanel({
       setNotes("");
       qc.invalidateQueries({ queryKey: ["checklist", r.id] });
       qc.invalidateQueries({ queryKey: ["checklists"] });
+      qc.invalidateQueries({ queryKey: ["home-checklist-counts"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-checklists"] });
       navigate({ to: "/checklists/$id", params: { id: r.id } });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -127,7 +128,9 @@ export function CaseRevisionsPanel({
     try {
       setBusy("checklist");
       const publicUrl = await resolveValidationUrl();
-      await downloadChecklistOnly({
+      await (
+        await import("@/components/checklist/dossie-pdf")
+      ).downloadChecklistOnly({
         row,
         fotos,
         tecnicoNome,
@@ -145,7 +148,9 @@ export function CaseRevisionsPanel({
     try {
       setBusy("revision");
       const publicUrl = await resolveValidationUrl();
-      await generateDossiePdf({
+      await (
+        await import("@/components/checklist/dossie-pdf")
+      ).generateDossiePdf({
         row,
         fotos,
         tecnicoNome,
@@ -165,7 +170,9 @@ export function CaseRevisionsPanel({
     try {
       setBusy("dossie");
       const publicUrl = await resolveValidationUrl();
-      await generateDossiePdf({
+      await (
+        await import("@/components/checklist/dossie-pdf")
+      ).generateDossiePdf({
         row,
         fotos,
         tecnicoNome,

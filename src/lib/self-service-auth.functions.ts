@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAccountAuth } from "@/lib/account-auth-middleware";
 
 // Troca a própria senha (fluxo obrigatório de primeiro acesso após
 // criação/reset de credencial pelo admin). Nunca recebe user_id do
 // cliente — sempre usa context.userId do token verificado.
 export const changeOwnPassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { newPassword: string }) => {
     if (!data.newPassword || data.newPassword.length < 8)
       throw new Error("A senha deve ter pelo menos 8 caracteres.");
@@ -39,7 +39,7 @@ export const changeOwnPassword = createServerFn({ method: "POST" })
   });
 
 export const getMyAuthStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -47,14 +47,18 @@ export const getMyAuthStatus = createServerFn({ method: "GET" })
       .select("must_change_password")
       .eq("id", context.userId)
       .maybeSingle();
-    return { must_change_password: Boolean((data as { must_change_password?: boolean } | null)?.must_change_password) };
+    return {
+      must_change_password: Boolean(
+        (data as { must_change_password?: boolean } | null)?.must_change_password,
+      ),
+    };
   });
 
 // Define o e-mail pessoal obrigatório do usuário (primeiro acesso).
 // Não altera o e-mail sintético usado pelo login interno — apenas
 // registra o contato real em profiles.contact_email.
 export const setMyContactEmail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireAccountAuth])
   .inputValidator((data: { email: string }) => {
     const email = data.email?.trim().toLowerCase() ?? "";
     if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)) throw new Error("Informe um e-mail válido.");

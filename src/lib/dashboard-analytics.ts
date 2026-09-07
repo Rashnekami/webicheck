@@ -2,11 +2,7 @@
 // exportação para PowerPoint. Se o número está aqui, tanto o gráfico quanto
 // o CSV devem exibir exatamente o mesmo valor.
 
-import type {
-  ChecklistData,
-  ChecklistRow,
-  TipoChecklist,
-} from "./checklist-schema";
+import type { ChecklistData, ChecklistRow, TipoChecklist } from "./checklist-schema";
 
 // ---------- Rótulos ----------
 
@@ -32,16 +28,16 @@ export const SINTOMA_LABELS: Record<string, string> = {
 // string, não uma variação de acentuação da mesma).
 const CITY_ACCENT_MAP: Record<string, string> = {
   "telemaco borba": "Telêmaco Borba",
-  "telemaco": "Telêmaco Borba",
-  "imbau": "Imbaú",
-  "tibagi": "Tibagi",
-  "ortigueira": "Ortigueira",
-  "reservoa": "Reserva",
-  "reserva": "Reserva",
-  "curiuva": "Curiúva",
+  telemaco: "Telêmaco Borba",
+  imbau: "Imbaú",
+  tibagi: "Tibagi",
+  ortigueira: "Ortigueira",
+  reservoa: "Reserva",
+  reserva: "Reserva",
+  curiuva: "Curiúva",
   "sao jeronimo da serra": "São Jerônimo da Serra",
   "sao jeronimo": "São Jerônimo da Serra",
-  "ventania": "Ventania",
+  ventania: "Ventania",
 };
 
 function stripDiacritics(s: string): string {
@@ -90,12 +86,16 @@ export function normalizeModel(raw: string | null | undefined): string {
   if (!raw) return "";
   const cleaned = raw.replace(/\s+/g, " ").trim();
   if (!cleaned) return "";
-  const key = stripDiacritics(cleaned).toLowerCase().replace(/[\s\-_]+/g, "");
+  const key = stripDiacritics(cleaned)
+    .toLowerCase()
+    .replace(/[\s\-_]+/g, "");
   if (MODEL_CANON[key]) return MODEL_CANON[key];
   // Fallback: uppercase preservando marca + modelo com espaços únicos
   return cleaned
-    .split(/[\s\-]+/)
-    .map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .split(/[\s-]+/)
+    .map((w) =>
+      w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+    )
     .join(" ");
 }
 
@@ -199,7 +199,7 @@ export interface CanonRecord {
   serialOntInstalada: string;
 }
 
-function symptomsFromDados(d: any): string[] {
+function symptomsFromDados(d: unknown): string[] {
   if (!d || typeof d !== "object") return [];
   const sintomaObj = (d as ChecklistData).sintoma;
   if (!sintomaObj || typeof sintomaObj !== "object") return [];
@@ -211,25 +211,35 @@ function symptomsFromDados(d: any): string[] {
 }
 
 export function toCanon(
-  row: ChecklistRow,
+  row: Pick<
+    ChecklistRow,
+    | "id"
+    | "tipo"
+    | "dados"
+    | "finalizado_em"
+    | "tecnico_id"
+    | "cidade"
+    | "troca_realizada"
+    | "modelo_ont_retirada"
+    | "modelo"
+    | "serial_ont_retirada"
+    | "serial"
+    | "modelo_ont_instalada"
+    | "serial_ont_instalada"
+  >,
   nomePorId: Map<string, string>,
 ): CanonRecord {
   const tipo = normalizeChecklistType(row.tipo);
-  const d: any = row.dados ?? {};
-  const nocAutorizadaRaw =
-    tipo === "validacao_ont" ? (d?.noc?.autorizada ?? null) : null;
-  const analistaNome =
-    tipo === "validacao_ont"
-      ? normalizePersonName(d?.noc?.analista)
-      : "";
+  const d = (row.dados ?? {}) as Partial<ChecklistData>;
+  const nocAutorizadaRaw = tipo === "validacao_ont" ? (d?.noc?.autorizada ?? null) : null;
+  const analistaNome = tipo === "validacao_ont" ? normalizePersonName(d?.noc?.analista) : "";
   return {
     id: row.id,
     tipo,
     finalizadoEm: row.finalizado_em,
     monthKey: convertToSaoPauloTime(row.finalizado_em).monthKey,
     tecnicoId: row.tecnico_id,
-    tecnicoNome:
-      nomePorId.get(row.tecnico_id) || row.tecnico_id.slice(0, 8),
+    tecnicoNome: nomePorId.get(row.tecnico_id) || row.tecnico_id.slice(0, 8),
     cidade: normalizeCity(row.cidade),
     sintomas: symptomsFromDados(d),
     analistaNocId: analistaNome.toLowerCase(),
@@ -240,7 +250,7 @@ export function toCanon(
       row.modelo_ont_retirada || (tipo === "validacao_ont" ? row.modelo : ""),
     ),
     serialOntRetirada:
-      row.serial_ont_retirada || (tipo === "validacao_ont" ? row.serial ?? "" : "") || "",
+      row.serial_ont_retirada || (tipo === "validacao_ont" ? (row.serial ?? "") : "") || "",
     modeloOntInstalada: normalizeModel(row.modelo_ont_instalada),
     serialOntInstalada: row.serial_ont_instalada ?? "",
   };
@@ -258,10 +268,7 @@ export interface DashboardFilters {
   status?: "todos" | "com_troca" | "sem_troca" | "nao_informado";
 }
 
-export function applyFilters(
-  records: CanonRecord[],
-  f: DashboardFilters,
-): CanonRecord[] {
+export function applyFilters(records: CanonRecord[], f: DashboardFilters): CanonRecord[] {
   const start = new Date(f.startISO).getTime();
   const end = new Date(f.endISO).getTime();
   return records.filter((r) => {
@@ -334,10 +341,7 @@ function countBy<T>(arr: T[], key: (x: T) => string): Record<string, number> {
   return m;
 }
 
-function toSortedArr(
-  m: Record<string, number>,
-  limit?: number,
-): { name: string; value: number }[] {
+function toSortedArr(m: Record<string, number>, limit?: number): { name: string; value: number }[] {
   const arr = Object.entries(m)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, "pt-BR"));
@@ -402,13 +406,16 @@ export function aggregate(records: CanonRecord[]): Aggregations {
     .sort((a, b) => a.cidade.localeCompare(b.cidade, "pt-BR"));
 
   // Evolução mensal
-  const monthly: Record<string, {
-    validacoes: number;
-    trocas: number;
-    semTroca: number;
-    instalacoes: number;
-    autorizacoes: number;
-  }> = {};
+  const monthly: Record<
+    string,
+    {
+      validacoes: number;
+      trocas: number;
+      semTroca: number;
+      instalacoes: number;
+      autorizacoes: number;
+    }
+  > = {};
   const ensure = (k: string) => {
     if (!monthly[k])
       monthly[k] = {
@@ -434,8 +441,7 @@ export function aggregate(records: CanonRecord[]): Aggregations {
     .map(([monthKey, v]) => ({
       monthKey,
       ...v,
-      taxaAutorizacao:
-        v.validacoes > 0 ? (v.autorizacoes * 100) / v.validacoes : 0,
+      taxaAutorizacao: v.validacoes > 0 ? (v.autorizacoes * 100) / v.validacoes : 0,
     }));
 
   const now = new Date();
@@ -455,10 +461,7 @@ export function aggregate(records: CanonRecord[]): Aggregations {
     totalSemTroca: semTroca.length,
     totalNaoInformado: naoInformado.length,
     totalAutorizacoes: autorizacoesNoc.length,
-    taxaAutorizacao:
-      validacoes.length > 0
-        ? (autorizacoesNoc.length * 100) / validacoes.length
-        : 0,
+    taxaAutorizacao: validacoes.length > 0 ? (autorizacoesNoc.length * 100) / validacoes.length : 0,
     cidadesComTroca: Object.keys(cidadesCount).filter((c) => c !== "(sem cidade)"),
     tecnicosComTroca: Object.keys(tecnicosCount),
     esteMes,
@@ -476,7 +479,10 @@ export function aggregate(records: CanonRecord[]): Aggregations {
 
 export type PeriodPreset = "mes_atual" | "mes_anterior" | "ultimos_30" | "personalizado";
 
-export function computePeriod(preset: PeriodPreset, custom?: { start?: string; end?: string }): {
+export function computePeriod(
+  preset: PeriodPreset,
+  custom?: { start?: string; end?: string },
+): {
   startISO: string;
   endISO: string;
 } {
@@ -501,15 +507,16 @@ export function computePeriod(preset: PeriodPreset, custom?: { start?: string; e
   }
   // personalizado
   const s = custom?.start ? new Date(custom.start + "T00:00:00") : new Date();
-  const e = custom?.end
-    ? new Date(custom.end + "T00:00:00")
-    : new Date();
+  const e = custom?.end ? new Date(custom.end + "T00:00:00") : new Date();
   const eEnd = new Date(e);
   eEnd.setDate(eEnd.getDate() + 1);
   return { startISO: s.toISOString(), endISO: eEnd.toISOString() };
 }
 
-export function periodLabel(startISO: string, endISO: string): {
+export function periodLabel(
+  startISO: string,
+  endISO: string,
+): {
   startBR: string;
   endBR: string;
   fileSlug: string;
