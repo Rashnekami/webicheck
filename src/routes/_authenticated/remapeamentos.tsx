@@ -76,16 +76,18 @@ type RemapRow = {
 };
 
 async function listRemapeamentos(): Promise<RemapRow[]> {
-  const { data, error } = await supabase
-    .from("checklists")
-    .select("id,tecnico_id,cidade,finalizado_em,created_at,updated_at,review_status,rmap_code,numero_publico,codigo_validacao,dados,is_current,tipo,status")
-    .eq("tipo", "remapeamento_cto")
-    .eq("status", "finalizado")
-    .eq("is_current", true)
-    .order("finalizado_em", { ascending: false })
-    .limit(1000);
-  if (error) throw error;
-  const rows = (data ?? []) as any[];
+  const rows = await fetchAllPages<any>((from, to) =>
+    supabase
+      .from("checklists")
+      .select("id,tecnico_id,cidade,finalizado_em,created_at,updated_at,review_status,rmap_code,numero_publico,codigo_validacao,dados,is_current,tipo,status")
+      .eq("tipo", "remapeamento_cto")
+      .eq("status", "finalizado")
+      .eq("is_current", true)
+      .order("finalizado_em", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to),
+  );
+
   const ids = [...new Set(rows.map((r) => r.tecnico_id))];
   const { data: profiles } = ids.length
     ? await supabase.from("profiles").select("id, full_name").in("id", ids)
