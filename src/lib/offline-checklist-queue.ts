@@ -128,3 +128,14 @@ export async function drainPendingChecklistUpdates(
   }
   return { synced, failed };
 }
+
+/** Apaga toda a fila local — chamado ao sair da conta, para que edições
+ *  pendentes de um técnico nunca fiquem visíveis (ou sejam enviadas) por
+ *  outro usuário que logar no mesmo aparelho. */
+export async function clearAllPendingChecklistUpdates(): Promise<void> {
+  try {
+    await withStore("readwrite", (store) => store.clear());
+  } catch {
+    /* sem IndexedDB disponível — nada a limpar */
+  }
+}
