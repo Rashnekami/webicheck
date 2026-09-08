@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabase-paginate";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useArcgisBrowserKey } from "@/lib/use-arcgis-key";
 import {
@@ -87,18 +88,20 @@ type IntervRow = {
 };
 
 async function listIntervencoes(): Promise<IntervRow[]> {
-  const { data, error } = await supabase
-    .from("checklists")
-    .select(
-      "id,tipo,tecnico_id,cidade,os,cliente,finalizado_em,review_status,intervention_code,numero_publico,codigo_validacao,dados,is_current,status",
-    )
-    .in("tipo", TIPOS_INTERVENCAO)
-    .eq("status", "finalizado")
-    .eq("is_current", true)
-    .order("finalizado_em", { ascending: false })
-    .limit(1000);
-  if (error) throw error;
-  const rows = (data ?? []) as unknown as IntervRow[];
+  const rows = (await fetchAllPages<any>((from, to) =>
+    supabase
+      .from("checklists")
+      .select(
+        "id,tipo,tecnico_id,cidade,os,cliente,finalizado_em,review_status,intervention_code,numero_publico,codigo_validacao,dados,is_current,status",
+      )
+      .in("tipo", TIPOS_INTERVENCAO)
+      .eq("status", "finalizado")
+      .eq("is_current", true)
+      .order("finalizado_em", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to),
+  )) as unknown as IntervRow[];
+
   const ids = [...new Set(rows.map((r) => r.tecnico_id))];
   const { data: profiles } = ids.length
     ? await supabase.from("profiles").select("id, full_name").in("id", ids)
