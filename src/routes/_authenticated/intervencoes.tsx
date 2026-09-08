@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPages } from "@/lib/supabase-paginate";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useArcgisBrowserKey } from "@/lib/use-arcgis-key";
 import {
