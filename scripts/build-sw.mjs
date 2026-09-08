@@ -5,9 +5,12 @@ import { generateSW } from "workbox-build";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-const outDir = path.resolve(".output/public");
-if (!existsSync(outDir)) {
-  console.warn("[pwa] .output/public não existe — service worker não gerado.");
+// O diretório publicado varia conforme o preset do build (dist/client com o
+// preset cloudflare, .output/public em outros). Usa o primeiro que existir.
+const candidates = [".output/public", "dist/client"].map((dir) => path.resolve(dir));
+const outDir = candidates.find((dir) => existsSync(dir));
+if (!outDir) {
+  console.warn("[pwa] diretório público não encontrado — service worker não gerado.");
   process.exit(0);
 }
 
@@ -67,4 +70,4 @@ const { count, size, warnings } = await generateSW({
 });
 
 for (const warning of warnings) console.warn("[pwa]", warning);
-console.log(`[pwa] sw.js gerado em .output/public — ${count} arquivos, ${(size / 1024).toFixed(0)} kB.`);
+console.log(`[pwa] sw.js gerado em ${path.relative(process.cwd(), outDir)} — ${count} arquivos, ${(size / 1024).toFixed(0)} kB.`);
