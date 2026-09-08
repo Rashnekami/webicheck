@@ -239,6 +239,8 @@ function Painel() {
   async function handleSignOut() {
     await qc.cancelQueries();
     qc.clear();
+    const { clearAllPendingChecklistUpdates } = await import("@/lib/offline-checklist-queue");
+    await clearAllPendingChecklistUpdates();
     await supabase.auth.signOut();
     toast.success("Sessão encerrada.");
     navigate({ to: "/auth", replace: true });

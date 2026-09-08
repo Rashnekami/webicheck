@@ -48,24 +48,44 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     const isPlatformAdmin = Boolean(actor?.platform_admin);
     const actorProviderId = actor?.provider_id ?? null;
 
-    const authUsers: Array<{
+    type AuthUserLite = {
       id: string;
       email?: string;
       created_at: string;
       last_sign_in_at?: string | null;
       email_confirmed_at?: string | null;
       user_metadata?: { full_name?: string };
-    }> = [];
+    };
+    const authUsers: AuthUserLite[] = [];
 
-    const perPage = 200;
-    for (let page = 1; ; page += 1) {
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-        page,
-        perPage,
-      });
-      if (error) throw new Error(error.message);
-      authUsers.push(...data.users);
-      if (data.users.length < perPage) break;
+    if (isPlatformAdmin) {
+      // Dono da plataforma precisa mesmo da lista completa.
+      const perPage = 200;
+      for (let page = 1; ; page += 1) {
+        const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+        if (error) throw new Error(error.message);
+        authUsers.push(...(data.users as AuthUserLite[]));
+        if (data.users.length < perPage) break;
+      }
+    } else {
+      // Admin de provedor: parte dos perfis do próprio provedor e busca só
+      // esses usuários de autenticação, em vez de varrer todos os provedores.
+      const { data: providerProfiles, error: providerProfilesError } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("provider_id", actorProviderId ?? "");
+      if (providerProfilesError) throw new Error(providerProfilesError.message);
+      const providerIds = (providerProfiles ?? []).map((row) => row.id as string);
+      const batchSize = 20;
+      for (let start = 0; start < providerIds.length; start += batchSize) {
+        const batch = providerIds.slice(start, start + batchSize);
+        const results = await Promise.all(
+          batch.map((id) => supabaseAdmin.auth.admin.getUserById(id)),
+        );
+        for (const result of results) {
+          if (result.data?.user) authUsers.push(result.data.user as AuthUserLite);
+        }
+      }
     }
 
     const ids = authUsers.map((user) => user.id);
