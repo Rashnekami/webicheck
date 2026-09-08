@@ -25,6 +25,7 @@ import {
   Menu,
   GraduationCap,
   StickyNote,
+  Activity,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -412,12 +413,20 @@ function Painel() {
                 </SheetHeader>
                 <div className="mt-4 grid gap-3">
                   {user.isAdmin && (
-                    <HomeNavCard
-                      to="/dashboard"
-                      icon={BarChart3}
-                      title="Dashboard"
-                      description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
-                    />
+                    <>
+                      <HomeNavCard
+                        to="/dashboard"
+                        icon={BarChart3}
+                        title="Dashboard"
+                        description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
+                      />
+                      <HomeNavCard
+                        to="/sinais"
+                        icon={Activity}
+                        title="Auditoria de sinais"
+                        description="CSV da SmartOLT, reparos por cidade e causas de degradação — área privada."
+                      />
+                    </>
                   )}
                   {(user.isAdmin || user.isSupervisor || user.isPlatformAdmin) && (
                     <HomeNavCard

@@ -22,6 +22,7 @@ import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$tok
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
 import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
+import { Route as AuthenticatedSinaisRouteImport } from './routes/_authenticated/sinais'
 import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedProdutividadeRouteImport } from './routes/_authenticated/produtividade'
@@ -113,6 +114,11 @@ const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
 const AuthenticatedSegurancaRoute = AuthenticatedSegurancaRouteImport.update({
   id: '/seguranca',
   path: '/seguranca',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSinaisRoute = AuthenticatedSinaisRouteImport.update({
+  id: '/sinais',
+  path: '/sinais',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRemapeamentosRoute =
@@ -296,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/seguranca': typeof AuthenticatedSegurancaRoute
+  '/sinais': typeof AuthenticatedSinaisRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -338,6 +345,7 @@ export interface FileRoutesByTo {
   '/provedor': typeof AuthenticatedProvedorRoute
   '/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/seguranca': typeof AuthenticatedSegurancaRoute
+  '/sinais': typeof AuthenticatedSinaisRoute
   '/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -382,6 +390,7 @@ export interface FileRoutesById {
   '/_authenticated/provedor': typeof AuthenticatedProvedorRoute
   '/_authenticated/remapeamentos': typeof AuthenticatedRemapeamentosRoute
   '/_authenticated/seguranca': typeof AuthenticatedSegurancaRoute
+  '/_authenticated/sinais': typeof AuthenticatedSinaisRoute
   '/_authenticated/trocas-ont': typeof AuthenticatedTrocasOntRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/contra-prova/$token': typeof ContraProvaTokenRoute
@@ -426,6 +435,7 @@ export interface FileRouteTypes {
     | '/provedor'
     | '/remapeamentos'
     | '/seguranca'
+    | '/sinais'
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
@@ -468,6 +478,7 @@ export interface FileRouteTypes {
     | '/provedor'
     | '/remapeamentos'
     | '/seguranca'
+    | '/sinais'
     | '/trocas-ont'
     | '/usuarios'
     | '/contra-prova/$token'
@@ -645,6 +656,13 @@ declare module '@tanstack/react-router' {
       path: '/seguranca'
       fullPath: '/seguranca'
       preLoaderRoute: typeof AuthenticatedSegurancaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sinais': {
+      id: '/_authenticated/sinais'
+      path: '/sinais'
+      fullPath: '/sinais'
+      preLoaderRoute: typeof AuthenticatedSinaisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/remapeamentos': {
@@ -861,6 +879,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProvedorRoute: typeof AuthenticatedProvedorRoute
   AuthenticatedRemapeamentosRoute: typeof AuthenticatedRemapeamentosRoute
   AuthenticatedSegurancaRoute: typeof AuthenticatedSegurancaRoute
+  AuthenticatedSinaisRoute: typeof AuthenticatedSinaisRoute
   AuthenticatedTrocasOntRoute: typeof AuthenticatedTrocasOntRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
   AuthenticatedAvaliacoesIdRoute: typeof AuthenticatedAvaliacoesIdRoute
@@ -888,6 +907,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProvedorRoute: AuthenticatedProvedorRoute,
   AuthenticatedRemapeamentosRoute: AuthenticatedRemapeamentosRoute,
   AuthenticatedSegurancaRoute: AuthenticatedSegurancaRoute,
+  AuthenticatedSinaisRoute: AuthenticatedSinaisRoute,
   AuthenticatedTrocasOntRoute: AuthenticatedTrocasOntRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
   AuthenticatedAvaliacoesIdRoute: AuthenticatedAvaliacoesIdRoute,
