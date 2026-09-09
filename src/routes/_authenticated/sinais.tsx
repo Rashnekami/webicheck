@@ -70,12 +70,16 @@ import {
   causeLabel,
   causeNeedsInfra,
   importSignalAudit,
+  isSignalCritical,
+  isSignalProblem,
   issueLabel,
   listSignalCases,
   listSignalEvents,
   listSignalImports,
   mergeSignalPreviews,
   parseSmartOltCsv,
+  summarizeSignalCities,
+  summarizeSignalCity,
   updateSignalCase,
   type SignalCase,
   type SignalCause,
@@ -84,11 +88,8 @@ import {
   type SignalIssueKind,
   type SignalStatus,
 } from "@/lib/signal-audit";
-import {
-  listSignalCampaignCases,
-  listSignalCampaigns,
-  lockSignalCampaign,
-} from "@/lib/signal-campaigns";
+import { listSignalCampaigns, lockSignalCampaign } from "@/lib/signal-campaigns";
+
 import {
   listSignalAiAnalyses,
   listSignalTechnicians,
@@ -175,11 +176,6 @@ function SignalAudit() {
     queryFn: listSignalCampaigns,
     enabled: !!user?.isAdmin,
   });
-  const campaignCasesQuery = useQuery({
-    queryKey: ["signal-campaign-cases"],
-    queryFn: () => listSignalCampaignCases(),
-    enabled: !!user?.isAdmin,
-  });
   const techniciansQuery = useQuery({
     queryKey: ["signal-technicians"],
     queryFn: () => listSignalTechnicians(),
@@ -250,7 +246,6 @@ function SignalAudit() {
 
   const cases = useMemo(() => casesQuery.data ?? [], [casesQuery.data]);
   const campaigns = useMemo(() => campaignsQuery.data ?? [], [campaignsQuery.data]);
-  const campaignCases = useMemo(() => campaignCasesQuery.data ?? [], [campaignCasesQuery.data]);
   const current = useMemo(() => cases.filter((item) => item.present_in_latest_import), [cases]);
 
   const grCity = city === "todas" ? "Telêmaco Borba" : city;
@@ -258,75 +253,70 @@ function SignalAudit() {
     () => campaigns.find((item) => item.city === grCity && item.status !== "closed") ?? null,
     [campaigns, grCity],
   );
-  const activeBaseline = useMemo(
-    () => campaignCases.filter((item) => item.campaign_id === activeCampaign?.id),
-    [campaignCases, activeCampaign?.id],
-  );
-  const caseById = useMemo(() => new Map(cases.map((item) => [item.id, item])), [cases]);
 
+  // Base consolidada: todos os casos conhecidos da cidade, sem depender do
+  // limite de 1000 linhas do PostgREST nem apenas do último lote importado.
+  const citySummaries = useMemo(() => summarizeSignalCities(cases), [cases]);
   const gr = useMemo(() => {
-    const baseline = activeBaseline.length;
-    let closed = 0;
-    let inOs = 0;
-    let normalized = 0;
-    let critical = 0;
-    let infra = 0;
-    for (const base of activeBaseline) {
-      const item = caseById.get(base.signal_case_id);
-      if (!item) continue;
-      if (item.status === "encerrado") closed += 1;
-      if (item.status === "em_andamento") inOs += 1;
-      if (!item.present_in_latest_import) normalized += 1;
-      if (item.present_in_latest_import && item.status !== "encerrado" && item.severity === "critico") critical += 1;
-      if (item.status !== "encerrado" && causeNeedsInfra(item.cause)) infra += 1;
-    }
+    const summary = summarizeSignalCity(cases, grCity);
+    const infra = cases.filter(
+      (item) => item.city === grCity && item.status !== "encerrado" && causeNeedsInfra(item.cause),
+    ).length;
     return {
-      baseline,
-      closed,
-      inOs,
-      normalized,
-      critical,
+      ...summary,
       infra,
-      progress: baseline ? Math.round((closed / baseline) * 1000) / 10 : 0,
+      progress: summary.baseline ? Math.round((summary.closed / summary.baseline) * 1000) / 10 : 0,
     };
-  }, [activeBaseline, caseById]);
+  }, [cases, grCity]);
 
   const boardStats = useMemo(() => {
-    const grouped = new Map<string, { board: string; baseline: number; closed: number; current: number; critical: number; normalized: number }>();
-    for (const base of activeBaseline) {
-      const key = base.board || "—";
-      const row = grouped.get(key) ?? { board: key, baseline: 0, closed: 0, current: 0, critical: 0, normalized: 0 };
+    const grouped = new Map<
+      string,
+      { board: string; baseline: number; closed: number; current: number; critical: number; normalized: number }
+    >();
+    for (const item of cases) {
+      if (item.city !== grCity) continue;
+      const key = (item.board || "").trim() || "—";
+      const row =
+        grouped.get(key) ?? { board: key, baseline: 0, closed: 0, current: 0, critical: 0, normalized: 0 };
       row.baseline += 1;
-      const item = caseById.get(base.signal_case_id);
-      if (item) {
-        if (item.status === "encerrado") row.closed += 1;
-        if (item.present_in_latest_import) row.current += 1;
-        if (!item.present_in_latest_import) row.normalized += 1;
-        if (item.present_in_latest_import && item.status !== "encerrado" && item.severity === "critico") row.critical += 1;
+      if (item.status === "encerrado") row.closed += 1;
+      if (item.present_in_latest_import) row.current += 1;
+      else row.normalized += 1;
+      if (item.present_in_latest_import && item.status !== "encerrado" && isSignalCritical(item)) {
+        row.critical += 1;
       }
       grouped.set(key, row);
     }
     return Array.from(grouped.values())
-      .map((item) => ({ ...item, progress: item.baseline ? Math.round((item.closed / item.baseline) * 1000) / 10 : 0 }))
+      .map((item) => ({
+        ...item,
+        progress: item.baseline ? Math.round((item.closed / item.baseline) * 1000) / 10 : 0,
+      }))
       .sort((a, b) => Number(a.board) - Number(b.board));
-  }, [activeBaseline, caseById]);
+  }, [cases, grCity]);
 
   const availableBoards = useMemo(
     () => Array.from(new Set(cases.filter((item) => city === "todas" || item.city === city).map((item) => item.board).filter(Boolean))).sort((a, b) => Number(a) - Number(b)),
     [cases, city],
   );
 
-  const totals = useMemo(
-    () => ({
-      current: current.length,
-      critical: current.filter((item) => item.severity === "critico").length,
-      imbalance: current.filter((item) => item.issue_kind === "desequilibrio" || item.issue_kind === "ambos").length,
-      low: current.filter((item) => item.issue_kind === "sinal_ruim" || item.issue_kind === "ambos").length,
-      infra: cases.filter((item) => item.status !== "encerrado" && causeNeedsInfra(item.cause)).length,
-      closed: cases.filter((item) => item.status === "encerrado").length,
-    }),
-    [cases, current],
-  );
+  const totals = useMemo(() => {
+    const scope = city === "todas" ? current : current.filter((item) => item.city === city);
+    const problems = scope.filter((item) => isSignalProblem(item));
+    const historic = city === "todas" ? cases : cases.filter((item) => item.city === city);
+    return {
+      baseline: historic.length,
+      current: problems.length,
+      critical: problems.filter((item) => isSignalCritical(item)).length,
+      criticalPending: problems.filter((item) => isSignalCritical(item) && item.status !== "encerrado").length,
+      imbalance: problems.filter((item) => item.difference_db > 3).length,
+      low: problems.filter((item) => item.signal_1310 <= -25 || item.signal_1490 <= -25).length,
+      infra: historic.filter((item) => item.status !== "encerrado" && causeNeedsInfra(item.cause)).length,
+      closed: historic.filter((item) => item.status === "encerrado").length,
+    };
+  }, [cases, current, city]);
+
 
   const causes = useMemo(() => {
     const counts = new Map<string, number>();
@@ -432,7 +422,7 @@ function SignalAudit() {
   }
   if (!user.isAdmin) return null;
 
-  const dataError = importsQuery.error || casesQuery.error || campaignsQuery.error || campaignCasesQuery.error;
+  const dataError = importsQuery.error || casesQuery.error || campaignsQuery.error;
   const latestAi = aiQuery.data?.[0];
 
   return (
@@ -468,23 +458,23 @@ function SignalAudit() {
                   </Badge>
                 </div>
                 <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <HeroNumber label="Baseline" value={gr.baseline} />
+                  <HeroNumber label="Baseline consolidada" value={gr.baseline} />
                   <HeroNumber label="Encerrados" value={gr.closed} />
-                  <HeroNumber label="Em OS" value={gr.inOs} />
+                  <HeroNumber label="Em OS" value={gr.inProgress} />
                   <HeroNumber label="Avanço" value={pct(gr.progress)} />
                 </div>
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/20">
                   <div className="h-full rounded-full bg-white transition-all" style={{ width: `${Math.min(gr.progress, 100)}%` }} />
                 </div>
                 <p className="mt-2 text-sm opacity-85">
-                  O baseline permanece no histórico. Novas coletas atualizam a condição atual sem apagar o tamanho original do problema.
+                  Baseline = todos os clientes com estado óptico conhecido nas placas já monitoradas. Novas coletas atualizam a condição atual sem apagar o histórico.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-2">
-                <ImpactCell label="Críticos pendentes" value={gr.critical} tone="danger" />
+                <ImpactCell label="Críticos pendentes" value={gr.criticalPending} tone="danger" />
                 <ImpactCell label="Normalizados na coleta" value={gr.normalized} tone="success" />
                 <ImpactCell label="Infra / rede" value={gr.infra} tone="infra" />
-                <ImpactCell label="Placas no baseline" value={boardStats.length} />
+                <ImpactCell label="Placas monitoradas" value={gr.plates} />
               </div>
             </div>
             {activeCampaign?.status === "building" && boardStats.length > 0 && (
@@ -499,13 +489,54 @@ function SignalAudit() {
         </Card>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <MetricCard label="Ruins agora" value={totals.current} icon={Activity} />
+          <MetricCard label="Baseline consolidada" value={totals.baseline} icon={ShieldCheck} />
+          <MetricCard label="Clientes com problema agora" value={totals.current} icon={Activity} />
           <MetricCard label="Críticos agora" value={totals.critical} icon={AlertTriangle} tone="danger" />
-          <MetricCard label="Diferença >3 dB" value={totals.imbalance} icon={BarChart3} tone="warning" />
-          <MetricCard label="1490 ≤ -25" value={totals.low} icon={CircleDot} tone="warning" />
+          <MetricCard label="Críticos pendentes" value={totals.criticalPending} icon={CircleDot} tone="danger" />
           <MetricCard label="Infra pendente" value={totals.infra} icon={Network} tone="infra" />
           <MetricCard label="Encerrados total" value={totals.closed} icon={CheckCircle2} tone="success" />
         </section>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="h-5 w-5" /> Resumo por cidade
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cidade</TableHead>
+                    <TableHead>Placas monitoradas</TableHead>
+                    <TableHead>Baseline consolidada</TableHead>
+                    <TableHead>Com problema agora</TableHead>
+                    <TableHead>Críticos agora</TableHead>
+                    <TableHead>Críticos pendentes</TableHead>
+                    <TableHead>Em andamento</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {citySummaries.map((item) => (
+                    <TableRow key={item.city}>
+                      <TableCell className="font-semibold">{item.city}</TableCell>
+                      <TableCell>{item.plates === 1 ? "1 placa monitorada" : `${item.plates} placas monitoradas`}</TableCell>
+                      <TableCell>{item.baseline.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>{item.problemsNow.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>{item.criticalNow.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.criticalPending ? "destructive" : "secondary"}>{item.criticalPending}</Badge>
+                      </TableCell>
+                      <TableCell>{item.inProgress.toLocaleString("pt-BR")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
 
         <Card className="border-primary/20">
           <CardContent className="space-y-4 p-5">

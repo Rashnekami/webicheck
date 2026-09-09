@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { SignalCampaign, SignalCampaignCase } from "@/lib/signal-audit";
+import { fetchAllPages } from "@/lib/supabase-paginate";
 
 // Tipos gerados serão atualizados após a próxima regeneração do schema.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,13 +16,19 @@ export async function listSignalCampaigns(): Promise<SignalCampaign[]> {
 }
 
 export async function listSignalCampaignCases(campaignId?: string): Promise<SignalCampaignCase[]> {
-  let query = db
-    .from("signal_campaign_cases")
-    .select("campaign_id, signal_case_id, city, board, port, baseline_signal_1310, baseline_signal_1490, baseline_difference_db, baseline_issue_kind, baseline_severity, first_seen_at");
-  if (campaignId) query = query.eq("campaign_id", campaignId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as SignalCampaignCase[];
+  // PostgREST devolve no máximo 1000 linhas por requisição: sem paginação o
+  // baseline ficava travado em 1000 e escondia placas inteiras.
+  return fetchAllPages<SignalCampaignCase>(async (from, to) => {
+    let query = db
+      .from("signal_campaign_cases")
+      .select(
+        "campaign_id, signal_case_id, city, board, port, baseline_signal_1310, baseline_signal_1490, baseline_difference_db, baseline_issue_kind, baseline_severity, first_seen_at",
+      )
+      .order("first_seen_at", { ascending: true })
+      .range(from, to);
+    if (campaignId) query = query.eq("campaign_id", campaignId);
+    return query;
+  });
 }
 
 export async function lockSignalCampaign(campaignId: string) {

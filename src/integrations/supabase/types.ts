@@ -2748,6 +2748,568 @@ export type Database = {
         }
         Relationships: []
       }
+      signal_ai_analyses: {
+        Row: {
+          analysis: Json
+          city: string | null
+          created_at: string
+          id: string
+          input_snapshot: Json
+          model: string
+          owner_id: string
+          provider_id: string
+        }
+        Insert: {
+          analysis: Json
+          city?: string | null
+          created_at?: string
+          id?: string
+          input_snapshot: Json
+          model: string
+          owner_id: string
+          provider_id: string
+        }
+        Update: {
+          analysis?: Json
+          city?: string | null
+          created_at?: string
+          id?: string
+          input_snapshot?: Json
+          model?: string
+          owner_id?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_ai_analyses_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_campaign_cases: {
+        Row: {
+          baseline_difference_db: number
+          baseline_issue_kind: string
+          baseline_severity: string
+          baseline_signal_1310: number
+          baseline_signal_1490: number
+          board: string | null
+          campaign_id: string
+          city: string
+          first_seen_at: string
+          port: string | null
+          provider_id: string
+          signal_case_id: string
+        }
+        Insert: {
+          baseline_difference_db: number
+          baseline_issue_kind: string
+          baseline_severity: string
+          baseline_signal_1310: number
+          baseline_signal_1490: number
+          board?: string | null
+          campaign_id: string
+          city: string
+          first_seen_at?: string
+          port?: string | null
+          provider_id: string
+          signal_case_id: string
+        }
+        Update: {
+          baseline_difference_db?: number
+          baseline_issue_kind?: string
+          baseline_severity?: string
+          baseline_signal_1310?: number
+          baseline_signal_1490?: number
+          board?: string | null
+          campaign_id?: string
+          city?: string
+          first_seen_at?: string
+          port?: string | null
+          provider_id?: string
+          signal_case_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_campaign_cases_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "signal_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_campaign_cases_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_campaign_cases_signal_case_id_fkey"
+            columns: ["signal_case_id"]
+            isOneToOne: false
+            referencedRelation: "signal_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_campaigns: {
+        Row: {
+          baseline_locked_at: string | null
+          city: string
+          closed_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          provider_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          baseline_locked_at?: string | null
+          city: string
+          closed_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          provider_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          baseline_locked_at?: string | null
+          city?: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          provider_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_campaigns_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_case_events: {
+        Row: {
+          assigned_technician_name: string | null
+          cause: string | null
+          created_at: string
+          hubsoft_os: string | null
+          id: string
+          notes: string | null
+          owner_id: string
+          provider_id: string
+          signal_case_id: string
+          status: string
+        }
+        Insert: {
+          assigned_technician_name?: string | null
+          cause?: string | null
+          created_at?: string
+          hubsoft_os?: string | null
+          id?: string
+          notes?: string | null
+          owner_id: string
+          provider_id: string
+          signal_case_id: string
+          status: string
+        }
+        Update: {
+          assigned_technician_name?: string | null
+          cause?: string | null
+          created_at?: string
+          hubsoft_os?: string | null
+          id?: string
+          notes?: string | null
+          owner_id?: string
+          provider_id?: string
+          signal_case_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_case_events_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_case_events_signal_case_id_fkey"
+            columns: ["signal_case_id"]
+            isOneToOne: false
+            referencedRelation: "signal_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_cases: {
+        Row: {
+          address: string | null
+          allocated_onu: string | null
+          assigned_technician_id: string | null
+          assigned_technician_name: string | null
+          board: string | null
+          campaign_id: string | null
+          cause: string | null
+          city: string
+          closed_at: string | null
+          customer_name: string
+          difference_db: number
+          final_difference_db: number | null
+          final_signal_1310: number | null
+          final_signal_1490: number | null
+          first_seen_at: string
+          hubsoft_os: string | null
+          id: string
+          issue_kind: string
+          last_seen_at: string
+          latest_import_id: string
+          notes: string | null
+          odb: string | null
+          odb_port: string | null
+          olt: string | null
+          onu_external_id: string | null
+          onu_type: string | null
+          owner_id: string
+          port: string | null
+          present_in_latest_import: boolean
+          provider_id: string
+          recurrence_count: number
+          severity: string
+          signal_1310: number
+          signal_1490: number
+          sn: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          zone: string | null
+        }
+        Insert: {
+          address?: string | null
+          allocated_onu?: string | null
+          assigned_technician_id?: string | null
+          assigned_technician_name?: string | null
+          board?: string | null
+          campaign_id?: string | null
+          cause?: string | null
+          city: string
+          closed_at?: string | null
+          customer_name: string
+          difference_db: number
+          final_difference_db?: number | null
+          final_signal_1310?: number | null
+          final_signal_1490?: number | null
+          first_seen_at?: string
+          hubsoft_os?: string | null
+          id?: string
+          issue_kind: string
+          last_seen_at?: string
+          latest_import_id: string
+          notes?: string | null
+          odb?: string | null
+          odb_port?: string | null
+          olt?: string | null
+          onu_external_id?: string | null
+          onu_type?: string | null
+          owner_id: string
+          port?: string | null
+          present_in_latest_import?: boolean
+          provider_id: string
+          recurrence_count?: number
+          severity?: string
+          signal_1310: number
+          signal_1490: number
+          sn: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          zone?: string | null
+        }
+        Update: {
+          address?: string | null
+          allocated_onu?: string | null
+          assigned_technician_id?: string | null
+          assigned_technician_name?: string | null
+          board?: string | null
+          campaign_id?: string | null
+          cause?: string | null
+          city?: string
+          closed_at?: string | null
+          customer_name?: string
+          difference_db?: number
+          final_difference_db?: number | null
+          final_signal_1310?: number | null
+          final_signal_1490?: number | null
+          first_seen_at?: string
+          hubsoft_os?: string | null
+          id?: string
+          issue_kind?: string
+          last_seen_at?: string
+          latest_import_id?: string
+          notes?: string | null
+          odb?: string | null
+          odb_port?: string | null
+          olt?: string | null
+          onu_external_id?: string | null
+          onu_type?: string | null
+          owner_id?: string
+          port?: string | null
+          present_in_latest_import?: boolean
+          provider_id?: string
+          recurrence_count?: number
+          severity?: string
+          signal_1310?: number
+          signal_1490?: number
+          sn?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          zone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_cases_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "signal_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_cases_latest_import_id_fkey"
+            columns: ["latest_import_id"]
+            isOneToOne: false
+            referencedRelation: "signal_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_cases_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_imports: {
+        Row: {
+          campaign_id: string | null
+          city: string
+          city_counts: Json
+          created_at: string
+          difference_threshold_db: number
+          flagged_row_count: number
+          id: string
+          low_signal_threshold_dbm: number
+          owner_id: string
+          plate_count: number
+          provider_id: string
+          source_files: Json
+          source_name: string
+          source_row_count: number
+          valid_row_count: number
+        }
+        Insert: {
+          campaign_id?: string | null
+          city: string
+          city_counts?: Json
+          created_at?: string
+          difference_threshold_db?: number
+          flagged_row_count?: number
+          id?: string
+          low_signal_threshold_dbm?: number
+          owner_id: string
+          plate_count?: number
+          provider_id: string
+          source_files?: Json
+          source_name: string
+          source_row_count?: number
+          valid_row_count?: number
+        }
+        Update: {
+          campaign_id?: string | null
+          city?: string
+          city_counts?: Json
+          created_at?: string
+          difference_threshold_db?: number
+          flagged_row_count?: number
+          id?: string
+          low_signal_threshold_dbm?: number
+          owner_id?: string
+          plate_count?: number
+          provider_id?: string
+          source_files?: Json
+          source_name?: string
+          source_row_count?: number
+          valid_row_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_imports_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "signal_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_imports_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_measurements: {
+        Row: {
+          city: string
+          difference_db: number
+          id: string
+          import_id: string
+          issue_kind: string
+          measured_at: string
+          owner_id: string
+          provider_id: string
+          severity: string
+          signal_1310: number
+          signal_1490: number
+          signal_case_id: string
+        }
+        Insert: {
+          city: string
+          difference_db: number
+          id?: string
+          import_id: string
+          issue_kind: string
+          measured_at?: string
+          owner_id: string
+          provider_id: string
+          severity: string
+          signal_1310: number
+          signal_1490: number
+          signal_case_id: string
+        }
+        Update: {
+          city?: string
+          difference_db?: number
+          id?: string
+          import_id?: string
+          issue_kind?: string
+          measured_at?: string
+          owner_id?: string
+          provider_id?: string
+          severity?: string
+          signal_1310?: number
+          signal_1490?: number
+          signal_case_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_measurements_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "signal_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_measurements_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_measurements_signal_case_id_fkey"
+            columns: ["signal_case_id"]
+            isOneToOne: false
+            referencedRelation: "signal_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_pon_stats: {
+        Row: {
+          board: string
+          city: string
+          created_at: string
+          critical_onus: number
+          flagged_onus: number
+          flagged_percent: number
+          id: string
+          import_id: string
+          infra_suspect: boolean
+          median_difference_db: number | null
+          median_signal_1490: number | null
+          olt: string | null
+          port: string
+          provider_id: string
+          total_onus: number
+        }
+        Insert: {
+          board: string
+          city: string
+          created_at?: string
+          critical_onus?: number
+          flagged_onus: number
+          flagged_percent?: number
+          id?: string
+          import_id: string
+          infra_suspect?: boolean
+          median_difference_db?: number | null
+          median_signal_1490?: number | null
+          olt?: string | null
+          port: string
+          provider_id: string
+          total_onus: number
+        }
+        Update: {
+          board?: string
+          city?: string
+          created_at?: string
+          critical_onus?: number
+          flagged_onus?: number
+          flagged_percent?: number
+          id?: string
+          import_id?: string
+          infra_suspect?: boolean
+          median_difference_db?: number | null
+          median_signal_1490?: number | null
+          olt?: string | null
+          port?: string
+          provider_id?: string
+          total_onus?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_pon_stats_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "signal_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_pon_stats_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supervisor_cities: {
         Row: {
           city: string
@@ -4206,6 +4768,17 @@ export type Database = {
         Returns: boolean
       }
       has_whistleblower_access: { Args: { _user_id: string }; Returns: boolean }
+      import_signal_audit: {
+        Args: {
+          _city: string
+          _rows: Json
+          _source_files: Json
+          _source_name: string
+          _source_row_count: number
+          _valid_row_count: number
+        }
+        Returns: string
+      }
       is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_supervisor_of: {
         Args: { _supervisor: string; _tecnico: string }
@@ -4290,6 +4863,10 @@ export type Database = {
           review_status: string
         }[]
       }
+      save_signal_pon_stats: {
+        Args: { _import_id: string; _stats: Json }
+        Returns: undefined
+      }
       supervisor_can_see_checklist: {
         Args: {
           _city: string
@@ -4302,6 +4879,66 @@ export type Database = {
       supervisor_covers_city: {
         Args: { _city: string; _supervisor: string }
         Returns: boolean
+      }
+      update_signal_case: {
+        Args: {
+          _assigned_technician_id?: string
+          _assigned_technician_name?: string
+          _case_id: string
+          _cause?: string
+          _final_signal_1310?: number
+          _final_signal_1490?: number
+          _hubsoft_os?: string
+          _notes?: string
+          _status: string
+        }
+        Returns: {
+          address: string | null
+          allocated_onu: string | null
+          assigned_technician_id: string | null
+          assigned_technician_name: string | null
+          board: string | null
+          campaign_id: string | null
+          cause: string | null
+          city: string
+          closed_at: string | null
+          customer_name: string
+          difference_db: number
+          final_difference_db: number | null
+          final_signal_1310: number | null
+          final_signal_1490: number | null
+          first_seen_at: string
+          hubsoft_os: string | null
+          id: string
+          issue_kind: string
+          last_seen_at: string
+          latest_import_id: string
+          notes: string | null
+          odb: string | null
+          odb_port: string | null
+          olt: string | null
+          onu_external_id: string | null
+          onu_type: string | null
+          owner_id: string
+          port: string | null
+          present_in_latest_import: boolean
+          provider_id: string
+          recurrence_count: number
+          severity: string
+          signal_1310: number
+          signal_1490: number
+          sn: string
+          started_at: string | null
+          status: string
+          updated_at: string
+          zone: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "signal_cases"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       user_can_access_city: {
         Args: { _city: string; _user_id: string }
