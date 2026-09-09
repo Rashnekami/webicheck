@@ -610,14 +610,15 @@ function SignalAudit() {
         ) : (
           <>
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5" /> Evolução por placa — {grCity}</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5" /> Evolução por placa — {city === "todas" ? "todas as cidades" : city}</CardTitle></CardHeader>
               <CardContent>
                 {boardStats.length ? (
                   <div className="overflow-x-auto rounded-lg border">
                     <Table>
-                      <TableHeader><TableRow><TableHead>Placa</TableHead><TableHead>Baseline</TableHead><TableHead>Críticos pendentes</TableHead><TableHead>Normalizados</TableHead><TableHead>Encerrados</TableHead><TableHead>Avanço</TableHead></TableRow></TableHeader>
+                      <TableHeader><TableRow><TableHead>Cidade</TableHead><TableHead>Placa</TableHead><TableHead>Baseline</TableHead><TableHead>Críticos pendentes</TableHead><TableHead>Normalizados</TableHead><TableHead>Encerrados</TableHead><TableHead>Avanço</TableHead></TableRow></TableHeader>
                       <TableBody>{boardStats.map((item) => (
-                        <TableRow key={item.board}>
+                        <TableRow key={`${item.city}-${item.board}`}>
+                          <TableCell className="font-medium">{item.city}</TableCell>
                           <TableCell className="font-semibold">Placa {item.board}</TableCell>
                           <TableCell>{item.baseline}</TableCell>
                           <TableCell><Badge variant={item.critical ? "destructive" : "secondary"}>{item.critical}</Badge></TableCell>
@@ -626,6 +627,7 @@ function SignalAudit() {
                           <TableCell className="min-w-44"><div className="flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full bg-emerald-500" style={{ width: `${Math.min(item.progress, 100)}%` }} /></div><strong>{pct(item.progress)}</strong></div></TableCell>
                         </TableRow>
                       ))}</TableBody>
+
                     </Table>
                   </div>
                 ) : <p className="py-8 text-center text-sm text-muted-foreground">A evolução por placa aparecerá a partir da primeira importação.</p>}
