@@ -783,7 +783,7 @@ function SignalAudit() {
                     <TableBody>
                       {paged.length ? paged.map((item) => {
                         const infra = causeNeedsInfra(item.cause);
-                        return <TableRow key={item.id} className={infra ? "bg-orange-50 hover:bg-orange-100/70" : undefined}>
+                        return <TableRow key={item.id} className={item.status === "encerrado" ? "bg-emerald-50 hover:bg-emerald-100/70" : infra ? "bg-orange-50 hover:bg-orange-100/70" : undefined}>
                           <TableCell className="min-w-60"><p className="font-medium">{item.customer_name}</p><p className="text-xs text-muted-foreground">SN {item.sn} · {item.city}</p>{!item.present_in_latest_import && <Badge variant="outline" className="mt-1 text-emerald-700">Normalizado na última coleta</Badge>}</TableCell>
                           <TableCell className="min-w-44"><p>{item.olt || "—"}</p><p className="text-xs text-muted-foreground">Placa {item.board || "—"} · PON {item.port || "—"}</p></TableCell>
                           <TableCell className="min-w-36 font-mono text-xs"><p>1310: {item.signal_1310.toFixed(2)}</p><p>1490: {item.signal_1490.toFixed(2)}</p><p className="font-semibold">Δ {item.difference_db.toFixed(2)} dB</p></TableCell>
