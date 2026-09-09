@@ -168,7 +168,23 @@ const normalizeHeader = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
-function parseCsv(text: string): string[][] {
+/** O SmartOLT exporta CSV com vírgula, ponto e vírgula ou tabulação conforme a região. */
+function detectDelimiter(text: string): string {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim() !== "") ?? "";
+  const candidates = [",", ";", "\t", "|"];
+  let best = ",";
+  let bestCount = 0;
+  for (const candidate of candidates) {
+    const count = firstLine.split(candidate).length - 1;
+    if (count > bestCount) {
+      best = candidate;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function parseCsv(text: string, delimiter = detectDelimiter(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -183,7 +199,7 @@ function parseCsv(text: string): string[][] {
       } else if (char === '"') quoted = false;
       else field += char;
     } else if (char === '"') quoted = true;
-    else if (char === ",") {
+    else if (char === delimiter) {
       row.push(field);
       field = "";
     } else if (char === "\n") {
