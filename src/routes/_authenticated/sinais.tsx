@@ -364,8 +364,12 @@ function SignalAudit() {
         if (board !== "todas" && item.board !== board) return false;
         if (status !== "todos" && item.status !== status) return false;
         if (issue !== "todos" && item.issue_kind !== issue) return false;
-        if (baseState === "atuais" && !item.present_in_latest_import) return false;
-        if (baseState === "normalizados" && item.present_in_latest_import) return false;
+        // "Ruins agora"/"Normalizados" descrevem apenas triagem do backlog.
+        // OS em andamento e encerradas nunca somem por causa da coleta.
+        if (item.status === "aberto") {
+          if (baseState === "atuais" && !item.present_in_latest_import) return false;
+          if (baseState === "normalizados" && item.present_in_latest_import) return false;
+        }
         if (!needle) return true;
         return [item.customer_name, item.sn, item.olt, item.board, item.port, item.zone, item.odb, item.hubsoft_os]
           .filter(Boolean)
