@@ -3241,6 +3241,38 @@ export type Database = {
           },
         ]
       }
+      signal_panel_access: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          provider_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provider_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          provider_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_panel_access_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signal_pon_stats: {
         Row: {
           board: string
@@ -4763,6 +4795,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_signal_panel_access: { Args: { _user_id: string }; Returns: boolean }
       has_technical_feedback_access: {
         Args: { _user_id: string }
         Returns: boolean
