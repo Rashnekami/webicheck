@@ -70,12 +70,16 @@ import {
   causeLabel,
   causeNeedsInfra,
   importSignalAudit,
+  isSignalCritical,
+  isSignalProblem,
   issueLabel,
   listSignalCases,
   listSignalEvents,
   listSignalImports,
   mergeSignalPreviews,
   parseSmartOltCsv,
+  summarizeSignalCities,
+  summarizeSignalCity,
   updateSignalCase,
   type SignalCase,
   type SignalCause,
@@ -84,11 +88,8 @@ import {
   type SignalIssueKind,
   type SignalStatus,
 } from "@/lib/signal-audit";
-import {
-  listSignalCampaignCases,
-  listSignalCampaigns,
-  lockSignalCampaign,
-} from "@/lib/signal-campaigns";
+import { listSignalCampaigns, lockSignalCampaign } from "@/lib/signal-campaigns";
+
 import {
   listSignalAiAnalyses,
   listSignalTechnicians,
