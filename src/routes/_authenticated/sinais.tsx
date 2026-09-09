@@ -339,7 +339,7 @@ function SignalAudit() {
         progress: item.baseline ? Math.round((item.closed / item.baseline) * 1000) / 10 : 0,
       }))
       .sort((a, b) => a.city.localeCompare(b.city, "pt-BR") || Number(a.board) - Number(b.board));
-  }, [cases, city]);
+  }, [cases, boardCity]);
 
 
   const availableBoards = useMemo(
