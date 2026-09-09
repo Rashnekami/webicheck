@@ -167,8 +167,9 @@ function toNumber(value: string) {
 export function classifySignal(signal1310: number, signal1490: number) {
   const difference = Math.round(Math.abs(signal1310 - signal1490) * 100) / 100;
   const hasDifference = difference > SIGNAL_DIFFERENCE_THRESHOLD_DB;
-  const hasLowSignal =
-    signal1310 <= SIGNAL_LOW_THRESHOLD_DBM || signal1490 <= SIGNAL_LOW_THRESHOLD_DBM;
+  // Sinal absoluto ruim é avaliado somente no 1490 (OLT -> ONU).
+  // O 1310 continua sendo usado para calcular o desequilíbrio/retorno.
+  const hasLowSignal = signal1490 <= SIGNAL_LOW_THRESHOLD_DBM;
   if (!hasDifference && !hasLowSignal) return null;
 
   const issue_kind: SignalIssueKind = hasDifference
@@ -177,7 +178,7 @@ export function classifySignal(signal1310: number, signal1490: number) {
       : "desequilibrio"
     : "sinal_ruim";
   const severity: SignalSeverity =
-    Math.min(signal1310, signal1490) <= SIGNAL_CRITICAL_THRESHOLD_DBM ||
+    signal1490 <= SIGNAL_CRITICAL_THRESHOLD_DBM ||
     difference >= SIGNAL_CRITICAL_DIFFERENCE_DB
       ? "critico"
       : "alto";
@@ -238,7 +239,7 @@ export function parseSmartOltCsv(
     const previous = deduped.get(sn);
     if (
       !previous ||
-      previous.severity !== "critico" && parsed.severity === "critico" ||
+      (previous.severity !== "critico" && parsed.severity === "critico") ||
       parsed.difference_db > previous.difference_db
     ) {
       deduped.set(sn, parsed);
@@ -247,7 +248,7 @@ export function parseSmartOltCsv(
 
   const rows = Array.from(deduped.values());
   if (!rows.length) {
-    throw new Error("Nenhum cliente com sinal ≤ -25 dBm ou diferença acima de 3 dB foi encontrado.");
+    throw new Error("Nenhum cliente com 1490 ≤ -25 dBm ou diferença acima de 3 dB foi encontrado.");
   }
 
   return {
@@ -264,8 +265,13 @@ export function mergeSignalPreviews(previews: SignalCsvPreview[], city: SignalCi
   for (const preview of previews) {
     for (const row of preview.rows) {
       const current = deduped.get(row.sn);
-      if (!current || current.severity !== "critico" && row.severity === "critico" || row.difference_db > current.difference_db)
+      if (
+        !current ||
+        (current.severity !== "critico" && row.severity === "critico") ||
+        row.difference_db > current.difference_db
+      ) {
         deduped.set(row.sn, { ...row, city });
+      }
     }
   }
   const rows = Array.from(deduped.values());
@@ -373,7 +379,7 @@ export function causeNeedsInfra(value: SignalCause | null) {
 }
 
 export function issueLabel(value: SignalIssueKind) {
-  if (value === "ambos") return "Sinal ruim + desequilíbrio";
+  if (value === "ambos") return "1490 ruim + desequilíbrio";
   if (value === "desequilibrio") return "Desequilíbrio > 3 dB";
-  return "Sinal ≤ -25 dBm";
+  return "1490 ≤ -25 dBm";
 }
