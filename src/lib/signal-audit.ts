@@ -216,8 +216,9 @@ function median(values: number[]): number | null {
 
 export function classifySignal(signal1310: number, signal1490: number) {
   const difference = Math.round(Math.abs(signal1310 - signal1490) * 100) / 100;
+  const worst = Math.min(signal1310, signal1490);
   const hasDifference = difference > SIGNAL_DIFFERENCE_THRESHOLD_DB;
-  const hasLowSignal = signal1490 <= SIGNAL_LOW_THRESHOLD_DBM;
+  const hasLowSignal = worst <= SIGNAL_LOW_THRESHOLD_DBM;
   if (!hasDifference && !hasLowSignal) return null;
 
   const issue_kind: SignalIssueKind = hasDifference
@@ -226,8 +227,7 @@ export function classifySignal(signal1310: number, signal1490: number) {
       : "desequilibrio"
     : "sinal_ruim";
   const severity: SignalSeverity =
-    signal1490 <= SIGNAL_CRITICAL_THRESHOLD_DBM ||
-    difference >= SIGNAL_CRITICAL_DIFFERENCE_DB
+    worst <= SIGNAL_CRITICAL_THRESHOLD_DBM || difference >= SIGNAL_CRITICAL_DIFFERENCE_DB
       ? "critico"
       : "alto";
   return { difference_db: difference, issue_kind, severity };
