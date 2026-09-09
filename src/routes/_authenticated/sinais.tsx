@@ -215,16 +215,28 @@ function SignalAudit() {
 
   const updateMutation = useMutation({
     mutationFn: updateSignalCase,
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["signal-cases"] }),
         queryClient.invalidateQueries({ queryKey: ["signal-events"] }),
       ]);
       setEditing(null);
+      // Ao abrir/manter uma OS, leva o usuário direto para a aba das OS.
+      if (variables.status === "em_andamento") {
+        setStatus("em_andamento");
+        setPage(1);
+        toast.success("OS aberta. Ela está na aba OS em andamento.");
+        return;
+      }
+      if (variables.status === "encerrado") {
+        setStatus("encerrado");
+        setPage(1);
+      }
       toast.success("Controle da OS atualizado.");
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Falha ao atualizar."),
   });
+
 
   const lockCampaignMutation = useMutation({
     mutationFn: lockSignalCampaign,
