@@ -723,12 +723,11 @@ function SignalAudit() {
               <CardHeader>
                 <CardTitle className="text-base">Quadro de OS</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Clique em um cartão para lançar as informações e encerrar. Ao encerrar, o cliente vai para a coluna verde e entra na lista de atendimentos concluídos.
+                  Só aparecem aqui as OS realmente abertas por você. Clique em um cartão para lançar as informações e encerrar; ao encerrar, o cliente vai para a coluna verde e entra na lista de atendimentos concluídos.
                 </p>
               </CardHeader>
-              <CardContent className="grid gap-4 lg:grid-cols-3">
+              <CardContent className="grid gap-4 lg:grid-cols-2">
                 {([
-                  { key: "aberto" as const, title: "Em aberto", tone: "amber" as const, items: osBoard.aberto },
                   { key: "em_andamento" as const, title: "Em andamento", tone: "blue" as const, items: osBoard.em_andamento },
                   { key: "encerrado" as const, title: "Encerradas", tone: "emerald" as const, items: osBoard.encerrado },
                 ]).map((column) => (
