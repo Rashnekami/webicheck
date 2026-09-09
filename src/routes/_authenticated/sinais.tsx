@@ -837,6 +837,20 @@ function SignalAudit() {
                 <div className="mt-4 flex items-center justify-between text-sm"><span className="text-muted-foreground">{filtered.length.toLocaleString("pt-BR")} registros · página {page} de {pageCount}</span><div className="flex gap-2"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft className="h-4 w-4" /> Anterior</Button><Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>Próxima <ChevronRight className="h-4 w-4" /></Button></div></div>
               </CardContent>
             </Card>
+
+            <Card className="print-hide border-primary/20">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+                <div>
+                  <p className="font-semibold">Relatório completo do painel</p>
+                  <p className="text-sm text-muted-foreground">
+                    Gera um PDF com indicadores, resumo por cidade, evolução por placa, quadro de OS e a listagem filtrada. Escolha “Salvar como PDF” na janela de impressão.
+                  </p>
+                </div>
+                <Button onClick={() => window.print()}>
+                  <Printer className="mr-2 h-4 w-4" /> Imprimir PDF completo
+                </Button>
+              </CardContent>
+            </Card>
           </>
         )}
       </main>
