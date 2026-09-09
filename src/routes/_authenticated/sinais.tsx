@@ -396,7 +396,7 @@ function SignalAudit() {
     const bySeverity = (a: SignalCase, b: SignalCase) =>
       a.severity !== b.severity ? (a.severity === "critico" ? -1 : 1) : b.difference_db - a.difference_db;
     const byUpdated = (a: SignalCase, b: SignalCase) =>
-      new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime();
+      new Date(b.closed_at ?? b.updated_at).getTime() - new Date(a.closed_at ?? a.updated_at).getTime();
     return {
       aberto: scoped.filter((item) => item.status === "aberto" && item.present_in_latest_import).sort(bySeverity),
       em_andamento: scoped.filter((item) => item.status === "em_andamento").sort(bySeverity),
