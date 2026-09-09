@@ -15,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   Network,
+  Printer,
   Search,
   ShieldCheck,
   Stethoscope,
