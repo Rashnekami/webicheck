@@ -168,7 +168,23 @@ const normalizeHeader = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
-function parseCsv(text: string): string[][] {
+/** O SmartOLT exporta CSV com vírgula, ponto e vírgula ou tabulação conforme a região. */
+function detectDelimiter(text: string): string {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim() !== "") ?? "";
+  const candidates = [",", ";", "\t", "|"];
+  let best = ",";
+  let bestCount = 0;
+  for (const candidate of candidates) {
+    const count = firstLine.split(candidate).length - 1;
+    if (count > bestCount) {
+      best = candidate;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function parseCsv(text: string, delimiter = detectDelimiter(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -183,7 +199,7 @@ function parseCsv(text: string): string[][] {
       } else if (char === '"') quoted = false;
       else field += char;
     } else if (char === '"') quoted = true;
-    else if (char === ",") {
+    else if (char === delimiter) {
       row.push(field);
       field = "";
     } else if (char === "\n") {
@@ -240,11 +256,39 @@ export function parseSmartOltCsv(
   const matrix = parseCsv(text);
   if (matrix.length < 2) throw new Error("O CSV está vazio ou sem cabeçalho.");
 
-  const indexes = new Map(matrix[0].map((header, index) => [normalizeHeader(header), index]));
+  const rawIndexes = new Map(matrix[0].map((header, index) => [normalizeHeader(header), index]));
+  // Aceita as variações de cabeçalho que o SmartOLT usa entre versões/idiomas.
+  const ALIASES: Record<string, string[]> = {
+    sn: ["sn", "serialnumber", "serial", "onusn"],
+    name: ["name", "customername", "cliente", "nome", "onuname"],
+    olt: ["olt", "oltname"],
+    board: ["board", "slot", "placa"],
+    port: ["port", "pon", "ponport"],
+    signal1310: ["signal1310", "signal1310dbm", "rx1310", "rxpower1310", "sinal1310", "oltrxpower", "signaloltrx1310"],
+    signal1490: ["signal1490", "signal1490dbm", "rx1490", "rxpower1490", "sinal1490", "onurxpower", "signalonurx1490"],
+    onuexternalid: ["onuexternalid", "externalid"],
+    onutype: ["onutype", "type"],
+    allocatedonu: ["allocatedonu", "onuid"],
+    zone: ["zone", "zona"],
+    address: ["address", "endereco"],
+    odbsplitter: ["odbsplitter", "odb", "splitter"],
+    odbport: ["odbport", "portaodb"],
+  };
+  const indexes = new Map<string, number>();
+  for (const [key, aliases] of Object.entries(ALIASES)) {
+    const found = aliases.map((alias) => rawIndexes.get(alias)).find((index) => index !== undefined);
+    if (found !== undefined) indexes.set(key, found);
+  }
+
   const required = ["sn", "name", "olt", "signal1310", "signal1490"];
   const missing = required.filter((header) => !indexes.has(header));
   if (missing.length) {
-    throw new Error("O arquivo não contém as colunas SN, Name, OLT, Signal 1310 e Signal 1490.");
+    throw new Error(
+      `${options.sourceFile ?? "Arquivo"}: faltam as colunas ${missing.join(", ")}. Colunas encontradas: ${matrix[0]
+        .map((header) => header.trim())
+        .filter(Boolean)
+        .join(", ")}`,
+    );
   }
 
   const value = (row: string[], header: string) => (row[indexes.get(header) ?? -1] ?? "").trim();

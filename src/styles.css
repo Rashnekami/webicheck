@@ -383,3 +383,11 @@
     transition: none;
   }
 }
+
+/* Impressão de relatórios (Painel de Sinais e afins) */
+@media print {
+  .print-hide { display: none !important; }
+  .overflow-y-auto, .overflow-x-auto { max-height: none !important; overflow: visible !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  section, table { break-inside: avoid; }
+}

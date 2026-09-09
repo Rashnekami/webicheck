@@ -15,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   Network,
+  Printer,
   Search,
   ShieldCheck,
   Stethoscope,
@@ -114,7 +115,7 @@ const STATUS_COLORS: Record<SignalStatus, string> = {
   encerrado: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
 };
 const CHART_COLORS = ["#1a53ff", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#a855f7"];
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
@@ -146,6 +147,7 @@ function SignalAudit() {
   const [status, setStatus] = useState<"todos" | SignalStatus>("todos");
   const [issue, setIssue] = useState<"todos" | SignalIssueKind>("todos");
   const [baseState, setBaseState] = useState<"atuais" | "normalizados" | "todos">("atuais");
+  const [boardCity, setBoardCity] = useState<"todas" | SignalCity>("todas");
   const [page, setPage] = useState(1);
 
   const [editing, setEditing] = useState<SignalCase | null>(null);
@@ -261,6 +263,7 @@ function SignalAudit() {
   const current = useMemo(() => cases.filter((item) => item.present_in_latest_import), [cases]);
 
   const grCity = city === "todas" ? "Telêmaco Borba" : city;
+  const grTitle = city === "todas" ? "Telêmaco Borba e região" : city;
   const activeCampaign = useMemo(
     () => campaigns.find((item) => item.city === grCity && item.status !== "closed") ?? null,
     [campaigns, grCity],
@@ -270,16 +273,44 @@ function SignalAudit() {
   // limite de 1000 linhas do PostgREST nem apenas do último lote importado.
   const citySummaries = useMemo(() => summarizeSignalCities(cases), [cases]);
   const gr = useMemo(() => {
-    const summary = summarizeSignalCity(cases, grCity);
-    const infra = cases.filter(
-      (item) => item.city === grCity && item.status !== "encerrado" && causeNeedsInfra(item.cause),
+    // "Todas as cidades" consolida Telêmaco Borba e região somando cada cidade.
+    const scoped = city === "todas" ? cases : cases.filter((item) => item.city === city);
+    const summary =
+      city === "todas"
+        ? citySummaries.reduce(
+            (acc, item) => ({
+              city: "Telêmaco Borba e região",
+              plates: acc.plates + item.plates,
+              baseline: acc.baseline + item.baseline,
+              problemsNow: acc.problemsNow + item.problemsNow,
+              criticalNow: acc.criticalNow + item.criticalNow,
+              criticalPending: acc.criticalPending + item.criticalPending,
+              inProgress: acc.inProgress + item.inProgress,
+              closed: acc.closed + item.closed,
+              normalized: acc.normalized + item.normalized,
+            }),
+            {
+              city: "Telêmaco Borba e região",
+              plates: 0,
+              baseline: 0,
+              problemsNow: 0,
+              criticalNow: 0,
+              criticalPending: 0,
+              inProgress: 0,
+              closed: 0,
+              normalized: 0,
+            },
+          )
+        : summarizeSignalCity(cases, city);
+    const infra = scoped.filter(
+      (item) => item.status !== "encerrado" && causeNeedsInfra(item.cause),
     ).length;
     return {
       ...summary,
       infra,
       progress: summary.baseline ? Math.round((summary.closed / summary.baseline) * 1000) / 10 : 0,
     };
-  }, [cases, grCity]);
+  }, [cases, city, citySummaries]);
 
   // Com "Todas as cidades" a evolução mostra as placas de todas as cidades,
   // não apenas as de Telêmaco Borba.
@@ -289,7 +320,7 @@ function SignalAudit() {
       { city: string; board: string; baseline: number; closed: number; current: number; critical: number; normalized: number }
     >();
     for (const item of cases) {
-      if (city !== "todas" && item.city !== city) continue;
+      if (boardCity !== "todas" && item.city !== boardCity) continue;
       const board = (item.board || "").trim() || "—";
       const key = `${item.city}|${board}`;
       const row =
@@ -309,7 +340,7 @@ function SignalAudit() {
         progress: item.baseline ? Math.round((item.closed / item.baseline) * 1000) / 10 : 0,
       }))
       .sort((a, b) => a.city.localeCompare(b.city, "pt-BR") || Number(a.board) - Number(b.board));
-  }, [cases, city]);
+  }, [cases, boardCity]);
 
 
   const availableBoards = useMemo(
@@ -398,7 +429,7 @@ function SignalAudit() {
     const byUpdated = (a: SignalCase, b: SignalCase) =>
       new Date(b.closed_at ?? b.updated_at).getTime() - new Date(a.closed_at ?? a.updated_at).getTime();
     return {
-      aberto: scoped.filter((item) => item.status === "aberto" && item.present_in_latest_import).sort(bySeverity),
+      // Só entram no quadro as OS realmente abertas — o backlog fica na listagem.
       em_andamento: scoped.filter((item) => item.status === "em_andamento").sort(bySeverity),
       encerrado: scoped.filter((item) => item.status === "encerrado").sort(byUpdated),
     };
@@ -503,7 +534,7 @@ function SignalAudit() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">Campanha de recuperação óptica</p>
-                    <h2 className="mt-1 text-2xl font-bold">{grCity}</h2>
+                    <h2 className="mt-1 text-2xl font-bold">{grTitle}</h2>
                   </div>
                   <Badge className="bg-white/20 text-white hover:bg-white/20">
                     {activeCampaign?.status === "building" ? "Baseline em formação" : activeCampaign ? "Baseline congelado" : "Aguardando 1ª placa"}
@@ -631,7 +662,16 @@ function SignalAudit() {
         ) : (
           <>
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5" /> Evolução por placa — {city === "todas" ? "todas as cidades" : city}</CardTitle></CardHeader>
+              <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5" /> Evolução por placa</CardTitle>
+                <Select value={boardCity} onValueChange={(value) => setBoardCity(value as typeof boardCity)}>
+                  <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as cidades</SelectItem>
+                    {SIGNAL_CITIES.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardHeader>
               <CardContent>
                 {boardStats.length ? (
                   <div className="overflow-x-auto rounded-lg border">
@@ -684,12 +724,11 @@ function SignalAudit() {
               <CardHeader>
                 <CardTitle className="text-base">Quadro de OS</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Clique em um cartão para lançar as informações e encerrar. Ao encerrar, o cliente vai para a coluna verde e entra na lista de atendimentos concluídos.
+                  Só aparecem aqui as OS realmente abertas por você. Clique em um cartão para lançar as informações e encerrar; ao encerrar, o cliente vai para a coluna verde e entra na lista de atendimentos concluídos.
                 </p>
               </CardHeader>
-              <CardContent className="grid gap-4 lg:grid-cols-3">
+              <CardContent className="grid gap-4 lg:grid-cols-2">
                 {([
-                  { key: "aberto" as const, title: "Em aberto", tone: "amber" as const, items: osBoard.aberto },
                   { key: "em_andamento" as const, title: "Em andamento", tone: "blue" as const, items: osBoard.em_andamento },
                   { key: "encerrado" as const, title: "Encerradas", tone: "emerald" as const, items: osBoard.encerrado },
                 ]).map((column) => (
@@ -797,6 +836,20 @@ function SignalAudit() {
                   </Table>
                 </div>
                 <div className="mt-4 flex items-center justify-between text-sm"><span className="text-muted-foreground">{filtered.length.toLocaleString("pt-BR")} registros · página {page} de {pageCount}</span><div className="flex gap-2"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft className="h-4 w-4" /> Anterior</Button><Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>Próxima <ChevronRight className="h-4 w-4" /></Button></div></div>
+              </CardContent>
+            </Card>
+
+            <Card className="print-hide border-primary/20">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+                <div>
+                  <p className="font-semibold">Relatório completo do painel</p>
+                  <p className="text-sm text-muted-foreground">
+                    Gera um PDF com indicadores, resumo por cidade, evolução por placa, quadro de OS e a listagem filtrada. Escolha “Salvar como PDF” na janela de impressão.
+                  </p>
+                </div>
+                <Button onClick={() => window.print()}>
+                  <Printer className="mr-2 h-4 w-4" /> Imprimir PDF completo
+                </Button>
               </CardContent>
             </Card>
           </>
