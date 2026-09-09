@@ -661,7 +661,16 @@ function SignalAudit() {
         ) : (
           <>
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5" /> Evolução por placa — {city === "todas" ? "todas as cidades" : city}</CardTitle></CardHeader>
+              <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+                <CardTitle className="flex items-center gap-2"><Stethoscope className="h-5 w-5" /> Evolução por placa</CardTitle>
+                <Select value={boardCity} onValueChange={(value) => setBoardCity(value as typeof boardCity)}>
+                  <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as cidades</SelectItem>
+                    {SIGNAL_CITIES.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CardHeader>
               <CardContent>
                 {boardStats.length ? (
                   <div className="overflow-x-auto rounded-lg border">
