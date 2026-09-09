@@ -392,9 +392,112 @@ export function mergeSignalPreviews(previews: SignalCsvPreview[], city: SignalCi
   };
 }
 
+/**
+ * Métricas consolidadas do painel.
+ *
+ * Base de referência única: todos os casos conhecidos da cidade (histórico
+ * consolidado). "Agora" = casos presentes na última coleta da placa.
+ * Os limites ópticos são os mesmos da triagem e não mudam aqui.
+ */
+export interface SignalMetricsRow {
+  city: string;
+  board?: string | null;
+  signal_1310: number;
+  signal_1490: number;
+  difference_db: number;
+  present_in_latest_import: boolean;
+  status: SignalStatus;
+}
+
+export function isSignalProblem(row: Pick<SignalMetricsRow, "signal_1310" | "signal_1490" | "difference_db">) {
+  return (
+    row.signal_1310 <= SIGNAL_LOW_THRESHOLD_DBM ||
+    row.signal_1490 <= SIGNAL_LOW_THRESHOLD_DBM ||
+    row.difference_db > SIGNAL_DIFFERENCE_THRESHOLD_DB
+  );
+}
+
+export function isSignalCritical(row: Pick<SignalMetricsRow, "signal_1310" | "signal_1490" | "difference_db">) {
+  if (!isSignalProblem(row)) return false;
+  return (
+    Math.min(row.signal_1310, row.signal_1490) <= SIGNAL_CRITICAL_THRESHOLD_DBM ||
+    row.difference_db >= SIGNAL_CRITICAL_DIFFERENCE_DB
+  );
+}
+
+export interface SignalCitySummary {
+  city: string;
+  plates: number;
+  baseline: number;
+  problemsNow: number;
+  criticalNow: number;
+  criticalPending: number;
+  inProgress: number;
+  closed: number;
+  normalized: number;
+}
+
+/** Placas monitoradas = boards distintas já importadas para a cidade (1 CSV = 1 placa). */
+export function countMonitoredPlates<T extends { city: string; board?: string | null }>(
+  rows: T[],
+  city: string,
+): number {
+  const boards = new Set<string>();
+  for (const row of rows) {
+    if (row.city !== city) continue;
+    const board = (row.board ?? "").trim();
+    if (board) boards.add(board);
+  }
+  return boards.size;
+}
+
+export function summarizeSignalCity<T extends SignalMetricsRow>(rows: T[], city: string): SignalCitySummary {
+  const scoped = rows.filter((row) => row.city === city);
+  let problemsNow = 0;
+  let criticalNow = 0;
+  let criticalPending = 0;
+  let inProgress = 0;
+  let closed = 0;
+  let normalized = 0;
+
+  for (const row of scoped) {
+    if (row.status === "encerrado") closed += 1;
+    if (row.status === "em_andamento") inProgress += 1;
+    if (!row.present_in_latest_import) {
+      normalized += 1;
+      continue;
+    }
+    if (!isSignalProblem(row)) continue;
+    problemsNow += 1;
+    if (!isSignalCritical(row)) continue;
+    criticalNow += 1;
+    if (row.status !== "encerrado") criticalPending += 1;
+  }
+
+  return {
+    city,
+    plates: countMonitoredPlates(scoped, city),
+    baseline: scoped.length,
+    problemsNow,
+    criticalNow,
+    criticalPending,
+    inProgress,
+    closed,
+    normalized,
+  };
+}
+
+export function summarizeSignalCities<T extends SignalMetricsRow>(
+  rows: T[],
+  cities: readonly string[] = SIGNAL_CITIES,
+): SignalCitySummary[] {
+  return cities.map((city) => summarizeSignalCity(rows, city));
+}
+
 // Os tipos Supabase são regenerados pelo projeto a partir do schema remoto.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const signalDb = supabase as any;
+
 
 export async function listSignalImports(): Promise<SignalImport[]> {
   const { data, error } = await signalDb
