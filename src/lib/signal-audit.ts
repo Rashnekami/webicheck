@@ -79,6 +79,7 @@ export interface SignalPonStat {
 
 export interface SignalImport {
   id: string;
+  campaign_id: string | null;
   city: SignalCity;
   source_name: string;
   source_files: string[];
@@ -94,6 +95,7 @@ export interface SignalImport {
 
 export interface SignalCase extends Omit<ParsedSignalRow, "source_file"> {
   id: string;
+  campaign_id: string | null;
   latest_import_id: string;
   present_in_latest_import: boolean;
   status: SignalStatus;
@@ -111,6 +113,30 @@ export interface SignalCase extends Omit<ParsedSignalRow, "source_file"> {
   started_at: string | null;
   closed_at: string | null;
   updated_at: string;
+}
+
+export interface SignalCampaign {
+  id: string;
+  city: SignalCity;
+  name: string;
+  status: "building" | "active" | "closed";
+  started_at: string;
+  baseline_locked_at: string | null;
+  closed_at: string | null;
+}
+
+export interface SignalCampaignCase {
+  campaign_id: string;
+  signal_case_id: string;
+  city: SignalCity;
+  board: string | null;
+  port: string | null;
+  baseline_signal_1310: number;
+  baseline_signal_1490: number;
+  baseline_difference_db: number;
+  baseline_issue_kind: SignalIssueKind;
+  baseline_severity: SignalSeverity;
+  first_seen_at: string;
 }
 
 export interface SignalEvent {
@@ -400,6 +426,25 @@ export async function listSignalCases(): Promise<SignalCase[]> {
     all.push(...page);
     if (page.length < pageSize) return all;
   }
+}
+
+export async function listSignalCampaigns(): Promise<SignalCampaign[]> {
+  const { data, error } = await signalDb
+    .from("signal_campaigns")
+    .select("id, city, name, status, started_at, baseline_locked_at, closed_at")
+    .order("started_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SignalCampaign[];
+}
+
+export async function listSignalCampaignCases(campaignId?: string): Promise<SignalCampaignCase[]> {
+  let query = signalDb
+    .from("signal_campaign_cases")
+    .select("campaign_id, signal_case_id, city, board, port, baseline_signal_1310, baseline_signal_1490, baseline_difference_db, baseline_issue_kind, baseline_severity, first_seen_at");
+  if (campaignId) query = query.eq("campaign_id", campaignId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as SignalCampaignCase[];
 }
 
 export async function listSignalEvents(sinceISO: string): Promise<SignalEvent[]> {
