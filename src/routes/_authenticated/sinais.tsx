@@ -428,7 +428,7 @@ function SignalAudit() {
     const byUpdated = (a: SignalCase, b: SignalCase) =>
       new Date(b.closed_at ?? b.updated_at).getTime() - new Date(a.closed_at ?? a.updated_at).getTime();
     return {
-      aberto: scoped.filter((item) => item.status === "aberto" && item.present_in_latest_import).sort(bySeverity),
+      // Só entram no quadro as OS realmente abertas — o backlog fica na listagem.
       em_andamento: scoped.filter((item) => item.status === "em_andamento").sort(bySeverity),
       encerrado: scoped.filter((item) => item.status === "encerrado").sort(byUpdated),
     };
