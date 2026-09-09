@@ -356,6 +356,17 @@ function SignalAudit() {
     return days;
   }, [eventsQuery.data, importsQuery.data]);
 
+  const segmentCounts = useMemo(() => {
+    const scoped = cases.filter(
+      (item) => (city === "todas" || item.city === city) && (board === "todas" || item.board === board),
+    );
+    return {
+      aberto: scoped.filter((item) => item.status === "aberto").length,
+      em_andamento: scoped.filter((item) => item.status === "em_andamento").length,
+      encerrado: scoped.filter((item) => item.status === "encerrado").length,
+    };
+  }, [cases, city, board]);
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
     return cases
