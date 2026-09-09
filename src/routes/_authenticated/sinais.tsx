@@ -654,6 +654,18 @@ function SignalAudit() {
                     <Select value={issue} onValueChange={(value) => setIssue(value as typeof issue)}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos critérios</SelectItem><SelectItem value="desequilibrio">Diferença &gt;3 dB</SelectItem><SelectItem value="sinal_ruim">1490 ≤ -25</SelectItem><SelectItem value="ambos">Ambos</SelectItem></SelectContent></Select>
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "aberto", label: "Backlog", count: segmentCounts.aberto },
+                    { value: "em_andamento", label: "OS em andamento", count: segmentCounts.em_andamento },
+                    { value: "encerrado", label: "Encerradas", count: segmentCounts.encerrado },
+                    { value: "todos", label: "Todos", count: segmentCounts.aberto + segmentCounts.em_andamento + segmentCounts.encerrado },
+                  ] as const).map((segment) => (
+                    <Button key={segment.value} size="sm" variant={status === segment.value ? "default" : "outline"} onClick={() => setStatus(segment.value)}>
+                      {segment.label} · {segment.count.toLocaleString("pt-BR")}
+                    </Button>
+                  ))}
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto rounded-lg border">
