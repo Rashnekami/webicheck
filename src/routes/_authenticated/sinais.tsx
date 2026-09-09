@@ -356,6 +356,17 @@ function SignalAudit() {
     return days;
   }, [eventsQuery.data, importsQuery.data]);
 
+  const segmentCounts = useMemo(() => {
+    const scoped = cases.filter(
+      (item) => (city === "todas" || item.city === city) && (board === "todas" || item.board === board),
+    );
+    return {
+      aberto: scoped.filter((item) => item.status === "aberto").length,
+      em_andamento: scoped.filter((item) => item.status === "em_andamento").length,
+      encerrado: scoped.filter((item) => item.status === "encerrado").length,
+    };
+  }, [cases, city, board]);
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
     return cases
@@ -364,8 +375,12 @@ function SignalAudit() {
         if (board !== "todas" && item.board !== board) return false;
         if (status !== "todos" && item.status !== status) return false;
         if (issue !== "todos" && item.issue_kind !== issue) return false;
-        if (baseState === "atuais" && !item.present_in_latest_import) return false;
-        if (baseState === "normalizados" && item.present_in_latest_import) return false;
+        // "Ruins agora"/"Normalizados" descrevem apenas triagem do backlog.
+        // OS em andamento e encerradas nunca somem por causa da coleta.
+        if (item.status === "aberto") {
+          if (baseState === "atuais" && !item.present_in_latest_import) return false;
+          if (baseState === "normalizados" && item.present_in_latest_import) return false;
+        }
         if (!needle) return true;
         return [item.customer_name, item.sn, item.olt, item.board, item.port, item.zone, item.odb, item.hubsoft_os]
           .filter(Boolean)
@@ -639,6 +654,18 @@ function SignalAudit() {
                     <Select value={issue} onValueChange={(value) => setIssue(value as typeof issue)}><SelectTrigger className="w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos critérios</SelectItem><SelectItem value="desequilibrio">Diferença &gt;3 dB</SelectItem><SelectItem value="sinal_ruim">1490 ≤ -25</SelectItem><SelectItem value="ambos">Ambos</SelectItem></SelectContent></Select>
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "aberto", label: "Backlog", count: segmentCounts.aberto },
+                    { value: "em_andamento", label: "OS em andamento", count: segmentCounts.em_andamento },
+                    { value: "encerrado", label: "Encerradas", count: segmentCounts.encerrado },
+                    { value: "todos", label: "Todos", count: segmentCounts.aberto + segmentCounts.em_andamento + segmentCounts.encerrado },
+                  ] as const).map((segment) => (
+                    <Button key={segment.value} size="sm" variant={status === segment.value ? "default" : "outline"} onClick={() => setStatus(segment.value)}>
+                      {segment.label} · {segment.count.toLocaleString("pt-BR")}
+                    </Button>
+                  ))}
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto rounded-lg border">
@@ -671,15 +698,15 @@ function SignalAudit() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader><DialogTitle>{editing?.status === "aberto" ? "Abrir OS preventiva" : "Controle da OS preventiva"}</DialogTitle><DialogDescription>{editing?.customer_name} · {editing ? issueLabel(editing.issue_kind) : ""}</DialogDescription></DialogHeader>
           <div className="grid gap-4 py-2 sm:grid-cols-2">
-            <div className="space-y-2"><Label>Status</Label><Select value={draftStatus} onValueChange={(value) => setDraftStatus(value as SignalStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="aberto">Backlog / ainda não aberta</SelectItem><SelectItem value="em_andamento">OS aberta / em andamento</SelectItem><SelectItem value="encerrado">Encerrado</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label>Nº OS Hubsoft</Label><Input value={draftOs} onChange={(event) => setDraftOs(event.target.value)} placeholder="Ex.: 123456" /></div>
+            <div className="space-y-2"><Label>Status</Label>{editing?.status === "aberto" ? <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm">OS será aberta como <strong>Em andamento</strong>.</p> : <Select value={draftStatus} onValueChange={(value) => setDraftStatus(value as SignalStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="em_andamento">Manter em andamento</SelectItem><SelectItem value="encerrado">Encerrar OS</SelectItem></SelectContent></Select>}</div>
+            <div className="space-y-2"><Label>Nº OS Hubsoft {editing?.status !== "aberto" && draftStatus === "encerrado" ? "*" : "(opcional na abertura)"}</Label><Input value={draftOs} onChange={(event) => setDraftOs(event.target.value)} placeholder="Ex.: 123456" /></div>
             <div className="space-y-2 sm:col-span-2"><Label>Técnico responsável — controle interno</Label><Select value={draftTechnicianId || "sem_tecnico"} onValueChange={(value) => setDraftTechnicianId(value === "sem_tecnico" ? "" : value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="sem_tecnico">Ainda não definido</SelectItem>{(techniciansQuery.data ?? []).map((tech) => <SelectItem key={tech.id} value={tech.id}>{tech.full_name}{tech.city ? ` · ${tech.city}` : ""}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Não envia tarefa ao técnico. A OS continua sendo aberta e tratada no Hubsoft; aqui é seu controle gerencial.</p></div>
             <div className="space-y-2 sm:col-span-2"><Label>Causa identificada {draftStatus === "encerrado" && "*"}</Label><Select value={draftCause || "nao_informada"} onValueChange={(value) => setDraftCause(value === "nao_informada" ? "" : value as SignalCause)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nao_informada">Ainda não identificada</SelectItem>{SIGNAL_CAUSES.map((cause) => <SelectItem key={cause.value} value={cause.value}>{cause.infra ? "🟠 " : ""}{cause.label}</SelectItem>)}</SelectContent></Select>{causeNeedsInfra(draftCause || null) && <div className="rounded-md border border-orange-300 bg-orange-50 p-2 text-sm text-orange-900"><Network className="mr-1 inline h-4 w-4" /> Caso destacado em laranja para investigação/infraestrutura.</div>}</div>
             <div className="space-y-2"><Label>Sinal final 1310 (opcional)</Label><Input value={draftFinal1310} onChange={(event) => setDraftFinal1310(event.target.value)} placeholder="-21.50" /></div>
             <div className="space-y-2"><Label>Sinal final 1490 (opcional)</Label><Input value={draftFinal1490} onChange={(event) => setDraftFinal1490(event.target.value)} placeholder="-22.10" /></div>
             <div className="space-y-2 sm:col-span-2"><Label>Observação / solução aplicada</Label><Textarea value={draftNotes} onChange={(event) => setDraftNotes(event.target.value)} rows={4} placeholder="Ex.: acoplador substituído; 1490 -21 dBm; conexão normalizada." /></div>
           </div>
-          <DialogFooter><Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!editing || updateMutation.isPending || (draftStatus === "encerrado" && !draftCause)} onClick={() => { if (!editing) return; const technician = (techniciansQuery.data ?? []).find((item) => item.id === draftTechnicianId); updateMutation.mutate({ id: editing.id, status: draftStatus, cause: draftCause || null, notes: draftNotes, hubsoftOs: draftOs || null, assignedTechnicianId: draftTechnicianId || null, assignedTechnicianName: technician?.full_name ?? null, finalSignal1310: toOptionalNumber(draftFinal1310), finalSignal1490: toOptionalNumber(draftFinal1490) }); }}>{updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{editing?.status === "aberto" ? "Salvar abertura da OS" : "Salvar controle"}</Button></DialogFooter>
+          <DialogFooter><Button variant="ghost" onClick={() => setEditing(null)}>Cancelar</Button><Button disabled={!editing || updateMutation.isPending || (editing?.status !== "aberto" && draftStatus === "encerrado" && (!draftCause || !draftOs.trim()))} onClick={() => { if (!editing) return; const technician = (techniciansQuery.data ?? []).find((item) => item.id === draftTechnicianId); const nextStatus: SignalStatus = editing.status === "aberto" ? "em_andamento" : draftStatus; updateMutation.mutate({ id: editing.id, status: nextStatus, cause: draftCause || null, notes: draftNotes, hubsoftOs: draftOs.trim() || null, assignedTechnicianId: draftTechnicianId || null, assignedTechnicianName: technician?.full_name ?? null, finalSignal1310: toOptionalNumber(draftFinal1310), finalSignal1490: toOptionalNumber(draftFinal1490) }); }}>{updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{editing?.status === "aberto" ? "Salvar abertura da OS" : "Salvar controle"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -44,7 +44,7 @@ export type SignalAiAnalysis = z.infer<typeof AiAnalysisSchema> & {
 
 type ActorContext = {
   providerId: string;
-  supabaseAdmin: Awaited<ReturnType<typeof import("@/integrations/supabase/client.server")>>["supabaseAdmin"];
+  supabaseAdmin: (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
 };
 
 async function requireSignalAdmin(userId: string): Promise<ActorContext> {
