@@ -35,6 +35,8 @@ import {
 import { toast } from "sonner";
 
 import { CheckTecnicoMark } from "@/components/checktecnico-brand";
+import { SignalAccessManager } from "@/components/signals/signal-access-manager";
+import { getSignalPanelAccess } from "@/lib/signal-access.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,34 +161,44 @@ function SignalAudit() {
   const [draftFinal1310, setDraftFinal1310] = useState("");
   const [draftFinal1490, setDraftFinal1490] = useState("");
 
+  const panelAccessQuery = useQuery({
+    queryKey: ["signal-panel-access-me"],
+    queryFn: () => getSignalPanelAccess(),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+  const canView = Boolean(user?.isAdmin) || Boolean(panelAccessQuery.data?.hasAccess);
+  const canManageAccess = Boolean(user?.isAdmin) || Boolean(panelAccessQuery.data?.canManage);
+
   useEffect(() => {
-    if (!userLoading && user && !user.isAdmin) navigate({ to: "/painel", replace: true });
-  }, [user, userLoading, navigate]);
+    if (!userLoading && user && panelAccessQuery.isFetched && !canView)
+      navigate({ to: "/painel", replace: true });
+  }, [user, userLoading, panelAccessQuery.isFetched, canView, navigate]);
 
   const importsQuery = useQuery({
     queryKey: ["signal-imports"],
     queryFn: listSignalImports,
-    enabled: !!user?.isAdmin,
+    enabled: canView,
   });
   const casesQuery = useQuery({
     queryKey: ["signal-cases"],
     queryFn: listSignalCases,
-    enabled: !!user?.isAdmin,
+    enabled: canView,
   });
   const campaignsQuery = useQuery({
     queryKey: ["signal-campaigns"],
     queryFn: listSignalCampaigns,
-    enabled: !!user?.isAdmin,
+    enabled: canView,
   });
   const techniciansQuery = useQuery({
     queryKey: ["signal-technicians"],
     queryFn: () => listSignalTechnicians(),
-    enabled: !!user?.isAdmin,
+    enabled: canView,
   });
   const aiQuery = useQuery({
     queryKey: ["signal-ai"],
     queryFn: () => listSignalAiAnalyses(),
-    enabled: !!user?.isAdmin,
+    enabled: canView,
   });
   const eventsQuery = useQuery({
     queryKey: ["signal-events", "30d"],
@@ -196,7 +208,7 @@ function SignalAudit() {
       since.setHours(0, 0, 0, 0);
       return listSignalEvents(since.toISOString());
     },
-    enabled: !!user?.isAdmin,
+    enabled: canView,
   });
 
   const importMutation = useMutation({
@@ -503,7 +515,10 @@ function SignalAudit() {
   if (userLoading || !user) {
     return <div className="flex min-h-screen items-center justify-center"><CheckTecnicoMark size={64} className="animate-pulse" /></div>;
   }
-  if (!user.isAdmin) return null;
+  if (panelAccessQuery.isLoading && !user.isAdmin) {
+    return <div className="flex min-h-screen items-center justify-center"><CheckTecnicoMark size={64} className="animate-pulse" /></div>;
+  }
+  if (!canView) return null;
 
   const dataError = importsQuery.error || casesQuery.error || campaignsQuery.error;
   const latestAi = aiQuery.data?.[0];
@@ -853,6 +868,12 @@ function SignalAudit() {
               </CardContent>
             </Card>
           </>
+        )}
+
+        {canManageAccess && (
+          <div className="print:hidden">
+            <SignalAccessManager />
+          </div>
         )}
       </main>
 

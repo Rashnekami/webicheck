@@ -59,6 +59,7 @@ import { getTechnicalFeedbackAccess } from "@/lib/technical-reviews.functions";
 import { getWhistleblowerAccess } from "@/lib/whistleblower-admin.functions";
 import { GoogleReviewLinksInternal } from "@/components/google-review-links-internal";
 import { getPostitAccess } from "@/lib/postit.functions";
+import { getSignalPanelAccess } from "@/lib/signal-access.functions";
 
 export const Route = createFileRoute("/_authenticated/painel")({
   head: () => ({
@@ -218,6 +219,13 @@ function Painel() {
     enabled: !!user,
     staleTime: 300_000,
   });
+  const signalAccess = useQuery({
+    queryKey: ["signal-panel-access-me"],
+    queryFn: () => getSignalPanelAccess(),
+    enabled: !!user,
+    staleTime: 300_000,
+  });
+  const canSeeSignals = Boolean(user?.isAdmin) || Boolean(signalAccess.data?.hasAccess);
 
   // Recupera assinatura pendente do signup (quando sessão só chegou depois)
   useEffect(() => {
@@ -413,20 +421,20 @@ function Painel() {
                 </SheetHeader>
                 <div className="mt-4 grid gap-3">
                   {user.isAdmin && (
-                    <>
-                      <HomeNavCard
-                        to="/dashboard"
-                        icon={BarChart3}
-                        title="Dashboard"
-                        description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
-                      />
-                      <HomeNavCard
-                        to="/sinais"
-                        icon={Activity}
-                        title="Auditoria de sinais"
-                        description="CSV da SmartOLT, reparos por cidade e causas de degradação — área privada."
-                      />
-                    </>
+                    <HomeNavCard
+                      to="/dashboard"
+                      icon={BarChart3}
+                      title="Dashboard"
+                      description="Indicadores de trocas, técnicos, cidades e analistas com exportação."
+                    />
+                  )}
+                  {canSeeSignals && (
+                    <HomeNavCard
+                      to="/sinais"
+                      icon={Activity}
+                      title="Auditoria de sinais"
+                      description="CSV da SmartOLT, reparos por cidade e causas de degradação — área privada."
+                    />
                   )}
                   {(user.isAdmin || user.isSupervisor || user.isPlatformAdmin) && (
                     <HomeNavCard
