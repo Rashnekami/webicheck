@@ -114,7 +114,7 @@ const STATUS_COLORS: Record<SignalStatus, string> = {
   encerrado: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
 };
 const CHART_COLORS = ["#1a53ff", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#a855f7"];
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
