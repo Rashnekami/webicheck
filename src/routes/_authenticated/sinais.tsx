@@ -281,16 +281,19 @@ function SignalAudit() {
     };
   }, [cases, grCity]);
 
+  // Com "Todas as cidades" a evolução mostra as placas de todas as cidades,
+  // não apenas as de Telêmaco Borba.
   const boardStats = useMemo(() => {
     const grouped = new Map<
       string,
-      { board: string; baseline: number; closed: number; current: number; critical: number; normalized: number }
+      { city: string; board: string; baseline: number; closed: number; current: number; critical: number; normalized: number }
     >();
     for (const item of cases) {
-      if (item.city !== grCity) continue;
-      const key = (item.board || "").trim() || "—";
+      if (city !== "todas" && item.city !== city) continue;
+      const board = (item.board || "").trim() || "—";
+      const key = `${item.city}|${board}`;
       const row =
-        grouped.get(key) ?? { board: key, baseline: 0, closed: 0, current: 0, critical: 0, normalized: 0 };
+        grouped.get(key) ?? { city: item.city, board, baseline: 0, closed: 0, current: 0, critical: 0, normalized: 0 };
       row.baseline += 1;
       if (item.status === "encerrado") row.closed += 1;
       if (item.present_in_latest_import) row.current += 1;
@@ -305,8 +308,9 @@ function SignalAudit() {
         ...item,
         progress: item.baseline ? Math.round((item.closed / item.baseline) * 1000) / 10 : 0,
       }))
-      .sort((a, b) => Number(a.board) - Number(b.board));
-  }, [cases, grCity]);
+      .sort((a, b) => a.city.localeCompare(b.city, "pt-BR") || Number(a.board) - Number(b.board));
+  }, [cases, city]);
+
 
   const availableBoards = useMemo(
     () => Array.from(new Set(cases.filter((item) => city === "todas" || item.city === city).map((item) => item.board).filter(Boolean))).sort((a, b) => Number(a) - Number(b)),
