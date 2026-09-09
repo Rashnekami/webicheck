@@ -383,6 +383,27 @@ function SignalAudit() {
     };
   }, [cases, city, board]);
 
+  const osBoard = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("pt-BR");
+    const scoped = cases.filter((item) => {
+      if (city !== "todas" && item.city !== city) return false;
+      if (board !== "todas" && item.board !== board) return false;
+      if (!needle) return true;
+      return [item.customer_name, item.sn, item.olt, item.board, item.port, item.hubsoft_os]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(needle));
+    });
+    const bySeverity = (a: SignalCase, b: SignalCase) =>
+      a.severity !== b.severity ? (a.severity === "critico" ? -1 : 1) : b.difference_db - a.difference_db;
+    const byUpdated = (a: SignalCase, b: SignalCase) =>
+      new Date(b.closed_at ?? b.updated_at).getTime() - new Date(a.closed_at ?? a.updated_at).getTime();
+    return {
+      aberto: scoped.filter((item) => item.status === "aberto" && item.present_in_latest_import).sort(bySeverity),
+      em_andamento: scoped.filter((item) => item.status === "em_andamento").sort(bySeverity),
+      encerrado: scoped.filter((item) => item.status === "encerrado").sort(byUpdated),
+    };
+  }, [cases, city, board, search]);
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
     return cases
@@ -660,6 +681,76 @@ function SignalAudit() {
             </Card>
 
             <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Quadro de OS</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Clique em um cartão para lançar as informações e encerrar. Ao encerrar, o cliente vai para a coluna verde e entra na lista de atendimentos concluídos.
+                </p>
+              </CardHeader>
+              <CardContent className="grid gap-4 lg:grid-cols-3">
+                {([
+                  { key: "aberto" as const, title: "Em aberto", tone: "amber" as const, items: osBoard.aberto },
+                  { key: "em_andamento" as const, title: "Em andamento", tone: "blue" as const, items: osBoard.em_andamento },
+                  { key: "encerrado" as const, title: "Encerradas", tone: "emerald" as const, items: osBoard.encerrado },
+                ]).map((column) => (
+                  <div key={column.key} className="rounded-xl border bg-muted/30 p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold">{column.title}</p>
+                      <Badge variant="secondary">{column.items.length.toLocaleString("pt-BR")}</Badge>
+                    </div>
+                    <div className="grid max-h-[26rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-1">
+                      {column.items.length ? (
+                        column.items.slice(0, 24).map((item) => (
+                          <OsStickyCard key={item.id} item={item} tone={column.tone} onClick={() => openCase(item)} />
+                        ))
+                      ) : (
+                        <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                          Nenhum caso nesta coluna.
+                        </p>
+                      )}
+                      {column.items.length > 24 && (
+                        <p className="text-center text-xs text-muted-foreground">
+                          + {(column.items.length - 24).toLocaleString("pt-BR")} na listagem abaixo
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-emerald-200">
+              <CardHeader>
+                <CardTitle className="text-base text-emerald-700">Clientes com OS encerrada</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Lista construída conforme as OS vão sendo encerradas.</p>
+              </CardHeader>
+              <CardContent>
+                {osBoard.encerrado.length ? (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Cliente / SN</TableHead><TableHead>Cidade / rede</TableHead><TableHead>OS</TableHead><TableHead>Causa</TableHead><TableHead>Técnico</TableHead><TableHead>Encerrada em</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {osBoard.encerrado.slice(0, 50).map((item) => (
+                          <TableRow key={item.id} className="bg-emerald-50/70 hover:bg-emerald-100/60">
+                            <TableCell><p className="font-medium">{item.customer_name}</p><p className="text-xs text-muted-foreground">SN {item.sn}</p></TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{item.city} · placa {item.board || "—"} · PON {item.port || "—"}</TableCell>
+                            <TableCell>{item.hubsoft_os ? `OS ${item.hubsoft_os}` : "—"}</TableCell>
+                            <TableCell>{item.cause ? causeLabel(item.cause) : "—"}</TableCell>
+                            <TableCell>{item.assigned_technician_name || "—"}</TableCell>
+                            <TableCell className="text-xs">{formatDate(item.closed_at ?? item.updated_at)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma OS encerrada ainda com os filtros atuais.</p>
+                )}
+              </CardContent>
+            </Card>
+
+
+            <Card>
               <CardHeader className="gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div><CardTitle>Backlog operacional / OS</CardTitle><p className="mt-1 text-sm text-muted-foreground">Críticos aparecem primeiro. Trabalhe placa por placa.</p></div>
@@ -692,7 +783,7 @@ function SignalAudit() {
                     <TableBody>
                       {paged.length ? paged.map((item) => {
                         const infra = causeNeedsInfra(item.cause);
-                        return <TableRow key={item.id} className={infra ? "bg-orange-50 hover:bg-orange-100/70" : undefined}>
+                        return <TableRow key={item.id} className={item.status === "encerrado" ? "bg-emerald-50 hover:bg-emerald-100/70" : infra ? "bg-orange-50 hover:bg-orange-100/70" : undefined}>
                           <TableCell className="min-w-60"><p className="font-medium">{item.customer_name}</p><p className="text-xs text-muted-foreground">SN {item.sn} · {item.city}</p>{!item.present_in_latest_import && <Badge variant="outline" className="mt-1 text-emerald-700">Normalizado na última coleta</Badge>}</TableCell>
                           <TableCell className="min-w-44"><p>{item.olt || "—"}</p><p className="text-xs text-muted-foreground">Placa {item.board || "—"} · PON {item.port || "—"}</p></TableCell>
                           <TableCell className="min-w-36 font-mono text-xs"><p>1310: {item.signal_1310.toFixed(2)}</p><p>1490: {item.signal_1490.toFixed(2)}</p><p className="font-semibold">Δ {item.difference_db.toFixed(2)} dB</p></TableCell>
@@ -728,6 +819,51 @@ function SignalAudit() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+const OS_CARD_TONES = {
+  amber: "border-amber-300 bg-amber-100/80 hover:bg-amber-100",
+  blue: "border-sky-300 bg-sky-100/80 hover:bg-sky-100",
+  emerald: "border-emerald-300 bg-emerald-100/80 hover:bg-emerald-100",
+} as const;
+
+function OsStickyCard({
+  item,
+  tone,
+  onClick,
+}: {
+  item: SignalCase;
+  tone: keyof typeof OS_CARD_TONES;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-lg border p-3 text-left shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${OS_CARD_TONES[tone]}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="line-clamp-2 text-sm font-semibold text-slate-800">{item.customer_name}</p>
+        {item.severity === "critico" && <Badge variant="destructive" className="shrink-0 text-[10px]">P1</Badge>}
+      </div>
+      <p className="mt-1 text-[11px] text-slate-600">
+        {item.city} · placa {item.board || "—"} · PON {item.port || "—"}
+      </p>
+      <p className="mt-1 font-mono text-[11px] text-slate-700">
+        1310 {item.signal_1310.toFixed(1)} · 1490 {item.signal_1490.toFixed(1)} · Δ {item.difference_db.toFixed(1)}
+      </p>
+      <p className="mt-2 text-[11px] font-medium text-slate-700">
+        {item.hubsoft_os ? `OS ${item.hubsoft_os}` : "Sem nº de OS"}
+        {item.assigned_technician_name ? ` · ${item.assigned_technician_name}` : ""}
+      </p>
+      {item.status === "encerrado" && item.cause && (
+        <p className="mt-1 text-[11px] text-emerald-800">{causeLabel(item.cause)}</p>
+      )}
+      {item.status === "em_andamento" && !item.present_in_latest_import && (
+        <p className="mt-1 text-[11px] text-emerald-800">Normalizado na última coleta</p>
+      )}
+    </button>
   );
 }
 
