@@ -146,6 +146,7 @@ function SignalAudit() {
   const [status, setStatus] = useState<"todos" | SignalStatus>("todos");
   const [issue, setIssue] = useState<"todos" | SignalIssueKind>("todos");
   const [baseState, setBaseState] = useState<"atuais" | "normalizados" | "todos">("atuais");
+  const [boardCity, setBoardCity] = useState<"todas" | SignalCity>("todas");
   const [page, setPage] = useState(1);
 
   const [editing, setEditing] = useState<SignalCase | null>(null);
