@@ -176,11 +176,6 @@ function SignalAudit() {
     queryFn: listSignalCampaigns,
     enabled: !!user?.isAdmin,
   });
-  const campaignCasesQuery = useQuery({
-    queryKey: ["signal-campaign-cases"],
-    queryFn: () => listSignalCampaignCases(),
-    enabled: !!user?.isAdmin,
-  });
   const techniciansQuery = useQuery({
     queryKey: ["signal-technicians"],
     queryFn: () => listSignalTechnicians(),
@@ -427,7 +422,7 @@ function SignalAudit() {
   }
   if (!user.isAdmin) return null;
 
-  const dataError = importsQuery.error || casesQuery.error || campaignsQuery.error || campaignCasesQuery.error;
+  const dataError = importsQuery.error || casesQuery.error || campaignsQuery.error;
   const latestAi = aiQuery.data?.[0];
 
   return (
