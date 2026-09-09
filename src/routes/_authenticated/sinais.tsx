@@ -681,6 +681,76 @@ function SignalAudit() {
             </Card>
 
             <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Quadro de OS</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Clique em um cartão para lançar as informações e encerrar. Ao encerrar, o cliente vai para a coluna verde e entra na lista de atendimentos concluídos.
+                </p>
+              </CardHeader>
+              <CardContent className="grid gap-4 lg:grid-cols-3">
+                {([
+                  { key: "aberto" as const, title: "Em aberto", tone: "amber" as const, items: osBoard.aberto },
+                  { key: "em_andamento" as const, title: "Em andamento", tone: "blue" as const, items: osBoard.em_andamento },
+                  { key: "encerrado" as const, title: "Encerradas", tone: "emerald" as const, items: osBoard.encerrado },
+                ]).map((column) => (
+                  <div key={column.key} className="rounded-xl border bg-muted/30 p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold">{column.title}</p>
+                      <Badge variant="secondary">{column.items.length.toLocaleString("pt-BR")}</Badge>
+                    </div>
+                    <div className="grid max-h-[26rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-1">
+                      {column.items.length ? (
+                        column.items.slice(0, 24).map((item) => (
+                          <OsStickyCard key={item.id} item={item} tone={column.tone} onClick={() => openCase(item)} />
+                        ))
+                      ) : (
+                        <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                          Nenhum caso nesta coluna.
+                        </p>
+                      )}
+                      {column.items.length > 24 && (
+                        <p className="text-center text-xs text-muted-foreground">
+                          + {(column.items.length - 24).toLocaleString("pt-BR")} na listagem abaixo
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="border-emerald-200">
+              <CardHeader>
+                <CardTitle className="text-base text-emerald-700">Clientes com OS encerrada</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">Lista construída conforme as OS vão sendo encerradas.</p>
+              </CardHeader>
+              <CardContent>
+                {osBoard.encerrado.length ? (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Cliente / SN</TableHead><TableHead>Cidade / rede</TableHead><TableHead>OS</TableHead><TableHead>Causa</TableHead><TableHead>Técnico</TableHead><TableHead>Encerrada em</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {osBoard.encerrado.slice(0, 50).map((item) => (
+                          <TableRow key={item.id} className="bg-emerald-50/70 hover:bg-emerald-100/60">
+                            <TableCell><p className="font-medium">{item.customer_name}</p><p className="text-xs text-muted-foreground">SN {item.sn}</p></TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{item.city} · placa {item.board || "—"} · PON {item.port || "—"}</TableCell>
+                            <TableCell>{item.hubsoft_os ? `OS ${item.hubsoft_os}` : "—"}</TableCell>
+                            <TableCell>{item.cause ? causeLabel(item.cause) : "—"}</TableCell>
+                            <TableCell>{item.assigned_technician_name || "—"}</TableCell>
+                            <TableCell className="text-xs">{formatDate(item.closed_at ?? item.updated_at)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma OS encerrada ainda com os filtros atuais.</p>
+                )}
+              </CardContent>
+            </Card>
+
+
+            <Card>
               <CardHeader className="gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div><CardTitle>Backlog operacional / OS</CardTitle><p className="mt-1 text-sm text-muted-foreground">Críticos aparecem primeiro. Trabalhe placa por placa.</p></div>
