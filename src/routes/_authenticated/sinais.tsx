@@ -533,7 +533,7 @@ function SignalAudit() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] opacity-80">Campanha de recuperação óptica</p>
-                    <h2 className="mt-1 text-2xl font-bold">{grCity}</h2>
+                    <h2 className="mt-1 text-2xl font-bold">{grTitle}</h2>
                   </div>
                   <Badge className="bg-white/20 text-white hover:bg-white/20">
                     {activeCampaign?.status === "building" ? "Baseline em formação" : activeCampaign ? "Baseline congelado" : "Aguardando 1ª placa"}
