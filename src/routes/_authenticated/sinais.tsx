@@ -261,6 +261,7 @@ function SignalAudit() {
   const current = useMemo(() => cases.filter((item) => item.present_in_latest_import), [cases]);
 
   const grCity = city === "todas" ? "Telêmaco Borba" : city;
+  const grTitle = city === "todas" ? "Telêmaco Borba e região" : city;
   const activeCampaign = useMemo(
     () => campaigns.find((item) => item.city === grCity && item.status !== "closed") ?? null,
     [campaigns, grCity],
@@ -270,16 +271,44 @@ function SignalAudit() {
   // limite de 1000 linhas do PostgREST nem apenas do último lote importado.
   const citySummaries = useMemo(() => summarizeSignalCities(cases), [cases]);
   const gr = useMemo(() => {
-    const summary = summarizeSignalCity(cases, grCity);
-    const infra = cases.filter(
-      (item) => item.city === grCity && item.status !== "encerrado" && causeNeedsInfra(item.cause),
+    // "Todas as cidades" consolida Telêmaco Borba e região somando cada cidade.
+    const scoped = city === "todas" ? cases : cases.filter((item) => item.city === city);
+    const summary =
+      city === "todas"
+        ? citySummaries.reduce(
+            (acc, item) => ({
+              city: "Telêmaco Borba e região",
+              plates: acc.plates + item.plates,
+              baseline: acc.baseline + item.baseline,
+              problemsNow: acc.problemsNow + item.problemsNow,
+              criticalNow: acc.criticalNow + item.criticalNow,
+              criticalPending: acc.criticalPending + item.criticalPending,
+              inProgress: acc.inProgress + item.inProgress,
+              closed: acc.closed + item.closed,
+              normalized: acc.normalized + item.normalized,
+            }),
+            {
+              city: "Telêmaco Borba e região",
+              plates: 0,
+              baseline: 0,
+              problemsNow: 0,
+              criticalNow: 0,
+              criticalPending: 0,
+              inProgress: 0,
+              closed: 0,
+              normalized: 0,
+            },
+          )
+        : summarizeSignalCity(cases, city);
+    const infra = scoped.filter(
+      (item) => item.status !== "encerrado" && causeNeedsInfra(item.cause),
     ).length;
     return {
       ...summary,
       infra,
       progress: summary.baseline ? Math.round((summary.closed / summary.baseline) * 1000) / 10 : 0,
     };
-  }, [cases, grCity]);
+  }, [cases, city, citySummaries]);
 
   // Com "Todas as cidades" a evolução mostra as placas de todas as cidades,
   // não apenas as de Telêmaco Borba.
