@@ -42,27 +42,31 @@ export type SignalAiAnalysis = z.infer<typeof AiAnalysisSchema> & {
   city: string | null;
 };
 
-async function ensureAdmin(userId: string) {
+type ActorContext = {
+  providerId: string;
+  supabaseAdmin: Awaited<ReturnType<typeof import("@/integrations/supabase/client.server")>>["supabaseAdmin"];
+};
+
+async function requireSignalAdmin(userId: string): Promise<ActorContext> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (error || !data) throw new Error("Apenas administradores podem acessar a auditoria de sinais.");
-  return supabaseAdmin;
+  const [{ data: roleOk, error: roleError }, { data: actor, error: actorError }] = await Promise.all([
+    supabaseAdmin.rpc("has_role", { _user_id: userId, _role: "admin" }),
+    supabaseAdmin
+      .from("profiles")
+      .select("provider_id, active")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
+  if (roleError || !roleOk || actorError || !actor?.active || !actor.provider_id) {
+    throw new Error("Apenas administradores ativos vinculados a um provedor podem acessar sinais.");
+  }
+  return { providerId: actor.provider_id, supabaseAdmin };
 }
 
 export const listSignalTechnicians = createServerFn({ method: "GET" })
   .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<SignalTechnicianOption[]> => {
-    const supabaseAdmin = await ensureAdmin(context.userId);
-    const { data: actor } = await supabaseAdmin
-      .from("profiles")
-      .select("provider_id, platform_admin")
-      .eq("id", context.userId)
-      .maybeSingle();
-    if (!actor) return [];
-
+    const { providerId, supabaseAdmin } = await requireSignalAdmin(context.userId);
     const { data: roles, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("user_id")
@@ -71,13 +75,12 @@ export const listSignalTechnicians = createServerFn({ method: "GET" })
     const ids = (roles ?? []).map((row) => row.user_id);
     if (!ids.length) return [];
 
-    let query = supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("profiles")
-      .select("id, full_name, city, provider_id, active")
+      .select("id, full_name, city, active")
       .in("id", ids)
+      .eq("provider_id", providerId)
       .eq("active", true);
-    if (!actor.platform_admin && actor.provider_id) query = query.eq("provider_id", actor.provider_id);
-    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return (data ?? [])
       .map((row) => ({ id: row.id, full_name: row.full_name || "(sem nome)", city: row.city }))
@@ -90,8 +93,8 @@ export const runSignalAiAnalysis = createServerFn({ method: "POST" })
   .middleware([requireAccountAuth])
   .inputValidator((input: unknown) => RunInput.parse(input))
   .handler(async ({ data, context }): Promise<SignalAiAnalysis> => {
-    const supabaseAdmin = await ensureAdmin(context.userId);
-    // Tipos gerados ainda não incluem a migration de sinais no preview.
+    const { providerId, supabaseAdmin } = await requireSignalAdmin(context.userId);
+    // Tipos gerados ainda não incluem as migrations recentes de sinais.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabaseAdmin as any;
 
@@ -100,25 +103,50 @@ export const runSignalAiAnalysis = createServerFn({ method: "POST" })
       .select(
         "city, olt, board, port, signal_1310, signal_1490, difference_db, issue_kind, severity, status, cause, present_in_latest_import, recurrence_count",
       )
-      .eq("owner_id", context.userId);
+      .eq("provider_id", providerId);
     if (data.city) query = query.eq("city", data.city);
     const { data: cases, error } = await query;
     if (error) throw new Error(error.message);
     const rows = (cases ?? []) as Array<Record<string, unknown>>;
     if (!rows.length) throw new Error("Ainda não há dados de sinais para analisar.");
 
+    let ponQuery = db
+      .from("signal_pon_stats")
+      .select(
+        "city, olt, board, port, total_onus, flagged_onus, critical_onus, flagged_percent, median_signal_1490, median_difference_db, infra_suspect, created_at",
+      )
+      .eq("provider_id", providerId)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (data.city) ponQuery = ponQuery.eq("city", data.city);
+    const { data: ponRows } = await ponQuery;
+
     const closed = rows.filter((row) => row.status === "encerrado" && row.cause);
-    const current = rows.filter((row) => row.present_in_latest_import !== false && row.status !== "encerrado");
+    const current = rows.filter(
+      (row) => row.present_in_latest_import !== false && row.status !== "encerrado",
+    );
     const causeCounts = new Map<string, number>();
     for (const row of closed) {
       const key = String(row.cause);
       causeCounts.set(key, (causeCounts.get(key) ?? 0) + 1);
     }
-    const networkClusters = new Map<string, number>();
-    for (const row of rows.filter((item) => item.cause === "rede" || item.cause === "fusao" || item.cause === "cto_odb" || item.cause === "porta_olt" || item.cause === "atenuacao_externa")) {
-      const key = [row.city, row.olt || "", row.board || "", row.port || ""].join(" | ");
-      networkClusters.set(key, (networkClusters.get(key) ?? 0) + 1);
-    }
+
+    const ponHotspots = ((ponRows ?? []) as Array<Record<string, unknown>>)
+      .filter((row) => row.infra_suspect === true)
+      .map((row) => ({
+        cidade: row.city,
+        olt: row.olt,
+        placa: row.board,
+        pon: row.port,
+        total_onus: Number(row.total_onus || 0),
+        casos: Number(row.flagged_onus || 0),
+        criticos: Number(row.critical_onus || 0),
+        percentual_afetado: Number(row.flagged_percent || 0),
+        mediana_1490: row.median_signal_1490,
+        mediana_diferenca: row.median_difference_db,
+      }))
+      .sort((a, b) => b.percentual_afetado - a.percentual_afetado)
+      .slice(0, 20);
 
     const snapshot = {
       cidade: data.city ?? "Todas",
@@ -128,14 +156,11 @@ export const runSignalAiAnalysis = createServerFn({ method: "POST" })
       criticos_atuais: current.filter((row) => row.severity === "critico").length,
       tipos_atuais: {
         desequilibrio: current.filter((row) => row.issue_kind === "desequilibrio").length,
-        sinal_ruim: current.filter((row) => row.issue_kind === "sinal_ruim").length,
+        sinal_ruim_1490: current.filter((row) => row.issue_kind === "sinal_ruim").length,
         ambos: current.filter((row) => row.issue_kind === "ambos").length,
       },
       causas_confirmadas: Object.fromEntries(causeCounts),
-      concentracoes_de_rede_confirmadas: Array.from(networkClusters.entries())
-        .map(([chave, casos]) => ({ chave, casos }))
-        .sort((a, b) => b.casos - a.casos)
-        .slice(0, 20),
+      pons_com_concentracao_operacional: ponHotspots,
       recorrencias: rows.filter((row) => Number(row.recurrence_count || 0) > 0).length,
     };
 
@@ -143,13 +168,14 @@ export const runSignalAiAnalysis = createServerFn({ method: "POST" })
 
 Critérios usados no painel:
 - Desequilíbrio: diferença absoluta entre Signal 1310 e Signal 1490 maior que 3 dB.
-- Sinal ruim: qualquer uma das leituras menor ou igual a -25 dBm.
-- Crítico: leitura menor ou igual a -28 dBm ou diferença maior/igual a 6 dB.
+- Sinal absoluto ruim: SOMENTE Signal 1490 menor ou igual a -25 dBm.
+- Signal 1310 não gera caso isoladamente; ele é usado para calcular o desequilíbrio e como contexto técnico.
+- Crítico: Signal 1490 menor ou igual a -28 dBm OU diferença maior/igual a 6 dB.
+- Uma PON pode ser marcada como suspeita de infraestrutura quando há concentração alta de clientes afetados; isso é triagem, não causa confirmada.
 
-As causas informadas (ONT, conector, acoplador, splitter, rede etc.) são causas CONFIRMADAS manualmente após atendimento. Não invente causa individual para cliente sem atendimento.
-"Rede / infraestrutura" deve ser priorizada quando houver causas confirmadas de rede ou concentração consistente por OLT/placa/PON. Não trate mera correlação como causa comprovada.
+As causas informadas após atendimento (ONT, conector, acoplador, splitter, rede etc.) são causas CONFIRMADAS manualmente. Não invente causa individual sem atendimento.
 
-Analise o agregado abaixo e responda exclusivamente em JSON válido:
+Analise o agregado e responda exclusivamente em JSON válido:
 {
   "resumo": string,
   "principais_motivos": [{"causa": string, "quantidade": number, "percentual": number, "leitura": string}],
@@ -161,23 +187,22 @@ Analise o agregado abaixo e responda exclusivamente em JSON válido:
 
 Regras:
 - Português técnico e objetivo.
-- Percentuais de principais_motivos devem usar somente os encerrados com causa confirmada.
-- Se a amostra encerrada for pequena, diga isso em ressalvas.
-- Destaque padrões de rede para ação de infraestrutura, mas sem afirmar causalidade sem confirmação.
+- Percentuais de motivos usam apenas encerrados com causa confirmada.
+- Concentração por PON pode justificar investigação de rede, mas não prova causa raiz.
+- Se a amostra encerrada for pequena, registre isso em ressalvas.
 - Não invente OLT, placa, PON, causa ou quantidade.
 
-Dados agregados:
-${JSON.stringify(snapshot, null, 2)}`;
+Dados agregados:\n${JSON.stringify(snapshot, null, 2)}`;
 
     const { runAiPrompt, parseAiJson } = await import("@/lib/ai-providers.server");
     const { raw, model } = await runAiPrompt(prompt);
     const parsed = AiAnalysisSchema.parse(parseAiJson(raw));
-    const createdAt = new Date().toISOString();
 
     const { data: stored, error: storeError } = await db
       .from("signal_ai_analyses")
       .insert({
         owner_id: context.userId,
+        provider_id: providerId,
         city: data.city ?? null,
         model,
         input_snapshot: snapshot,
@@ -191,7 +216,7 @@ ${JSON.stringify(snapshot, null, 2)}`;
       ...parsed,
       id: stored.id,
       model,
-      created_at: stored.created_at ?? createdAt,
+      created_at: stored.created_at,
       city: data.city ?? null,
     };
   });
@@ -199,13 +224,13 @@ ${JSON.stringify(snapshot, null, 2)}`;
 export const listSignalAiAnalyses = createServerFn({ method: "GET" })
   .middleware([requireAccountAuth])
   .handler(async ({ context }): Promise<SignalAiAnalysis[]> => {
-    const supabaseAdmin = await ensureAdmin(context.userId);
+    const { providerId, supabaseAdmin } = await requireSignalAdmin(context.userId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabaseAdmin as any;
     const { data, error } = await db
       .from("signal_ai_analyses")
       .select("id, city, model, analysis, created_at")
-      .eq("owner_id", context.userId)
+      .eq("provider_id", providerId)
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) throw new Error(error.message);
