@@ -21,8 +21,8 @@ import { Route as DenunciaAcompanharRouteImport } from './routes/denuncia.acompa
 import { Route as ContraProvaTokenRouteImport } from './routes/contra-prova.$token'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedTrocasOntRouteImport } from './routes/_authenticated/trocas-ont'
-import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
 import { Route as AuthenticatedSinaisRouteImport } from './routes/_authenticated/sinais'
+import { Route as AuthenticatedSegurancaRouteImport } from './routes/_authenticated/seguranca'
 import { Route as AuthenticatedRemapeamentosRouteImport } from './routes/_authenticated/remapeamentos'
 import { Route as AuthenticatedProvedorRouteImport } from './routes/_authenticated/provedor'
 import { Route as AuthenticatedProdutividadeRouteImport } from './routes/_authenticated/produtividade'
@@ -111,14 +111,14 @@ const AuthenticatedTrocasOntRoute = AuthenticatedTrocasOntRouteImport.update({
   path: '/trocas-ont',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSegurancaRoute = AuthenticatedSegurancaRouteImport.update({
-  id: '/seguranca',
-  path: '/seguranca',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedSinaisRoute = AuthenticatedSinaisRouteImport.update({
   id: '/sinais',
   path: '/sinais',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSegurancaRoute = AuthenticatedSegurancaRouteImport.update({
+  id: '/seguranca',
+  path: '/seguranca',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedRemapeamentosRoute =
@@ -522,6 +522,7 @@ export interface FileRouteTypes {
     | '/_authenticated/provedor'
     | '/_authenticated/remapeamentos'
     | '/_authenticated/seguranca'
+    | '/_authenticated/sinais'
     | '/_authenticated/trocas-ont'
     | '/_authenticated/usuarios'
     | '/contra-prova/$token'
@@ -651,18 +652,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTrocasOntRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/seguranca': {
-      id: '/_authenticated/seguranca'
-      path: '/seguranca'
-      fullPath: '/seguranca'
-      preLoaderRoute: typeof AuthenticatedSegurancaRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/sinais': {
       id: '/_authenticated/sinais'
       path: '/sinais'
       fullPath: '/sinais'
       preLoaderRoute: typeof AuthenticatedSinaisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/seguranca': {
+      id: '/_authenticated/seguranca'
+      path: '/seguranca'
+      fullPath: '/seguranca'
+      preLoaderRoute: typeof AuthenticatedSegurancaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/remapeamentos': {
