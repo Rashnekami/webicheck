@@ -319,7 +319,7 @@ function SignalAudit() {
       { city: string; board: string; baseline: number; closed: number; current: number; critical: number; normalized: number }
     >();
     for (const item of cases) {
-      if (city !== "todas" && item.city !== city) continue;
+      if (boardCity !== "todas" && item.city !== boardCity) continue;
       const board = (item.board || "").trim() || "—";
       const key = `${item.city}|${board}`;
       const row =
