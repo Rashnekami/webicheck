@@ -383,6 +383,27 @@ function SignalAudit() {
     };
   }, [cases, city, board]);
 
+  const osBoard = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("pt-BR");
+    const scoped = cases.filter((item) => {
+      if (city !== "todas" && item.city !== city) return false;
+      if (board !== "todas" && item.board !== board) return false;
+      if (!needle) return true;
+      return [item.customer_name, item.sn, item.olt, item.board, item.port, item.hubsoft_os]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase("pt-BR").includes(needle));
+    });
+    const bySeverity = (a: SignalCase, b: SignalCase) =>
+      a.severity !== b.severity ? (a.severity === "critico" ? -1 : 1) : b.difference_db - a.difference_db;
+    const byUpdated = (a: SignalCase, b: SignalCase) =>
+      new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime();
+    return {
+      aberto: scoped.filter((item) => item.status === "aberto" && item.present_in_latest_import).sort(bySeverity),
+      em_andamento: scoped.filter((item) => item.status === "em_andamento").sort(bySeverity),
+      encerrado: scoped.filter((item) => item.status === "encerrado").sort(byUpdated),
+    };
+  }, [cases, city, board, search]);
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
     return cases
