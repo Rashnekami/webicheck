@@ -462,23 +462,23 @@ function SignalAudit() {
                   </Badge>
                 </div>
                 <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <HeroNumber label="Baseline" value={gr.baseline} />
+                  <HeroNumber label="Baseline consolidada" value={gr.baseline} />
                   <HeroNumber label="Encerrados" value={gr.closed} />
-                  <HeroNumber label="Em OS" value={gr.inOs} />
+                  <HeroNumber label="Em OS" value={gr.inProgress} />
                   <HeroNumber label="Avanço" value={pct(gr.progress)} />
                 </div>
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/20">
                   <div className="h-full rounded-full bg-white transition-all" style={{ width: `${Math.min(gr.progress, 100)}%` }} />
                 </div>
                 <p className="mt-2 text-sm opacity-85">
-                  O baseline permanece no histórico. Novas coletas atualizam a condição atual sem apagar o tamanho original do problema.
+                  Baseline = todos os clientes com estado óptico conhecido nas placas já monitoradas. Novas coletas atualizam a condição atual sem apagar o histórico.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-2">
-                <ImpactCell label="Críticos pendentes" value={gr.critical} tone="danger" />
+                <ImpactCell label="Críticos pendentes" value={gr.criticalPending} tone="danger" />
                 <ImpactCell label="Normalizados na coleta" value={gr.normalized} tone="success" />
                 <ImpactCell label="Infra / rede" value={gr.infra} tone="infra" />
-                <ImpactCell label="Placas no baseline" value={boardStats.length} />
+                <ImpactCell label="Placas monitoradas" value={gr.plates} />
               </div>
             </div>
             {activeCampaign?.status === "building" && boardStats.length > 0 && (
@@ -493,13 +493,54 @@ function SignalAudit() {
         </Card>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <MetricCard label="Ruins agora" value={totals.current} icon={Activity} />
+          <MetricCard label="Baseline consolidada" value={totals.baseline} icon={ShieldCheck} />
+          <MetricCard label="Clientes com problema agora" value={totals.current} icon={Activity} />
           <MetricCard label="Críticos agora" value={totals.critical} icon={AlertTriangle} tone="danger" />
-          <MetricCard label="Diferença >3 dB" value={totals.imbalance} icon={BarChart3} tone="warning" />
-          <MetricCard label="1490 ≤ -25" value={totals.low} icon={CircleDot} tone="warning" />
+          <MetricCard label="Críticos pendentes" value={totals.criticalPending} icon={CircleDot} tone="danger" />
           <MetricCard label="Infra pendente" value={totals.infra} icon={Network} tone="infra" />
           <MetricCard label="Encerrados total" value={totals.closed} icon={CheckCircle2} tone="success" />
         </section>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="h-5 w-5" /> Resumo por cidade
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cidade</TableHead>
+                    <TableHead>Placas monitoradas</TableHead>
+                    <TableHead>Baseline consolidada</TableHead>
+                    <TableHead>Com problema agora</TableHead>
+                    <TableHead>Críticos agora</TableHead>
+                    <TableHead>Críticos pendentes</TableHead>
+                    <TableHead>Em andamento</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {citySummaries.map((item) => (
+                    <TableRow key={item.city}>
+                      <TableCell className="font-semibold">{item.city}</TableCell>
+                      <TableCell>{item.plates === 1 ? "1 placa monitorada" : `${item.plates} placas monitoradas`}</TableCell>
+                      <TableCell>{item.baseline.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>{item.problemsNow.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>{item.criticalNow.toLocaleString("pt-BR")}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.criticalPending ? "destructive" : "secondary"}>{item.criticalPending}</Badge>
+                      </TableCell>
+                      <TableCell>{item.inProgress.toLocaleString("pt-BR")}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
 
         <Card className="border-primary/20">
           <CardContent className="space-y-4 p-5">
