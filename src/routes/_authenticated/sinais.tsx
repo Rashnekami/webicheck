@@ -822,6 +822,51 @@ function SignalAudit() {
   );
 }
 
+const OS_CARD_TONES = {
+  amber: "border-amber-300 bg-amber-100/80 hover:bg-amber-100",
+  blue: "border-sky-300 bg-sky-100/80 hover:bg-sky-100",
+  emerald: "border-emerald-300 bg-emerald-100/80 hover:bg-emerald-100",
+} as const;
+
+function OsStickyCard({
+  item,
+  tone,
+  onClick,
+}: {
+  item: SignalCase;
+  tone: keyof typeof OS_CARD_TONES;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-lg border p-3 text-left shadow-sm transition-transform hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${OS_CARD_TONES[tone]}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="line-clamp-2 text-sm font-semibold text-slate-800">{item.customer_name}</p>
+        {item.severity === "critico" && <Badge variant="destructive" className="shrink-0 text-[10px]">P1</Badge>}
+      </div>
+      <p className="mt-1 text-[11px] text-slate-600">
+        {item.city} · placa {item.board || "—"} · PON {item.port || "—"}
+      </p>
+      <p className="mt-1 font-mono text-[11px] text-slate-700">
+        1310 {item.signal_1310.toFixed(1)} · 1490 {item.signal_1490.toFixed(1)} · Δ {item.difference_db.toFixed(1)}
+      </p>
+      <p className="mt-2 text-[11px] font-medium text-slate-700">
+        {item.hubsoft_os ? `OS ${item.hubsoft_os}` : "Sem nº de OS"}
+        {item.assigned_technician_name ? ` · ${item.assigned_technician_name}` : ""}
+      </p>
+      {item.status === "encerrado" && item.cause && (
+        <p className="mt-1 text-[11px] text-emerald-800">{causeLabel(item.cause)}</p>
+      )}
+      {item.status === "em_andamento" && !item.present_in_latest_import && (
+        <p className="mt-1 text-[11px] text-emerald-800">Normalizado na última coleta</p>
+      )}
+    </button>
+  );
+}
+
 function HeroNumber({ label, value }: { label: string; value: string | number }) {
   return <div><p className="text-xs uppercase tracking-wide opacity-75">{label}</p><p className="mt-1 text-3xl font-bold">{typeof value === "number" ? value.toLocaleString("pt-BR") : value}</p></div>;
 }
