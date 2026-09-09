@@ -63,6 +63,20 @@ export interface ParsedSignalRow {
   source_file: string;
 }
 
+export interface SignalPonStat {
+  city: SignalCity;
+  olt: string;
+  board: string;
+  port: string;
+  total_onus: number;
+  flagged_onus: number;
+  critical_onus: number;
+  flagged_percent: number;
+  median_signal_1490: number | null;
+  median_difference_db: number | null;
+  infra_suspect: boolean;
+}
+
 export interface SignalImport {
   id: string;
   city: SignalCity;
@@ -116,6 +130,7 @@ export interface SignalCsvPreview {
   rows: ParsedSignalRow[];
   cityCounts: Record<string, number>;
   sourceFiles: string[];
+  ponStats: SignalPonStat[];
 }
 
 const normalizeHeader = (value: string) =>
@@ -164,11 +179,18 @@ function toNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  const value =
+    sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+  return Math.round(value * 100) / 100;
+}
+
 export function classifySignal(signal1310: number, signal1490: number) {
   const difference = Math.round(Math.abs(signal1310 - signal1490) * 100) / 100;
   const hasDifference = difference > SIGNAL_DIFFERENCE_THRESHOLD_DB;
-  // Sinal absoluto ruim é avaliado somente no 1490 (OLT -> ONU).
-  // O 1310 continua sendo usado para calcular o desequilíbrio/retorno.
   const hasLowSignal = signal1490 <= SIGNAL_LOW_THRESHOLD_DBM;
   if (!hasDifference && !hasLowSignal) return null;
 
@@ -201,29 +223,65 @@ export function parseSmartOltCsv(
 
   const value = (row: string[], header: string) => (row[indexes.get(header) ?? -1] ?? "").trim();
   const deduped = new Map<string, ParsedSignalRow>();
-  let validRows = 0;
+  const validSn = new Set<string>();
+  const ponAccumulator = new Map<
+    string,
+    {
+      city: SignalCity;
+      olt: string;
+      board: string;
+      port: string;
+      signals1490: number[];
+      differences: number[];
+      flagged: number;
+      critical: number;
+    }
+  >();
   const sourceFile = options.sourceFile?.trim() || "arquivo.csv";
 
   for (const row of matrix.slice(1)) {
     const signal1310 = toNumber(value(row, "signal1310"));
     const signal1490 = toNumber(value(row, "signal1490"));
-    if (signal1310 === null || signal1490 === null) continue;
-    validRows += 1;
-
-    const classification = classifySignal(signal1310, signal1490);
-    if (!classification) continue;
-
     const sn = value(row, "sn");
     const customerName = value(row, "name");
-    if (!sn || !customerName) continue;
+    if (signal1310 === null || signal1490 === null || !sn || !customerName) continue;
+    if (validSn.has(sn)) continue;
+    validSn.add(sn);
+
+    const olt = value(row, "olt");
+    const board = value(row, "board");
+    const port = value(row, "port");
+    const difference = Math.round(Math.abs(signal1310 - signal1490) * 100) / 100;
+    const ponKey = [options.city, olt, board, port].join("|");
+    const pon = ponAccumulator.get(ponKey) ?? {
+      city: options.city,
+      olt,
+      board,
+      port,
+      signals1490: [],
+      differences: [],
+      flagged: 0,
+      critical: 0,
+    };
+    pon.signals1490.push(signal1490);
+    pon.differences.push(difference);
+
+    const classification = classifySignal(signal1310, signal1490);
+    if (classification) {
+      pon.flagged += 1;
+      if (classification.severity === "critico") pon.critical += 1;
+    }
+    ponAccumulator.set(ponKey, pon);
+    if (!classification) continue;
+
     const parsed: ParsedSignalRow = {
       sn,
       onu_external_id: value(row, "onuexternalid"),
       onu_type: value(row, "onutype"),
       customer_name: customerName,
-      olt: value(row, "olt"),
-      board: value(row, "board"),
-      port: value(row, "port"),
+      olt,
+      board,
+      port,
       allocated_onu: value(row, "allocatedonu"),
       zone: value(row, "zone"),
       address: value(row, "address"),
@@ -251,17 +309,37 @@ export function parseSmartOltCsv(
     throw new Error("Nenhum cliente com 1490 ≤ -25 dBm ou diferença acima de 3 dB foi encontrado.");
   }
 
+  const ponStats: SignalPonStat[] = Array.from(ponAccumulator.values()).map((item) => {
+    const total = item.signals1490.length;
+    const percent = total ? Math.round((item.flagged / total) * 10000) / 100 : 0;
+    return {
+      city: item.city,
+      olt: item.olt,
+      board: item.board,
+      port: item.port,
+      total_onus: total,
+      flagged_onus: item.flagged,
+      critical_onus: item.critical,
+      flagged_percent: percent,
+      median_signal_1490: median(item.signals1490),
+      median_difference_db: median(item.differences),
+      infra_suspect: total >= 8 && item.flagged >= 5 && percent >= 50,
+    };
+  });
+
   return {
     sourceRows: matrix.length - 1,
-    validRows,
+    validRows: validSn.size,
     rows,
     cityCounts: { [options.city]: rows.length },
     sourceFiles: [sourceFile],
+    ponStats,
   };
 }
 
 export function mergeSignalPreviews(previews: SignalCsvPreview[], city: SignalCity): SignalCsvPreview {
   const deduped = new Map<string, ParsedSignalRow>();
+  const ponStats = new Map<string, SignalPonStat>();
   for (const preview of previews) {
     for (const row of preview.rows) {
       const current = deduped.get(row.sn);
@@ -273,6 +351,9 @@ export function mergeSignalPreviews(previews: SignalCsvPreview[], city: SignalCi
         deduped.set(row.sn, { ...row, city });
       }
     }
+    for (const stat of preview.ponStats) {
+      ponStats.set([stat.city, stat.olt, stat.board, stat.port].join("|"), { ...stat, city });
+    }
   }
   const rows = Array.from(deduped.values());
   return {
@@ -281,6 +362,7 @@ export function mergeSignalPreviews(previews: SignalCsvPreview[], city: SignalCi
     rows,
     cityCounts: { [city]: rows.length },
     sourceFiles: Array.from(new Set(previews.flatMap((item) => item.sourceFiles))),
+    ponStats: Array.from(ponStats.values()),
   };
 }
 
@@ -289,7 +371,11 @@ export function mergeSignalPreviews(previews: SignalCsvPreview[], city: SignalCi
 const signalDb = supabase as any;
 
 export async function listSignalImports(): Promise<SignalImport[]> {
-  const { data, error } = await signalDb.from("signal_imports").select("*").order("created_at", { ascending: false }).limit(60);
+  const { data, error } = await signalDb
+    .from("signal_imports")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(60);
   if (error) throw error;
   return (data ?? []).map((item: Record<string, unknown>) => ({
     ...item,
@@ -340,7 +426,13 @@ export async function importSignalAudit(input: {
     _rows: input.preview.rows.map(({ source_file: _sourceFile, ...row }) => row) as unknown as Json,
   });
   if (error) throw error;
-  return data as string;
+  const importId = data as string;
+  const { error: statsError } = await signalDb.rpc("save_signal_pon_stats", {
+    _import_id: importId,
+    _stats: input.preview.ponStats as unknown as Json,
+  });
+  if (statsError) throw statsError;
+  return importId;
 }
 
 export async function updateSignalCase(input: {
